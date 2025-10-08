@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="9bffc836cdfe4e78a4629e6b5e058cc1" Name="Diagram1">
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Avatar" Width="1.5" PointX="0.75" PointY="7" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.AvatarDesbloqueado" Width="1.5" PointX="3" PointY="14.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Caja" Width="1.5" PointX="1.5" PointY="38.25" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.CajaAvatar" Width="1.5" PointX="1.5" PointY="4.25" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Contrasenia" Width="1.5" PointX="5.25" PointY="16.875" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Cuenta" Width="1.5" PointX="3" PointY="17.625" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Dado" Width="1.5" PointX="3.75" PointY="8.25" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.DadoUsuario" Width="1.5" PointX="6" PointY="13.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.ListaAmigos" Width="1.5" PointX="3" PointY="23.5" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Objeto" Width="1.5" PointX="3.75" PointY="38.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.ObjetoUsuario" Width="1.5" PointX="6" PointY="21.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.PaqueteStickers" Width="1.5" PointX="5.75" PointY="24.25" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Partida" Width="1.5" PointX="0.75" PointY="11" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.RedesSociales" Width="1.5" PointX="3" PointY="29.25" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Reporte" Width="1.5" PointX="3" PointY="32" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Sancion" Width="1.5" PointX="3" PointY="35.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Sticker" Width="1.5" PointX="0.75" PointY="0.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.StickersUsuario" Width="1.5" PointX="8" PointY="17.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Usuario" Width="1.5" PointX="0.75" PointY="15.625" IsExpanded="true" />
+        <EntityTypeShape EntityType="SnakeAndLaddersDBModel.UsuarioHasPartida" Width="1.5" PointX="3" PointY="11.125" IsExpanded="true" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Avatar_CajaAvatar" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_AvatarDesbloqueado_Avatar" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_AvatarDesbloqueado_Usuario" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Objeto_Caja" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Contrasenia_Cuenta" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Contrasenia_Usuario" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Cuenta_Usuario" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_DadoUsuario_Dado" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_DadoUsuario_Usuario" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_ListaAmigos_U1" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_ListaAmigos_U2" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_ObjetoUsuario_Objeto" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_ObjetoUsuario_Usuario" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_StickersUsuario_Paquete" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_UHP_Partida" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_RedesSociales_Usuario" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Reporte_Reporta" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Reporte_Reportado" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Sancion_Usuario" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_StickersUsuario_Usuario" ManuallyRouted="false" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_UHP_Usuario" ManuallyRouted="false" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>
