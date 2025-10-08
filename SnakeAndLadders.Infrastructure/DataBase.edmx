@@ -1,0 +1,1407 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+      <Schema Namespace="SnakeAndLaddersDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="Avatar">
+          <Key>
+            <PropertyRef Name="IdAvatar" />
+          </Key>
+          <Property Name="IdAvatar" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="NombreAvatar" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="RarezaAvatar" Type="nvarchar" MaxLength="45" />
+          <Property Name="CajaAvatarIdCajaAvatar" Type="int" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+        </EntityType>
+        <EntityType Name="AvatarDesbloqueado">
+          <Key>
+            <PropertyRef Name="IdAvatarDesbloqueado" />
+          </Key>
+          <Property Name="IdAvatarDesbloqueado" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="AvatarIdAvatar" Type="int" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+          <Property Name="FechaDesbloqueo" Type="date" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Caja">
+          <Key>
+            <PropertyRef Name="IdCajaObjeto" />
+          </Key>
+          <Property Name="IdCajaObjeto" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="Probabilidad" Type="decimal" Precision="6" Scale="3" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+        </EntityType>
+        <EntityType Name="CajaAvatar">
+          <Key>
+            <PropertyRef Name="IdCajaAvatar" />
+          </Key>
+          <Property Name="IdCajaAvatar" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="Precio" Type="int" Nullable="false" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Contrasenia">
+          <Key>
+            <PropertyRef Name="IdContrasenia" />
+          </Key>
+          <Property Name="IdContrasenia" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Contrasenia" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="FechaCreacion" Type="datetime2" Precision="0" Nullable="false" />
+          <Property Name="CuentaIdCuenta" Type="int" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Cuenta">
+          <Key>
+            <PropertyRef Name="IdCuenta" />
+          </Key>
+          <Property Name="IdCuenta" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Correo" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Dado">
+          <Key>
+            <PropertyRef Name="IdDado" />
+          </Key>
+          <Property Name="IdDado" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="Caras" Type="int" Nullable="false" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+        </EntityType>
+        <EntityType Name="DadoUsuario">
+          <Key>
+            <PropertyRef Name="IdDadoUsuario" />
+          </Key>
+          <Property Name="IdDadoUsuario" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="DadoIdDado" Type="int" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+          <Property Name="CantidadDado" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ListaAmigos">
+          <Key>
+            <PropertyRef Name="IdListaAmigos" />
+          </Key>
+          <Property Name="IdListaAmigos" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="EstadoSolicitud" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="UsuarioIdUsuario1" Type="int" Nullable="false" />
+          <Property Name="UsuarioIdUsuario2" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Objeto">
+          <Key>
+            <PropertyRef Name="IdObjeto" />
+          </Key>
+          <Property Name="IdObjeto" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="CajaObjetoIdCajaObjeto" Type="int" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ObjetoUsuario">
+          <Key>
+            <PropertyRef Name="IdObjetoUsuario" />
+          </Key>
+          <Property Name="IdObjetoUsuario" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ObjetoIdObjeto" Type="int" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+          <Property Name="CantidadObjeto" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="PaqueteStickers">
+          <Key>
+            <PropertyRef Name="IdPaqueteStickers" />
+          </Key>
+          <Property Name="IdPaqueteStickers" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="Precio" Type="int" Nullable="false" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Partida">
+          <Key>
+            <PropertyRef Name="IdPartida" />
+          </Key>
+          <Property Name="IdPartida" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Dificultad" Type="nvarchar" MaxLength="50" />
+          <Property Name="CodigoPartida" Type="nvarchar" MaxLength="45" />
+          <Property Name="EstadoPartida" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="FechaInicio" Type="datetime2" Precision="0" />
+          <Property Name="FechaTermino" Type="datetime2" Precision="0" />
+        </EntityType>
+        <EntityType Name="RedesSociales">
+          <Key>
+            <PropertyRef Name="IdRedSocial" />
+          </Key>
+          <Property Name="IdRedSocial" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="TipoRedSocial" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="LinkRedSocial" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Reporte">
+          <Key>
+            <PropertyRef Name="IdReporte" />
+          </Key>
+          <Property Name="IdReporte" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="RazonReporte" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="FechaReporte" Type="date" Nullable="false" />
+          <Property Name="IdUsuarioReportado" Type="int" Nullable="false" />
+          <Property Name="IdUsuarioQueReporta" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Sancion">
+          <Key>
+            <PropertyRef Name="IdSancion" />
+          </Key>
+          <Property Name="IdSancion" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="FechaSancion" Type="datetime2" Precision="0" Nullable="false" />
+          <Property Name="TipoSancion" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Sticker">
+          <Key>
+            <PropertyRef Name="IdSticker" />
+          </Key>
+          <Property Name="IdSticker" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+        </EntityType>
+        <EntityType Name="StickersUsuario">
+          <Key>
+            <PropertyRef Name="IdStickersUsuario" />
+          </Key>
+          <Property Name="IdStickersUsuario" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="PaqueteStickersIdPaqueteStickers" Type="int" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+          <Property Name="FechaDesbloqueo" Type="datetime2" Precision="0" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Usuario">
+          <Key>
+            <PropertyRef Name="IdUsuario" />
+          </Key>
+          <Property Name="IdUsuario" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="NombreUsuario" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="Apellidos" Type="nvarchar" MaxLength="45" Nullable="false" />
+          <Property Name="FotoPerfil" Type="varbinary(max)" />
+          <Property Name="DescripcionPerfil" Type="nvarchar" MaxLength="255" />
+          <Property Name="Monedas" Type="int" Nullable="false" />
+          <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+        </EntityType>
+        <EntityType Name="UsuarioHasPartida">
+          <Key>
+            <PropertyRef Name="IdUsuarioHasPartida" />
+          </Key>
+          <Property Name="IdUsuarioHasPartida" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+          <Property Name="PartidaIdPartida" Type="int" Nullable="false" />
+          <Property Name="Ganador" Type="binary" MaxLength="1" />
+        </EntityType>
+        <Association Name="FK_Avatar_CajaAvatar">
+          <End Role="CajaAvatar" Type="Self.CajaAvatar" Multiplicity="0..1" />
+          <End Role="Avatar" Type="Self.Avatar" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CajaAvatar">
+              <PropertyRef Name="IdCajaAvatar" />
+            </Principal>
+            <Dependent Role="Avatar">
+              <PropertyRef Name="CajaAvatarIdCajaAvatar" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_AvatarDesbloqueado_Avatar">
+          <End Role="Avatar" Type="Self.Avatar" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="AvatarDesbloqueado" Type="Self.AvatarDesbloqueado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Avatar">
+              <PropertyRef Name="IdAvatar" />
+            </Principal>
+            <Dependent Role="AvatarDesbloqueado">
+              <PropertyRef Name="AvatarIdAvatar" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_AvatarDesbloqueado_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="AvatarDesbloqueado" Type="Self.AvatarDesbloqueado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="AvatarDesbloqueado">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Contrasenia_Cuenta">
+          <End Role="Cuenta" Type="Self.Cuenta" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Contrasenia" Type="Self.Contrasenia" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Cuenta">
+              <PropertyRef Name="IdCuenta" />
+            </Principal>
+            <Dependent Role="Contrasenia">
+              <PropertyRef Name="CuentaIdCuenta" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Contrasenia_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Contrasenia" Type="Self.Contrasenia" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Contrasenia">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Cuenta_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Cuenta" Type="Self.Cuenta" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Cuenta">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DadoUsuario_Dado">
+          <End Role="Dado" Type="Self.Dado" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="DadoUsuario" Type="Self.DadoUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Dado">
+              <PropertyRef Name="IdDado" />
+            </Principal>
+            <Dependent Role="DadoUsuario">
+              <PropertyRef Name="DadoIdDado" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DadoUsuario_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="DadoUsuario" Type="Self.DadoUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="DadoUsuario">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ListaAmigos_U1">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="ListaAmigos" Type="Self.ListaAmigos" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="ListaAmigos">
+              <PropertyRef Name="UsuarioIdUsuario1" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ListaAmigos_U2">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="ListaAmigos" Type="Self.ListaAmigos" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="ListaAmigos">
+              <PropertyRef Name="UsuarioIdUsuario2" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Objeto_Caja">
+          <End Role="Caja" Type="Self.Caja" Multiplicity="0..1" />
+          <End Role="Objeto" Type="Self.Objeto" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Caja">
+              <PropertyRef Name="IdCajaObjeto" />
+            </Principal>
+            <Dependent Role="Objeto">
+              <PropertyRef Name="CajaObjetoIdCajaObjeto" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ObjetoUsuario_Objeto">
+          <End Role="Objeto" Type="Self.Objeto" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ObjetoUsuario" Type="Self.ObjetoUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Objeto">
+              <PropertyRef Name="IdObjeto" />
+            </Principal>
+            <Dependent Role="ObjetoUsuario">
+              <PropertyRef Name="ObjetoIdObjeto" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ObjetoUsuario_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="ObjetoUsuario" Type="Self.ObjetoUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="ObjetoUsuario">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_RedesSociales_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="RedesSociales" Type="Self.RedesSociales" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="RedesSociales">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Reporte_Reporta">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Reporte" Type="Self.Reporte" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Reporte">
+              <PropertyRef Name="IdUsuarioQueReporta" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Reporte_Reportado">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Reporte" Type="Self.Reporte" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Reporte">
+              <PropertyRef Name="IdUsuarioReportado" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Sancion_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Sancion" Type="Self.Sancion" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Sancion">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_StickersUsuario_Paquete">
+          <End Role="PaqueteStickers" Type="Self.PaqueteStickers" Multiplicity="0..1" />
+          <End Role="StickersUsuario" Type="Self.StickersUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="PaqueteStickers">
+              <PropertyRef Name="IdPaqueteStickers" />
+            </Principal>
+            <Dependent Role="StickersUsuario">
+              <PropertyRef Name="PaqueteStickersIdPaqueteStickers" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_StickersUsuario_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="StickersUsuario" Type="Self.StickersUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="StickersUsuario">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UHP_Partida">
+          <End Role="Partida" Type="Self.Partida" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="UsuarioHasPartida" Type="Self.UsuarioHasPartida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Partida">
+              <PropertyRef Name="IdPartida" />
+            </Principal>
+            <Dependent Role="UsuarioHasPartida">
+              <PropertyRef Name="PartidaIdPartida" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UHP_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="UsuarioHasPartida" Type="Self.UsuarioHasPartida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="UsuarioHasPartida">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="SnakeAndLaddersDBModelStoreContainer">
+          <EntitySet Name="Avatar" EntityType="Self.Avatar" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="AvatarDesbloqueado" EntityType="Self.AvatarDesbloqueado" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Caja" EntityType="Self.Caja" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="CajaAvatar" EntityType="Self.CajaAvatar" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Contrasenia" EntityType="Self.Contrasenia" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Cuenta" EntityType="Self.Cuenta" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Dado" EntityType="Self.Dado" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="DadoUsuario" EntityType="Self.DadoUsuario" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ListaAmigos" EntityType="Self.ListaAmigos" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Objeto" EntityType="Self.Objeto" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ObjetoUsuario" EntityType="Self.ObjetoUsuario" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="PaqueteStickers" EntityType="Self.PaqueteStickers" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Partida" EntityType="Self.Partida" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="RedesSociales" EntityType="Self.RedesSociales" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Reporte" EntityType="Self.Reporte" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Sancion" EntityType="Self.Sancion" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Sticker" EntityType="Self.Sticker" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="StickersUsuario" EntityType="Self.StickersUsuario" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Usuario" EntityType="Self.Usuario" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="UsuarioHasPartida" EntityType="Self.UsuarioHasPartida" Schema="dbo" store:Type="Tables" />
+          <AssociationSet Name="FK_Avatar_CajaAvatar" Association="Self.FK_Avatar_CajaAvatar">
+            <End Role="CajaAvatar" EntitySet="CajaAvatar" />
+            <End Role="Avatar" EntitySet="Avatar" />
+          </AssociationSet>
+          <AssociationSet Name="FK_AvatarDesbloqueado_Avatar" Association="Self.FK_AvatarDesbloqueado_Avatar">
+            <End Role="Avatar" EntitySet="Avatar" />
+            <End Role="AvatarDesbloqueado" EntitySet="AvatarDesbloqueado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_AvatarDesbloqueado_Usuario" Association="Self.FK_AvatarDesbloqueado_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="AvatarDesbloqueado" EntitySet="AvatarDesbloqueado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Contrasenia_Cuenta" Association="Self.FK_Contrasenia_Cuenta">
+            <End Role="Cuenta" EntitySet="Cuenta" />
+            <End Role="Contrasenia" EntitySet="Contrasenia" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Contrasenia_Usuario" Association="Self.FK_Contrasenia_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Contrasenia" EntitySet="Contrasenia" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Cuenta_Usuario" Association="Self.FK_Cuenta_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Cuenta" EntitySet="Cuenta" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DadoUsuario_Dado" Association="Self.FK_DadoUsuario_Dado">
+            <End Role="Dado" EntitySet="Dado" />
+            <End Role="DadoUsuario" EntitySet="DadoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DadoUsuario_Usuario" Association="Self.FK_DadoUsuario_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="DadoUsuario" EntitySet="DadoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ListaAmigos_U1" Association="Self.FK_ListaAmigos_U1">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="ListaAmigos" EntitySet="ListaAmigos" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ListaAmigos_U2" Association="Self.FK_ListaAmigos_U2">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="ListaAmigos" EntitySet="ListaAmigos" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Objeto_Caja" Association="Self.FK_Objeto_Caja">
+            <End Role="Caja" EntitySet="Caja" />
+            <End Role="Objeto" EntitySet="Objeto" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ObjetoUsuario_Objeto" Association="Self.FK_ObjetoUsuario_Objeto">
+            <End Role="Objeto" EntitySet="Objeto" />
+            <End Role="ObjetoUsuario" EntitySet="ObjetoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ObjetoUsuario_Usuario" Association="Self.FK_ObjetoUsuario_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="ObjetoUsuario" EntitySet="ObjetoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_RedesSociales_Usuario" Association="Self.FK_RedesSociales_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="RedesSociales" EntitySet="RedesSociales" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Reporte_Reporta" Association="Self.FK_Reporte_Reporta">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Reporte" EntitySet="Reporte" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Reporte_Reportado" Association="Self.FK_Reporte_Reportado">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Reporte" EntitySet="Reporte" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Sancion_Usuario" Association="Self.FK_Sancion_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Sancion" EntitySet="Sancion" />
+          </AssociationSet>
+          <AssociationSet Name="FK_StickersUsuario_Paquete" Association="Self.FK_StickersUsuario_Paquete">
+            <End Role="PaqueteStickers" EntitySet="PaqueteStickers" />
+            <End Role="StickersUsuario" EntitySet="StickersUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_StickersUsuario_Usuario" Association="Self.FK_StickersUsuario_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="StickersUsuario" EntitySet="StickersUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UHP_Partida" Association="Self.FK_UHP_Partida">
+            <End Role="Partida" EntitySet="Partida" />
+            <End Role="UsuarioHasPartida" EntitySet="UsuarioHasPartida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UHP_Usuario" Association="Self.FK_UHP_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="UsuarioHasPartida" EntitySet="UsuarioHasPartida" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="SnakeAndLaddersDBModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="Avatar">
+          <Key>
+            <PropertyRef Name="IdAvatar" />
+          </Key>
+          <Property Name="IdAvatar" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="NombreAvatar" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="RarezaAvatar" Type="String" MaxLength="45" FixedLength="false" Unicode="true" />
+          <Property Name="CajaAvatarIdCajaAvatar" Type="Int32" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <NavigationProperty Name="CajaAvatar" Relationship="Self.FK_Avatar_CajaAvatar" FromRole="Avatar" ToRole="CajaAvatar" />
+          <NavigationProperty Name="AvatarDesbloqueado" Relationship="Self.FK_AvatarDesbloqueado_Avatar" FromRole="Avatar" ToRole="AvatarDesbloqueado" />
+        </EntityType>
+        <EntityType Name="AvatarDesbloqueado">
+          <Key>
+            <PropertyRef Name="IdAvatarDesbloqueado" />
+          </Key>
+          <Property Name="IdAvatarDesbloqueado" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="AvatarIdAvatar" Type="Int32" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <Property Name="FechaDesbloqueo" Type="DateTime" Nullable="false" Precision="0" />
+          <NavigationProperty Name="Avatar" Relationship="Self.FK_AvatarDesbloqueado_Avatar" FromRole="AvatarDesbloqueado" ToRole="Avatar" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_AvatarDesbloqueado_Usuario" FromRole="AvatarDesbloqueado" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="Caja">
+          <Key>
+            <PropertyRef Name="IdCajaObjeto" />
+          </Key>
+          <Property Name="IdCajaObjeto" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Probabilidad" Type="Decimal" Precision="6" Scale="3" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <NavigationProperty Name="Objeto" Relationship="Self.FK_Objeto_Caja" FromRole="Caja" ToRole="Objeto" />
+        </EntityType>
+        <EntityType Name="CajaAvatar">
+          <Key>
+            <PropertyRef Name="IdCajaAvatar" />
+          </Key>
+          <Property Name="IdCajaAvatar" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Precio" Type="Int32" Nullable="false" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <NavigationProperty Name="Avatar" Relationship="Self.FK_Avatar_CajaAvatar" FromRole="CajaAvatar" ToRole="Avatar" />
+        </EntityType>
+        <EntityType Name="Contrasenia">
+          <Key>
+            <PropertyRef Name="IdContrasenia" />
+          </Key>
+          <Property Name="IdContrasenia" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Contrasenia1" Type="String" MaxLength="255" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <Property Name="FechaCreacion" Type="DateTime" Nullable="false" Precision="0" />
+          <Property Name="CuentaIdCuenta" Type="Int32" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Cuenta" Relationship="Self.FK_Contrasenia_Cuenta" FromRole="Contrasenia" ToRole="Cuenta" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_Contrasenia_Usuario" FromRole="Contrasenia" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="Cuenta">
+          <Key>
+            <PropertyRef Name="IdCuenta" />
+          </Key>
+          <Property Name="IdCuenta" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Correo" Type="String" MaxLength="100" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Contrasenia" Relationship="Self.FK_Contrasenia_Cuenta" FromRole="Cuenta" ToRole="Contrasenia" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_Cuenta_Usuario" FromRole="Cuenta" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="Dado">
+          <Key>
+            <PropertyRef Name="IdDado" />
+          </Key>
+          <Property Name="IdDado" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Caras" Type="Int32" Nullable="false" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <NavigationProperty Name="DadoUsuario" Relationship="Self.FK_DadoUsuario_Dado" FromRole="Dado" ToRole="DadoUsuario" />
+        </EntityType>
+        <EntityType Name="DadoUsuario">
+          <Key>
+            <PropertyRef Name="IdDadoUsuario" />
+          </Key>
+          <Property Name="IdDadoUsuario" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="DadoIdDado" Type="Int32" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <Property Name="CantidadDado" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Dado" Relationship="Self.FK_DadoUsuario_Dado" FromRole="DadoUsuario" ToRole="Dado" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_DadoUsuario_Usuario" FromRole="DadoUsuario" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="ListaAmigos">
+          <Key>
+            <PropertyRef Name="IdListaAmigos" />
+          </Key>
+          <Property Name="IdListaAmigos" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="EstadoSolicitud" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <Property Name="UsuarioIdUsuario1" Type="Int32" Nullable="false" />
+          <Property Name="UsuarioIdUsuario2" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_ListaAmigos_U1" FromRole="ListaAmigos" ToRole="Usuario" />
+          <NavigationProperty Name="Usuario1" Relationship="Self.FK_ListaAmigos_U2" FromRole="ListaAmigos" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="Objeto">
+          <Key>
+            <PropertyRef Name="IdObjeto" />
+          </Key>
+          <Property Name="IdObjeto" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="CajaObjetoIdCajaObjeto" Type="Int32" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <NavigationProperty Name="Caja" Relationship="Self.FK_Objeto_Caja" FromRole="Objeto" ToRole="Caja" />
+          <NavigationProperty Name="ObjetoUsuario" Relationship="Self.FK_ObjetoUsuario_Objeto" FromRole="Objeto" ToRole="ObjetoUsuario" />
+        </EntityType>
+        <EntityType Name="ObjetoUsuario">
+          <Key>
+            <PropertyRef Name="IdObjetoUsuario" />
+          </Key>
+          <Property Name="IdObjetoUsuario" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="ObjetoIdObjeto" Type="Int32" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <Property Name="CantidadObjeto" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Objeto" Relationship="Self.FK_ObjetoUsuario_Objeto" FromRole="ObjetoUsuario" ToRole="Objeto" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_ObjetoUsuario_Usuario" FromRole="ObjetoUsuario" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="PaqueteStickers">
+          <Key>
+            <PropertyRef Name="IdPaqueteStickers" />
+          </Key>
+          <Property Name="IdPaqueteStickers" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Precio" Type="Int32" Nullable="false" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <NavigationProperty Name="StickersUsuario" Relationship="Self.FK_StickersUsuario_Paquete" FromRole="PaqueteStickers" ToRole="StickersUsuario" />
+        </EntityType>
+        <EntityType Name="Partida">
+          <Key>
+            <PropertyRef Name="IdPartida" />
+          </Key>
+          <Property Name="IdPartida" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Dificultad" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="CodigoPartida" Type="String" MaxLength="45" FixedLength="false" Unicode="true" />
+          <Property Name="EstadoPartida" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <Property Name="FechaInicio" Type="DateTime" Precision="0" />
+          <Property Name="FechaTermino" Type="DateTime" Precision="0" />
+          <NavigationProperty Name="UsuarioHasPartida" Relationship="Self.FK_UHP_Partida" FromRole="Partida" ToRole="UsuarioHasPartida" />
+        </EntityType>
+        <EntityType Name="RedesSociales">
+          <Key>
+            <PropertyRef Name="IdRedSocial" />
+          </Key>
+          <Property Name="IdRedSocial" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="TipoRedSocial" Type="String" MaxLength="255" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="LinkRedSocial" Type="String" MaxLength="255" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_RedesSociales_Usuario" FromRole="RedesSociales" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="Reporte">
+          <Key>
+            <PropertyRef Name="IdReporte" />
+          </Key>
+          <Property Name="IdReporte" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="RazonReporte" Type="String" MaxLength="50" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="FechaReporte" Type="DateTime" Nullable="false" Precision="0" />
+          <Property Name="IdUsuarioReportado" Type="Int32" Nullable="false" />
+          <Property Name="IdUsuarioQueReporta" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_Reporte_Reporta" FromRole="Reporte" ToRole="Usuario" />
+          <NavigationProperty Name="Usuario1" Relationship="Self.FK_Reporte_Reportado" FromRole="Reporte" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="Sancion">
+          <Key>
+            <PropertyRef Name="IdSancion" />
+          </Key>
+          <Property Name="IdSancion" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="FechaSancion" Type="DateTime" Nullable="false" Precision="0" />
+          <Property Name="TipoSancion" Type="String" MaxLength="50" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_Sancion_Usuario" FromRole="Sancion" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="Sticker">
+          <Key>
+            <PropertyRef Name="IdSticker" />
+          </Key>
+          <Property Name="IdSticker" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+        </EntityType>
+        <EntityType Name="StickersUsuario">
+          <Key>
+            <PropertyRef Name="IdStickersUsuario" />
+          </Key>
+          <Property Name="IdStickersUsuario" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="PaqueteStickersIdPaqueteStickers" Type="Int32" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <Property Name="FechaDesbloqueo" Type="DateTime" Nullable="false" Precision="0" />
+          <NavigationProperty Name="PaqueteStickers" Relationship="Self.FK_StickersUsuario_Paquete" FromRole="StickersUsuario" ToRole="PaqueteStickers" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_StickersUsuario_Usuario" FromRole="StickersUsuario" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="Usuario">
+          <Key>
+            <PropertyRef Name="IdUsuario" />
+          </Key>
+          <Property Name="IdUsuario" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="NombreUsuario" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Apellidos" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="FotoPerfil" Type="Binary" MaxLength="Max" FixedLength="false" />
+          <Property Name="DescripcionPerfil" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="Monedas" Type="Int32" Nullable="false" />
+          <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <NavigationProperty Name="AvatarDesbloqueado" Relationship="Self.FK_AvatarDesbloqueado_Usuario" FromRole="Usuario" ToRole="AvatarDesbloqueado" />
+          <NavigationProperty Name="Contrasenia" Relationship="Self.FK_Contrasenia_Usuario" FromRole="Usuario" ToRole="Contrasenia" />
+          <NavigationProperty Name="Cuenta" Relationship="Self.FK_Cuenta_Usuario" FromRole="Usuario" ToRole="Cuenta" />
+          <NavigationProperty Name="DadoUsuario" Relationship="Self.FK_DadoUsuario_Usuario" FromRole="Usuario" ToRole="DadoUsuario" />
+          <NavigationProperty Name="ListaAmigos" Relationship="Self.FK_ListaAmigos_U1" FromRole="Usuario" ToRole="ListaAmigos" />
+          <NavigationProperty Name="ListaAmigos1" Relationship="Self.FK_ListaAmigos_U2" FromRole="Usuario" ToRole="ListaAmigos" />
+          <NavigationProperty Name="ObjetoUsuario" Relationship="Self.FK_ObjetoUsuario_Usuario" FromRole="Usuario" ToRole="ObjetoUsuario" />
+          <NavigationProperty Name="RedesSociales" Relationship="Self.FK_RedesSociales_Usuario" FromRole="Usuario" ToRole="RedesSociales" />
+          <NavigationProperty Name="Reporte" Relationship="Self.FK_Reporte_Reporta" FromRole="Usuario" ToRole="Reporte" />
+          <NavigationProperty Name="Reporte1" Relationship="Self.FK_Reporte_Reportado" FromRole="Usuario" ToRole="Reporte" />
+          <NavigationProperty Name="Sancion" Relationship="Self.FK_Sancion_Usuario" FromRole="Usuario" ToRole="Sancion" />
+          <NavigationProperty Name="StickersUsuario" Relationship="Self.FK_StickersUsuario_Usuario" FromRole="Usuario" ToRole="StickersUsuario" />
+          <NavigationProperty Name="UsuarioHasPartida" Relationship="Self.FK_UHP_Usuario" FromRole="Usuario" ToRole="UsuarioHasPartida" />
+        </EntityType>
+        <EntityType Name="UsuarioHasPartida">
+          <Key>
+            <PropertyRef Name="IdUsuarioHasPartida" />
+          </Key>
+          <Property Name="IdUsuarioHasPartida" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <Property Name="PartidaIdPartida" Type="Int32" Nullable="false" />
+          <Property Name="Ganador" Type="Binary" MaxLength="1" FixedLength="true" />
+          <NavigationProperty Name="Partida" Relationship="Self.FK_UHP_Partida" FromRole="UsuarioHasPartida" ToRole="Partida" />
+          <NavigationProperty Name="Usuario" Relationship="Self.FK_UHP_Usuario" FromRole="UsuarioHasPartida" ToRole="Usuario" />
+        </EntityType>
+        <Association Name="FK_Avatar_CajaAvatar">
+          <End Role="CajaAvatar" Type="Self.CajaAvatar" Multiplicity="0..1" />
+          <End Role="Avatar" Type="Self.Avatar" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CajaAvatar">
+              <PropertyRef Name="IdCajaAvatar" />
+            </Principal>
+            <Dependent Role="Avatar">
+              <PropertyRef Name="CajaAvatarIdCajaAvatar" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_AvatarDesbloqueado_Avatar">
+          <End Role="Avatar" Type="Self.Avatar" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="AvatarDesbloqueado" Type="Self.AvatarDesbloqueado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Avatar">
+              <PropertyRef Name="IdAvatar" />
+            </Principal>
+            <Dependent Role="AvatarDesbloqueado">
+              <PropertyRef Name="AvatarIdAvatar" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_AvatarDesbloqueado_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="AvatarDesbloqueado" Type="Self.AvatarDesbloqueado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="AvatarDesbloqueado">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Objeto_Caja">
+          <End Role="Caja" Type="Self.Caja" Multiplicity="0..1" />
+          <End Role="Objeto" Type="Self.Objeto" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Caja">
+              <PropertyRef Name="IdCajaObjeto" />
+            </Principal>
+            <Dependent Role="Objeto">
+              <PropertyRef Name="CajaObjetoIdCajaObjeto" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Contrasenia_Cuenta">
+          <End Role="Cuenta" Type="Self.Cuenta" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Contrasenia" Type="Self.Contrasenia" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Cuenta">
+              <PropertyRef Name="IdCuenta" />
+            </Principal>
+            <Dependent Role="Contrasenia">
+              <PropertyRef Name="CuentaIdCuenta" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Contrasenia_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Contrasenia" Type="Self.Contrasenia" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Contrasenia">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Cuenta_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Cuenta" Type="Self.Cuenta" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Cuenta">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DadoUsuario_Dado">
+          <End Role="Dado" Type="Self.Dado" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="DadoUsuario" Type="Self.DadoUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Dado">
+              <PropertyRef Name="IdDado" />
+            </Principal>
+            <Dependent Role="DadoUsuario">
+              <PropertyRef Name="DadoIdDado" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DadoUsuario_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="DadoUsuario" Type="Self.DadoUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="DadoUsuario">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ListaAmigos_U1">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="ListaAmigos" Type="Self.ListaAmigos" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="ListaAmigos">
+              <PropertyRef Name="UsuarioIdUsuario1" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ListaAmigos_U2">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="ListaAmigos" Type="Self.ListaAmigos" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="ListaAmigos">
+              <PropertyRef Name="UsuarioIdUsuario2" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ObjetoUsuario_Objeto">
+          <End Role="Objeto" Type="Self.Objeto" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ObjetoUsuario" Type="Self.ObjetoUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Objeto">
+              <PropertyRef Name="IdObjeto" />
+            </Principal>
+            <Dependent Role="ObjetoUsuario">
+              <PropertyRef Name="ObjetoIdObjeto" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ObjetoUsuario_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="ObjetoUsuario" Type="Self.ObjetoUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="ObjetoUsuario">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_StickersUsuario_Paquete">
+          <End Role="PaqueteStickers" Type="Self.PaqueteStickers" Multiplicity="0..1" />
+          <End Role="StickersUsuario" Type="Self.StickersUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="PaqueteStickers">
+              <PropertyRef Name="IdPaqueteStickers" />
+            </Principal>
+            <Dependent Role="StickersUsuario">
+              <PropertyRef Name="PaqueteStickersIdPaqueteStickers" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UHP_Partida">
+          <End Role="Partida" Type="Self.Partida" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="UsuarioHasPartida" Type="Self.UsuarioHasPartida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Partida">
+              <PropertyRef Name="IdPartida" />
+            </Principal>
+            <Dependent Role="UsuarioHasPartida">
+              <PropertyRef Name="PartidaIdPartida" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_RedesSociales_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="RedesSociales" Type="Self.RedesSociales" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="RedesSociales">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Reporte_Reporta">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Reporte" Type="Self.Reporte" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Reporte">
+              <PropertyRef Name="IdUsuarioQueReporta" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Reporte_Reportado">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Reporte" Type="Self.Reporte" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Reporte">
+              <PropertyRef Name="IdUsuarioReportado" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Sancion_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="Sancion" Type="Self.Sancion" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="Sancion">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_StickersUsuario_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="StickersUsuario" Type="Self.StickersUsuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="StickersUsuario">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UHP_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="UsuarioHasPartida" Type="Self.UsuarioHasPartida" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="UsuarioHasPartida">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="SnakeAndLaddersDBEntities1" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="Avatar" EntityType="Self.Avatar" />
+          <EntitySet Name="AvatarDesbloqueado" EntityType="Self.AvatarDesbloqueado" />
+          <EntitySet Name="Caja" EntityType="Self.Caja" />
+          <EntitySet Name="CajaAvatar" EntityType="Self.CajaAvatar" />
+          <EntitySet Name="Contrasenia" EntityType="Self.Contrasenia" />
+          <EntitySet Name="Cuenta" EntityType="Self.Cuenta" />
+          <EntitySet Name="Dado" EntityType="Self.Dado" />
+          <EntitySet Name="DadoUsuario" EntityType="Self.DadoUsuario" />
+          <EntitySet Name="ListaAmigos" EntityType="Self.ListaAmigos" />
+          <EntitySet Name="Objeto" EntityType="Self.Objeto" />
+          <EntitySet Name="ObjetoUsuario" EntityType="Self.ObjetoUsuario" />
+          <EntitySet Name="PaqueteStickers" EntityType="Self.PaqueteStickers" />
+          <EntitySet Name="Partida" EntityType="Self.Partida" />
+          <EntitySet Name="RedesSociales" EntityType="Self.RedesSociales" />
+          <EntitySet Name="Reporte" EntityType="Self.Reporte" />
+          <EntitySet Name="Sancion" EntityType="Self.Sancion" />
+          <EntitySet Name="Sticker" EntityType="Self.Sticker" />
+          <EntitySet Name="StickersUsuario" EntityType="Self.StickersUsuario" />
+          <EntitySet Name="Usuario" EntityType="Self.Usuario" />
+          <EntitySet Name="UsuarioHasPartida" EntityType="Self.UsuarioHasPartida" />
+          <AssociationSet Name="FK_Avatar_CajaAvatar" Association="Self.FK_Avatar_CajaAvatar">
+            <End Role="CajaAvatar" EntitySet="CajaAvatar" />
+            <End Role="Avatar" EntitySet="Avatar" />
+          </AssociationSet>
+          <AssociationSet Name="FK_AvatarDesbloqueado_Avatar" Association="Self.FK_AvatarDesbloqueado_Avatar">
+            <End Role="Avatar" EntitySet="Avatar" />
+            <End Role="AvatarDesbloqueado" EntitySet="AvatarDesbloqueado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_AvatarDesbloqueado_Usuario" Association="Self.FK_AvatarDesbloqueado_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="AvatarDesbloqueado" EntitySet="AvatarDesbloqueado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Objeto_Caja" Association="Self.FK_Objeto_Caja">
+            <End Role="Caja" EntitySet="Caja" />
+            <End Role="Objeto" EntitySet="Objeto" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Contrasenia_Cuenta" Association="Self.FK_Contrasenia_Cuenta">
+            <End Role="Cuenta" EntitySet="Cuenta" />
+            <End Role="Contrasenia" EntitySet="Contrasenia" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Contrasenia_Usuario" Association="Self.FK_Contrasenia_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Contrasenia" EntitySet="Contrasenia" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Cuenta_Usuario" Association="Self.FK_Cuenta_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Cuenta" EntitySet="Cuenta" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DadoUsuario_Dado" Association="Self.FK_DadoUsuario_Dado">
+            <End Role="Dado" EntitySet="Dado" />
+            <End Role="DadoUsuario" EntitySet="DadoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DadoUsuario_Usuario" Association="Self.FK_DadoUsuario_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="DadoUsuario" EntitySet="DadoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ListaAmigos_U1" Association="Self.FK_ListaAmigos_U1">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="ListaAmigos" EntitySet="ListaAmigos" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ListaAmigos_U2" Association="Self.FK_ListaAmigos_U2">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="ListaAmigos" EntitySet="ListaAmigos" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ObjetoUsuario_Objeto" Association="Self.FK_ObjetoUsuario_Objeto">
+            <End Role="Objeto" EntitySet="Objeto" />
+            <End Role="ObjetoUsuario" EntitySet="ObjetoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ObjetoUsuario_Usuario" Association="Self.FK_ObjetoUsuario_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="ObjetoUsuario" EntitySet="ObjetoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_StickersUsuario_Paquete" Association="Self.FK_StickersUsuario_Paquete">
+            <End Role="PaqueteStickers" EntitySet="PaqueteStickers" />
+            <End Role="StickersUsuario" EntitySet="StickersUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UHP_Partida" Association="Self.FK_UHP_Partida">
+            <End Role="Partida" EntitySet="Partida" />
+            <End Role="UsuarioHasPartida" EntitySet="UsuarioHasPartida" />
+          </AssociationSet>
+          <AssociationSet Name="FK_RedesSociales_Usuario" Association="Self.FK_RedesSociales_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="RedesSociales" EntitySet="RedesSociales" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Reporte_Reporta" Association="Self.FK_Reporte_Reporta">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Reporte" EntitySet="Reporte" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Reporte_Reportado" Association="Self.FK_Reporte_Reportado">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Reporte" EntitySet="Reporte" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Sancion_Usuario" Association="Self.FK_Sancion_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="Sancion" EntitySet="Sancion" />
+          </AssociationSet>
+          <AssociationSet Name="FK_StickersUsuario_Usuario" Association="Self.FK_StickersUsuario_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="StickersUsuario" EntitySet="StickersUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UHP_Usuario" Association="Self.FK_UHP_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="UsuarioHasPartida" EntitySet="UsuarioHasPartida" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="SnakeAndLaddersDBModelStoreContainer" CdmEntityContainer="SnakeAndLaddersDBEntities1">
+          <EntitySetMapping Name="Avatar">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Avatar">
+              <MappingFragment StoreEntitySet="Avatar">
+                <ScalarProperty Name="IdAvatar" ColumnName="IdAvatar" />
+                <ScalarProperty Name="NombreAvatar" ColumnName="NombreAvatar" />
+                <ScalarProperty Name="RarezaAvatar" ColumnName="RarezaAvatar" />
+                <ScalarProperty Name="CajaAvatarIdCajaAvatar" ColumnName="CajaAvatarIdCajaAvatar" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="AvatarDesbloqueado">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.AvatarDesbloqueado">
+              <MappingFragment StoreEntitySet="AvatarDesbloqueado">
+                <ScalarProperty Name="IdAvatarDesbloqueado" ColumnName="IdAvatarDesbloqueado" />
+                <ScalarProperty Name="AvatarIdAvatar" ColumnName="AvatarIdAvatar" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+                <ScalarProperty Name="FechaDesbloqueo" ColumnName="FechaDesbloqueo" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Caja">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Caja">
+              <MappingFragment StoreEntitySet="Caja">
+                <ScalarProperty Name="IdCajaObjeto" ColumnName="IdCajaObjeto" />
+                <ScalarProperty Name="Nombre" ColumnName="Nombre" />
+                <ScalarProperty Name="Probabilidad" ColumnName="Probabilidad" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="CajaAvatar">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.CajaAvatar">
+              <MappingFragment StoreEntitySet="CajaAvatar">
+                <ScalarProperty Name="IdCajaAvatar" ColumnName="IdCajaAvatar" />
+                <ScalarProperty Name="Nombre" ColumnName="Nombre" />
+                <ScalarProperty Name="Precio" ColumnName="Precio" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Contrasenia">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Contrasenia">
+              <MappingFragment StoreEntitySet="Contrasenia">
+                <ScalarProperty Name="IdContrasenia" ColumnName="IdContrasenia" />
+                <ScalarProperty Name="Contrasenia1" ColumnName="Contrasenia" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+                <ScalarProperty Name="FechaCreacion" ColumnName="FechaCreacion" />
+                <ScalarProperty Name="CuentaIdCuenta" ColumnName="CuentaIdCuenta" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Cuenta">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Cuenta">
+              <MappingFragment StoreEntitySet="Cuenta">
+                <ScalarProperty Name="IdCuenta" ColumnName="IdCuenta" />
+                <ScalarProperty Name="Correo" ColumnName="Correo" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Dado">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Dado">
+              <MappingFragment StoreEntitySet="Dado">
+                <ScalarProperty Name="IdDado" ColumnName="IdDado" />
+                <ScalarProperty Name="Nombre" ColumnName="Nombre" />
+                <ScalarProperty Name="Caras" ColumnName="Caras" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="DadoUsuario">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.DadoUsuario">
+              <MappingFragment StoreEntitySet="DadoUsuario">
+                <ScalarProperty Name="IdDadoUsuario" ColumnName="IdDadoUsuario" />
+                <ScalarProperty Name="DadoIdDado" ColumnName="DadoIdDado" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+                <ScalarProperty Name="CantidadDado" ColumnName="CantidadDado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ListaAmigos">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.ListaAmigos">
+              <MappingFragment StoreEntitySet="ListaAmigos">
+                <ScalarProperty Name="IdListaAmigos" ColumnName="IdListaAmigos" />
+                <ScalarProperty Name="EstadoSolicitud" ColumnName="EstadoSolicitud" />
+                <ScalarProperty Name="UsuarioIdUsuario1" ColumnName="UsuarioIdUsuario1" />
+                <ScalarProperty Name="UsuarioIdUsuario2" ColumnName="UsuarioIdUsuario2" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Objeto">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Objeto">
+              <MappingFragment StoreEntitySet="Objeto">
+                <ScalarProperty Name="IdObjeto" ColumnName="IdObjeto" />
+                <ScalarProperty Name="Nombre" ColumnName="Nombre" />
+                <ScalarProperty Name="CajaObjetoIdCajaObjeto" ColumnName="CajaObjetoIdCajaObjeto" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ObjetoUsuario">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.ObjetoUsuario">
+              <MappingFragment StoreEntitySet="ObjetoUsuario">
+                <ScalarProperty Name="IdObjetoUsuario" ColumnName="IdObjetoUsuario" />
+                <ScalarProperty Name="ObjetoIdObjeto" ColumnName="ObjetoIdObjeto" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+                <ScalarProperty Name="CantidadObjeto" ColumnName="CantidadObjeto" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="PaqueteStickers">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.PaqueteStickers">
+              <MappingFragment StoreEntitySet="PaqueteStickers">
+                <ScalarProperty Name="IdPaqueteStickers" ColumnName="IdPaqueteStickers" />
+                <ScalarProperty Name="Nombre" ColumnName="Nombre" />
+                <ScalarProperty Name="Precio" ColumnName="Precio" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Partida">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Partida">
+              <MappingFragment StoreEntitySet="Partida">
+                <ScalarProperty Name="IdPartida" ColumnName="IdPartida" />
+                <ScalarProperty Name="Dificultad" ColumnName="Dificultad" />
+                <ScalarProperty Name="CodigoPartida" ColumnName="CodigoPartida" />
+                <ScalarProperty Name="EstadoPartida" ColumnName="EstadoPartida" />
+                <ScalarProperty Name="FechaInicio" ColumnName="FechaInicio" />
+                <ScalarProperty Name="FechaTermino" ColumnName="FechaTermino" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="RedesSociales">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.RedesSociales">
+              <MappingFragment StoreEntitySet="RedesSociales">
+                <ScalarProperty Name="IdRedSocial" ColumnName="IdRedSocial" />
+                <ScalarProperty Name="TipoRedSocial" ColumnName="TipoRedSocial" />
+                <ScalarProperty Name="LinkRedSocial" ColumnName="LinkRedSocial" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Reporte">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Reporte">
+              <MappingFragment StoreEntitySet="Reporte">
+                <ScalarProperty Name="IdReporte" ColumnName="IdReporte" />
+                <ScalarProperty Name="RazonReporte" ColumnName="RazonReporte" />
+                <ScalarProperty Name="FechaReporte" ColumnName="FechaReporte" />
+                <ScalarProperty Name="IdUsuarioReportado" ColumnName="IdUsuarioReportado" />
+                <ScalarProperty Name="IdUsuarioQueReporta" ColumnName="IdUsuarioQueReporta" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Sancion">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Sancion">
+              <MappingFragment StoreEntitySet="Sancion">
+                <ScalarProperty Name="IdSancion" ColumnName="IdSancion" />
+                <ScalarProperty Name="FechaSancion" ColumnName="FechaSancion" />
+                <ScalarProperty Name="TipoSancion" ColumnName="TipoSancion" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Sticker">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Sticker">
+              <MappingFragment StoreEntitySet="Sticker">
+                <ScalarProperty Name="IdSticker" ColumnName="IdSticker" />
+                <ScalarProperty Name="Nombre" ColumnName="Nombre" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="StickersUsuario">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.StickersUsuario">
+              <MappingFragment StoreEntitySet="StickersUsuario">
+                <ScalarProperty Name="IdStickersUsuario" ColumnName="IdStickersUsuario" />
+                <ScalarProperty Name="PaqueteStickersIdPaqueteStickers" ColumnName="PaqueteStickersIdPaqueteStickers" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+                <ScalarProperty Name="FechaDesbloqueo" ColumnName="FechaDesbloqueo" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Usuario">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Usuario">
+              <MappingFragment StoreEntitySet="Usuario">
+                <ScalarProperty Name="IdUsuario" ColumnName="IdUsuario" />
+                <ScalarProperty Name="NombreUsuario" ColumnName="NombreUsuario" />
+                <ScalarProperty Name="Nombre" ColumnName="Nombre" />
+                <ScalarProperty Name="Apellidos" ColumnName="Apellidos" />
+                <ScalarProperty Name="FotoPerfil" ColumnName="FotoPerfil" />
+                <ScalarProperty Name="DescripcionPerfil" ColumnName="DescripcionPerfil" />
+                <ScalarProperty Name="Monedas" ColumnName="Monedas" />
+                <ScalarProperty Name="Estado" ColumnName="Estado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="UsuarioHasPartida">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.UsuarioHasPartida">
+              <MappingFragment StoreEntitySet="UsuarioHasPartida">
+                <ScalarProperty Name="IdUsuarioHasPartida" ColumnName="IdUsuarioHasPartida" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+                <ScalarProperty Name="PartidaIdPartida" ColumnName="PartidaIdPartida" />
+                <ScalarProperty Name="Ganador" ColumnName="Ganador" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="false" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="Ninguno" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>
