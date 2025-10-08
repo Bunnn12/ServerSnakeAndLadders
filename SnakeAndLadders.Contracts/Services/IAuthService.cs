@@ -1,12 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ServiceModel;
+using SnakeAndLadders.Contracts.Dtos;
 
 namespace SnakeAndLadders.Contracts.Services
 {
-    internal class IAuthService
+    [ServiceContract]
+    public interface IAuthService
     {
+        [OperationContract]
+        AuthResult Register(RegistrationDto request);
+
+        [OperationContract]
+        AuthResult Login(LoginDto request);
     }
 }

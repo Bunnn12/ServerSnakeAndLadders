@@ -1,12 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Runtime.Serialization;
 
 namespace SnakeAndLadders.Contracts.Dtos
 {
-    internal class AuthResult
+    /// <summary>
+    /// Standard result for Register and Login operations.
+    /// </summary>
+    [DataContract]
+    public class AuthResult
     {
+        [DataMember] public bool Success { get; set; }
+        [DataMember] public int UserId { get; set; }
+        [DataMember] public string DisplayName { get; set; }
+        [DataMember] public string Message { get; set; }
     }
 }

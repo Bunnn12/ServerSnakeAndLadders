@@ -1,12 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace SnakeAndLadders.Infrastructure.Repositories
+﻿namespace SnakeAndLadders.Infrastructure.Repositories
 {
-    internal class IAccountsRepository
+    /// <summary>
+    /// Repository for user registration and authentication data.
+    /// </summary>
+    public interface IAccountsRepository
     {
+        bool EmailExists(string email);
+        bool UserNameExists(string userName);
+
+        // Creates Usuario + Cuenta + Contrasenia in a single transaction.
+        int CreateUserWithAccountAndPassword(
+            string userName,
+            string firstName,
+            string lastName,
+            string email,
+            string passwordHash
+        );
+
+        // Returns userId + hash + display name for login by email.
+        (int userId, string passwordHash, string displayName)? GetAuthByEmail(string email);
     }
 }

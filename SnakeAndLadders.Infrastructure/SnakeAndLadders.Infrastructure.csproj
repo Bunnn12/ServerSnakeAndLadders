@@ -113,6 +113,8 @@
     <Compile Include="Reporte.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
+    <Compile Include="Repositories\AccountsRepository.cs" />
+    <Compile Include="Repositories\IAccountsRepository.cs" />
     <Compile Include="Repositories\UserRepository.cs" />
     <Compile Include="Sancion.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
