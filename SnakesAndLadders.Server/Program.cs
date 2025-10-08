@@ -4,6 +4,10 @@ using SnakeAndLadders.Host.Services;
 
 class Program
 {
+    public Program()
+    {
+    }
+
     static void Main()
     {
         using (var host = new ServiceHost(typeof(UserService)))
