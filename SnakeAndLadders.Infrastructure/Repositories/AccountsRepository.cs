@@ -80,32 +80,27 @@ namespace SnakeAndLadders.Infrastructure.Repositories
             }
         }
 
-        public (int userId, string passwordHash, string displayName)? GetAuthByEmail(string email)
+        public (int userId, string passwordHash, string displayName)? GetAuthByIdentifier(string identifier)
         {
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                // Trae la cuenta + navegación a usuario y contraseñas (sin joins explícitos).
+                // Busca por correo o por nombre de usuario (relación Cuenta -> Usuario)
                 var account = db.Cuenta
                     .Include(c => c.Usuario)
-                    .Include(c => c.Contrasenia)     // si tu nav es plural/otro nombre, ajústalo
-                    .SingleOrDefault(c => c.Correo == email);
+                    .Include(c => c.Contrasenia)
+                    .SingleOrDefault(c => c.Correo == identifier
+                                       || c.Usuario.NombreUsuario == identifier);
 
                 if (account == null) return null;
 
-                // Último hash por fecha
                 var lastPwd = account.Contrasenia
-                                .OrderByDescending(p => p.FechaCreacion)
-                                .FirstOrDefault();
+                    .OrderByDescending(p => p.FechaCreacion)
+                    .FirstOrDefault();
 
                 if (lastPwd == null) return null;
 
-                var userId = account.Usuario != null
-                    ? account.Usuario.IdUsuario
-                    : account.UsuarioIdUsuario; // fallback por FK directa
-
-                var display = account.Usuario != null
-                    ? account.Usuario.NombreUsuario
-                    : null;
+                var userId = account.Usuario?.IdUsuario ?? account.UsuarioIdUsuario;
+                var display = account.Usuario?.NombreUsuario;
 
                 return (userId, lastPwd.Contrasenia1, display);
             }

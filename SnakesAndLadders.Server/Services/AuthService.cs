@@ -24,15 +24,26 @@ namespace SnakeAndLadders.Host.Services
             return new AuthResult { Success = true, UserId = id, DisplayName = r.UserName, Message = "Registro OK." };
         }
 
-        public AuthResult Login(LoginDto r)
+        public AuthResult Login(LoginDto request)
         {
-            var auth = _repo.GetAuthByEmail(r.Email);
-            if (auth == null) return new AuthResult { Success = false, Message = "Credenciales inválidas." };
-            var (id, hash, name) = auth.Value;
-            return Verify(r.Password, hash)
-                ? new AuthResult { Success = true, UserId = id, DisplayName = name, Message = "Login OK." }
-                : new AuthResult { Success = false, Message = "Credenciales inválidas." };
+            // Email' significa "identificador": puede ser usuario o correo
+            var auth = _repo.GetAuthByIdentifier(request.Email);
+            if (auth == null)
+                return new AuthResult { Success = false, Message = "Usuario/correo o contraseña inválidos." };
+
+            var (userId, hash, display) = auth.Value;
+            if (!Verify(request.Password, hash))
+                return new AuthResult { Success = false, Message = "Usuario/correo o contraseña inválidos." };
+
+            return new AuthResult
+            {
+                Success = true,
+                UserId = userId,
+                DisplayName = display,
+                Message = "Inicio de sesión correcto."
+            };
         }
+
 
         // Placeholder: cámbialo luego por BCrypt/Argon2
         private static string Hash(string s) =>

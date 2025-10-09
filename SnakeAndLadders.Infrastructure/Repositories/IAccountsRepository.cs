@@ -17,7 +17,9 @@
             string passwordHash
         );
 
-        // Returns userId + hash + display name for login by email.
-        (int userId, string passwordHash, string displayName)? GetAuthByEmail(string email);
+        // Devuelve credenciales por usuario O correo
+        (int userId, string passwordHash, string displayName)? GetAuthByIdentifier(string identifier);
+
+
     }
 }
