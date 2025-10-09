@@ -23,19 +23,14 @@ namespace SnakeAndLadders.Infrastructure.Repositories
             }
         }
 
-        public int CreateUserWithAccountAndPassword(
-            string userName,
-            string firstName,
-            string lastName,
-            string email,
-            string passwordHash)
+        public int CreateUserWithAccountAndPassword(string userName, string firstName,
+                                            string lastName, string email, string passwordHash)
         {
             using (var db = new SnakeAndLaddersDBEntities1())
             using (var tx = db.Database.BeginTransaction())
             {
                 try
                 {
-                    // 1) User
                     var user = new Usuario
                     {
                         NombreUsuario = userName,
@@ -44,31 +39,28 @@ namespace SnakeAndLadders.Infrastructure.Repositories
                         Monedas = 0,
                         Estado = new byte[] { 1 }
                     };
-                    db.Usuario.Add(user);
 
-                    // 2) Account (FK al user)
                     var account = new Cuenta
                     {
                         Correo = email,
                         Estado = new byte[] { 1 },
-                        UsuarioIdUsuario = user.IdUsuario // EF rellena tras SaveChanges
+                        Usuario = user                 // <-- relación por navegación
                     };
-                    // puedes enlazar por navegación si existe: user.Cuenta.Add(account);
-                    db.Cuenta.Add(account);
 
-                    // 3) Password (FK a account y user)
                     var pwd = new Contrasenia
                     {
-                        CuentaIdCuenta = account.IdCuenta,
-                        UsuarioIdUsuario = user.IdUsuario,
-                        Contrasenia1 = passwordHash,    // guarda el HASH aquí
+                        Contrasenia1 = passwordHash,
                         Estado = new byte[] { 1 },
-                        FechaCreacion = DateTime.UtcNow
+                        FechaCreacion = DateTime.UtcNow,
+                        Usuario = user,               // <-- relación
+                        Cuenta = account              // <-- relación
                     };
-                    // o vía navegación si la colección existe: account.Contrasenia.Add(pwd);
+
+                    db.Usuario.Add(user);
+                    db.Cuenta.Add(account);
                     db.Contrasenia.Add(pwd);
 
-                    db.SaveChanges();
+                    db.SaveChanges();                 // EF ordena inserts y rellena PK/FK
                     tx.Commit();
                     return user.IdUsuario;
                 }
@@ -79,6 +71,7 @@ namespace SnakeAndLadders.Infrastructure.Repositories
                 }
             }
         }
+
 
         public (int userId, string passwordHash, string displayName)? GetAuthByIdentifier(string identifier)
         {
