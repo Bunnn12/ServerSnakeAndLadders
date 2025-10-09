@@ -4,20 +4,22 @@ using SnakeAndLadders.Host.Services;
 
 class Program
 {
-    public Program()
-    {
-    }
-
     static void Main()
     {
-        using (var host = new ServiceHost(typeof(UserService)))
+        using (var userHost = new ServiceHost(typeof(UserService)))
+        using (var authHost = new ServiceHost(typeof(AuthService)))
         {
-            Console.WriteLine(typeof(UserService).FullName);
+            userHost.Open();
+            authHost.Open();
 
-            host.Open();
-            Console.WriteLine("Servidor corriendo...");
+            Console.WriteLine("Servicios levantados:");
+            Console.WriteLine($" - {typeof(UserService).FullName}");
+            Console.WriteLine($" - {typeof(AuthService).FullName}");
+            Console.WriteLine("Presiona Enter para detener...");
             Console.ReadLine();
-            host.Close();
+
+            authHost.Close();
+            userHost.Close();
         }
     }
 }
