@@ -1,25 +1,45 @@
 ﻿using ServerSnakesAndLadders;
+using SnakeAndLadders.Contracts.Dtos;
+using System.Linq;
 
 namespace SnakeAndLadders.Infrastructure.Repositories
 {
-    public class UserRepository
+    public class UserRepository : IUserRepository
     {
-        public int AddUser(string username, string nombre, string apellidos)
+        private readonly SnakeAndLaddersDBEntities1 _db;
+
+        public UserRepository(SnakeAndLaddersDBEntities1 db)
         {
-            using (var db = new SnakeAndLaddersDBEntities1())
-            {
-                var nuevo = new Usuario
+            _db = db;
+        }
+
+        public AccountDto GetByUsername(string username)
+        {
+            return _db.Usuario
+                .Where(u => u.NombreUsuario == username)
+                .Select(u => new AccountDto
                 {
-                    NombreUsuario = username,
-                    Nombre = nombre,
-                    Apellidos = apellidos,
-                    Monedas = 0,
-                    Estado = new byte[] { 1 }
-                };
-                db.Usuario.Add(nuevo);
-                db.SaveChanges();
-                return nuevo.IdUsuario;
-            }
+                    UserId = u.IdUsuario,
+                    Username = u.NombreUsuario,
+                    FirstName = u.Nombre,
+                    LastName = u.Apellidos,
+                    ProfileDescription = u.DescripcionPerfil,
+                    Coins = u.Monedas,
+                    HasProfilePhoto = u.FotoPerfil != null && u.FotoPerfil.Length > 0
+                })
+                .SingleOrDefault();
+        }
+
+        public ProfilePhotoDto GetPhotoByUserId(int userId)
+        {
+            return _db.Usuario
+                .Where(u => u.IdUsuario == userId)
+                .Select(u => new ProfilePhotoDto
+                {
+                    UserId = u.IdUsuario,
+                    Photo = u.FotoPerfil
+                })
+                .SingleOrDefault();
         }
     }
 }

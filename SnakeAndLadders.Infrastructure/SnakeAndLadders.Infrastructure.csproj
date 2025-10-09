@@ -115,6 +115,7 @@
     </Compile>
     <Compile Include="Repositories\AccountsRepository.cs" />
     <Compile Include="Repositories\IAccountsRepository.cs" />
+    <Compile Include="Repositories\IUserRepository.cs" />
     <Compile Include="Repositories\UserRepository.cs" />
     <Compile Include="Sancion.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
@@ -156,6 +157,12 @@
       <DependentUpon>DataBase.edmx</DependentUpon>
     </None>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SnakeAndLadders.Contracts\SnakeAndLadders.Contracts.csproj">
+      <Project>{53fb80f1-7fe8-4254-b678-68a7700c679b}</Project>
+      <Name>SnakeAndLadders.Contracts</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

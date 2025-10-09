@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ServiceModel;
 using SnakeAndLadders.Host.Services;
+using SnakesAndLadders.Host.Services;
 
 class Program
 {

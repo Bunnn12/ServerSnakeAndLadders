@@ -1,12 +1,16 @@
-﻿
-using System.ServiceModel;
+﻿using System.ServiceModel;
+using SnakeAndLadders.Contracts.Dtos;
 
 namespace SnakeAndLadders.Contracts.Services
 {
     [ServiceContract]
     public interface IUserService
     {
+        
         [OperationContract]
-        int AddUser(string username, string nombre, string apellidos);
+        AccountDto GetProfileByUsername(string username);
+
+        [OperationContract]
+        ProfilePhotoDto GetProfilePhoto(int userId);
     }
 }

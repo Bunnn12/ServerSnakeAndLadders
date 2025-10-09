@@ -1,16 +1,30 @@
-﻿using SnakeAndLadders.Contracts.Services;
+﻿using ServerSnakesAndLadders;
+using SnakeAndLadders.Contracts.Dtos;
+using SnakeAndLadders.Contracts.Services;
 using SnakeAndLadders.Infrastructure.Repositories;
+using System;
 
-namespace SnakeAndLadders.Host.Services
+namespace SnakesAndLadders.Host.Services
 {
     public class UserService : IUserService
     {
-        private readonly UserRepository repo = new UserRepository();
+        private readonly IUserRepository _userRepository;
 
-        public int AddUser(string username, string nombre, string apellidos)
+        public UserService() : this(new UserRepository(new SnakeAndLaddersDBEntities1())) { }
+        public UserService(IUserRepository userRepository) => _userRepository = userRepository;
+
+        public AccountDto GetProfileByUsername(string username)
         {
-            return repo.AddUser(username, nombre, apellidos);
+            if (string.IsNullOrWhiteSpace(username))
+                throw new ArgumentException("Username is required.", nameof(username));
+
+            return _userRepository.GetByUsername(username);
+        }
+
+        public ProfilePhotoDto GetProfilePhoto(int userId)
+        {
+            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+            return _userRepository.GetPhotoByUserId(userId);
         }
     }
 }
-
