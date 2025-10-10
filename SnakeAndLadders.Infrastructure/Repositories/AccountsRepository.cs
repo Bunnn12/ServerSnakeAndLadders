@@ -22,7 +22,7 @@ namespace SnakeAndLadders.Infrastructure.Repositories
                 return db.Usuario.Any(u => u.NombreUsuario == userName);
             }
         }
-
+        // cambiar a hacer un dto cuenta y pasarlo como referencia
         public int CreateUserWithAccountAndPassword(string userName, string firstName,
                                             string lastName, string email, string passwordHash)
         {
@@ -44,7 +44,7 @@ namespace SnakeAndLadders.Infrastructure.Repositories
                     {
                         Correo = email,
                         Estado = new byte[] { 1 },
-                        Usuario = user                 // <-- relación por navegación
+                        Usuario = user                 
                     };
 
                     var pwd = new Contrasenia
@@ -52,15 +52,15 @@ namespace SnakeAndLadders.Infrastructure.Repositories
                         Contrasenia1 = passwordHash,
                         Estado = new byte[] { 1 },
                         FechaCreacion = DateTime.UtcNow,
-                        Usuario = user,               // <-- relación
-                        Cuenta = account              // <-- relación
+                        Usuario = user,             
+                        Cuenta = account             
                     };
 
                     db.Usuario.Add(user);
                     db.Cuenta.Add(account);
                     db.Contrasenia.Add(pwd);
 
-                    db.SaveChanges();                 // EF ordena inserts y rellena PK/FK
+                    db.SaveChanges();                 
                     tx.Commit();
                     return user.IdUsuario;
                 }
@@ -77,7 +77,6 @@ namespace SnakeAndLadders.Infrastructure.Repositories
         {
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                // Busca por correo o por nombre de usuario (relación Cuenta -> Usuario)
                 var account = db.Cuenta
                     .Include(c => c.Usuario)
                     .Include(c => c.Contrasenia)
