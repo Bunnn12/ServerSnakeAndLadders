@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Data.SqlClient;
+using System.Security.Cryptography;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Services;
-using SnakeAndLadders.Infrastructure.Repositories;
-using System.Security.Cryptography;
 using SnakeAndLadders.Host.Helpers;
-
+using SnakeAndLadders.Infrastructure.Repositories;
 
 namespace SnakeAndLadders.Host.Services
 {
     public class AuthService : IAuthService
     {
         private readonly IAccountsRepository _repo = new AccountsRepository();
+
         private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpiresUtc, DateTime LastSentUtc)> _codes
             = new ConcurrentDictionary<string, (string, DateTime, DateTime)>(StringComparer.OrdinalIgnoreCase);
 
@@ -19,56 +21,82 @@ namespace SnakeAndLadders.Host.Services
         private static readonly TimeSpan VerificationTtl = TimeSpan.FromMinutes(10);
         private static readonly TimeSpan ResendWindow = TimeSpan.FromSeconds(45);
 
+        // Códigos estables para UI (puedes moverlos a un assembly Contracts si quieres compartirlos)
+        private static class Codes
+        {
+            public const string Ok = "Auth.Ok";
+            public const string InvalidRequest = "Auth.InvalidRequest";
+            public const string EmailRequired = "Auth.EmailRequired";
+            public const string EmailAlreadyExists = "Auth.EmailAlreadyExists";
+            public const string UserNameAlreadyExists = "Auth.UserNameAlreadyExists";
+            public const string InvalidCredentials = "Auth.InvalidCredentials";
+            public const string ThrottleWait = "Auth.ThrottleWait";     // Meta["seconds"]
+            public const string CodeNotRequested = "Auth.CodeNotRequested";
+            public const string CodeExpired = "Auth.CodeExpired";
+            public const string CodeInvalid = "Auth.CodeInvalid";
+            public const string EmailSendFailed = "Auth.EmailSendFailed";  // Meta["reason"] opcional
+            public const string ServerError = "Auth.ServerError";
+        }
+
+        private static AuthResult Ok(string code = Codes.Ok, Dictionary<string, string> meta = null,
+                                     int? userId = null, string displayName = null)
+            => new AuthResult { Success = true, Code = code, Meta = meta, UserId = userId, DisplayName = displayName };
+
+        private static AuthResult Fail(string code, Dictionary<string, string> meta = null)
+            => new AuthResult { Success = false, Code = code, Meta = meta };
+
         public AuthResult Register(RegistrationDto r)
         {
-            if (string.IsNullOrWhiteSpace(r.Email) ||
+            if (r == null ||
+                string.IsNullOrWhiteSpace(r.Email) ||
                 string.IsNullOrWhiteSpace(r.Password) ||
                 string.IsNullOrWhiteSpace(r.UserName))
-                return new AuthResult { Success = false, Message = "Datos incompletos." };
-
-            if (_repo.EmailExists(r.Email)) return new AuthResult { Success = false, Message = "Correo ya existe." };
-            if (_repo.UserNameExists(r.UserName)) return new AuthResult { Success = false, Message = "Usuario ya existe." };
-
-            var hash = Hash(r.Password);
-            var id = _repo.CreateUserWithAccountAndPassword(r.UserName, r.FirstName, r.LastName, r.Email, hash);
-
-            return new AuthResult
             {
-                Success = true,
-                UserId = id,
-                DisplayName = r.UserName,
-                Message = "Registro OK."
-            };
+                return Fail(Codes.InvalidRequest);
+            }
+
+            if (_repo.EmailExists(r.Email)) return Fail(Codes.EmailAlreadyExists);
+            if (_repo.UserNameExists(r.UserName)) return Fail(Codes.UserNameAlreadyExists);
+
+            try
+            {
+                var hash = Hash(r.Password);
+                var id = _repo.CreateUserWithAccountAndPassword(r.UserName, r.FirstName, r.LastName, r.Email, hash);
+                return Ok(userId: id, displayName: r.UserName);
+            }
+            catch (SqlException ex)
+            {
+                // 2601/2627: violación de índice único; 1205: deadlock
+                if (ex.Number == 2601 || ex.Number == 2627) return Fail(Codes.EmailAlreadyExists);
+                return Fail(Codes.ServerError);
+            }
+            catch
+            {
+                return Fail(Codes.ServerError);
+            }
         }
 
         public AuthResult Login(LoginDto request)
         {
+            if (request == null || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Email))
+                return Fail(Codes.InvalidRequest);
+
             var auth = _repo.GetAuthByIdentifier(request.Email); // email o username
-            if (auth == null)
-                return new AuthResult { Success = false, Message = "Usuario/correo o contraseña inválidos." };
+            if (auth == null) return Fail(Codes.InvalidCredentials);
 
             var (userId, hash, display) = auth.Value;
-            if (!Verify(request.Password, hash))
-                return new AuthResult { Success = false, Message = "Usuario/correo o contraseña inválidos." };
+            if (!Verify(request.Password, hash)) return Fail(Codes.InvalidCredentials);
 
-            return new AuthResult
-            {
-                Success = true,
-                UserId = userId,
-                DisplayName = display,
-                Message = "Inicio de sesión correcto."
-            };
+            return Ok(userId: userId, displayName: display);
         }
 
         public AuthResult RequestEmailVerification(string email)
         {
             email = (email ?? string.Empty).Trim().ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(email))
-                return new AuthResult { Success = false, Message = "Correo requerido." };
+            if (string.IsNullOrWhiteSpace(email)) return Fail(Codes.EmailRequired);
 
-            // Para alta nueva, si ya existe en DB, no enviamos código.
-            if (_repo.EmailExists(email))
-                return new AuthResult { Success = false, Message = "Ese correo ya está registrado." };
+            // Si ya existe, no se envía código de alta
+            if (_repo.EmailExists(email)) return Fail(Codes.EmailAlreadyExists);
 
             // Anti-spam / reenvío
             if (_codes.TryGetValue(email, out var entry))
@@ -76,8 +104,8 @@ namespace SnakeAndLadders.Host.Services
                 var elapsed = DateTime.UtcNow - entry.LastSentUtc;
                 if (elapsed < ResendWindow)
                 {
-                    var wait = (int)(ResendWindow - elapsed).TotalSeconds;
-                    return new AuthResult { Success = false, Message = $"Espera {wait}s para reenviar el código." };
+                    int wait = (int)(ResendWindow - elapsed).TotalSeconds;
+                    return Fail(Codes.ThrottleWait, new Dictionary<string, string> { ["seconds"] = wait.ToString() });
                 }
             }
 
@@ -86,22 +114,17 @@ namespace SnakeAndLadders.Host.Services
             var expires = DateTime.UtcNow.Add(VerificationTtl);
             _codes[email] = (code, expires, DateTime.UtcNow);
 
-            // Enviar correo real
             try
             {
                 EmailSender.SendVerificationCode(email, code);
+                return Ok();
             }
             catch (Exception ex)
             {
-                // Si falla el envío, limpia el código para no dejar basura
                 _codes.TryRemove(email, out _);
-                return new AuthResult { Success = false, Message = "No se pudo enviar el correo: " + ex.Message };
+                return Fail(Codes.EmailSendFailed, new Dictionary<string, string> { ["reason"] = ex.GetType().Name });
             }
-
-            // Mensaje de éxito
-            return new AuthResult { Success = true, Message = "Verification code sent" };
         }
-
 
         public AuthResult ConfirmEmailVerification(string email, string code)
         {
@@ -109,46 +132,37 @@ namespace SnakeAndLadders.Host.Services
             code = (code ?? string.Empty).Trim();
 
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
-                return new AuthResult { Success = false, Message = "Correo y código son requeridos." };
+                return Fail(Codes.InvalidRequest);
 
             if (!_codes.TryGetValue(email, out var entry))
-                return new AuthResult { Success = false, Message = "Solicita un código primero." };
+                return Fail(Codes.CodeNotRequested);
 
             if (DateTime.UtcNow > entry.ExpiresUtc)
             {
                 _codes.TryRemove(email, out _);
-                return new AuthResult { Success = false, Message = "Código expirado. Solicítalo de nuevo." };
+                return Fail(Codes.CodeExpired);
             }
 
             if (!string.Equals(code, entry.Code, StringComparison.Ordinal))
-                return new AuthResult { Success = false, Message = "Código inválido." };
+                return Fail(Codes.CodeInvalid);
 
-            // OK: limpiar el registro temporal
             _codes.TryRemove(email, out _);
-            return new AuthResult { Success = true, Message = "Código verificado." };
+            return Ok();
         }
 
         private static string Hash(string s) =>
-            BitConverter.ToString(System.Security.Cryptography.SHA256.Create()
-             .ComputeHash(System.Text.Encoding.UTF8.GetBytes(s))).Replace("-", "");
+            BitConverter.ToString(SHA256.Create().ComputeHash(System.Text.Encoding.UTF8.GetBytes(s))).Replace("-", "");
 
         private static bool Verify(string p, string h) => Hash(p) == h;
 
         private static string GenerateCode(int digits)
         {
-            // Código numérico con ceros a la izquierda (p.ej., 6 -> "042317")
             var bytes = new byte[4];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(bytes);
-            }
-
+            using (var rng = RandomNumberGenerator.Create()) { rng.GetBytes(bytes); }
             uint value = BitConverter.ToUInt32(bytes, 0);
-            uint mod = (uint)Math.Pow(10, digits); // 10^digits
+            uint mod = (uint)Math.Pow(10, digits);
             uint num = value % mod;
-
-            return num.ToString(new string('0', digits)); // formatea con ceros a la izquierda
+            return num.ToString(new string('0', digits)); // ceros a la izquierda
         }
-
     }
 }

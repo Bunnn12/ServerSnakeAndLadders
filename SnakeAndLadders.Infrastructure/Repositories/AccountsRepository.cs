@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Data;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
-using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 using ServerSnakesAndLadders;
@@ -16,14 +14,10 @@ namespace SnakeAndLadders.Infrastructure.Repositories
             email = (email ?? "").Trim();
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                // Log de conexión (para ver instancia y DB)
                 var cn = db.Database.Connection;
                 Trace.WriteLine($"[EmailExists] DS={cn.DataSource} DB={cn.Database} email={email}");
+                ((IObjectContextAdapter)db).ObjectContext.CommandTimeout = 30;
 
-                // Timeout corto para no colgarte
-                ((IObjectContextAdapter)db).ObjectContext.CommandTimeout = 10;
-
-                // Consulta directa (sin ToLower/Trim SQL para evitar traducción rara)
                 return db.Cuenta.AsNoTracking().Any(c => c.Correo == email);
             }
         }
@@ -41,8 +35,7 @@ namespace SnakeAndLadders.Infrastructure.Repositories
             }
         }
 
-        public int CreateUserWithAccountAndPassword(
-            string userName, string firstName, string lastName, string email, string passwordHash)
+        public int CreateUserWithAccountAndPassword(string userName, string firstName, string lastName, string email, string passwordHash)
         {
             using (var db = new SnakeAndLaddersDBEntities1())
             using (var tx = db.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
@@ -58,27 +51,24 @@ namespace SnakeAndLadders.Infrastructure.Repositories
                         Estado = new byte[] { 1 }
                     };
                     db.Usuario.Add(user);
-                    db.SaveChanges(); // genera IdUsuario
+                    db.SaveChanges();
 
                     var account = new Cuenta
                     {
-                        // usa tu FK real si la tienes (p.ej. UsuarioIdUsuario = user.IdUsuario)
                         UsuarioIdUsuario = user.IdUsuario,
                         Correo = email,
                         Estado = new byte[] { 1 }
                     };
                     db.Cuenta.Add(account);
-                    db.SaveChanges(); // genera IdCuenta
+                    db.SaveChanges();
 
                     var pwd = new Contrasenia
                     {
-                        UsuarioIdUsuario = user.IdUsuario,   // FK a USUARIO
+                        UsuarioIdUsuario = user.IdUsuario,
                         Contrasenia1 = passwordHash,
                         Estado = new byte[] { 1 },
                         FechaCreacion = DateTime.UtcNow,
-
-                        // *** CLAVE: vincular a la cuenta requerida ***
-                        Cuenta = account           // <-- esto satisface FK_Contrasenia_Cuenta
+                        Cuenta = account
                     };
                     db.Contrasenia.Add(pwd);
 
@@ -89,33 +79,26 @@ namespace SnakeAndLadders.Infrastructure.Repositories
                 catch (System.Data.SqlClient.SqlException sqlEx)
                 {
                     tx.Rollback();
-                    if (sqlEx.Number == 2601 || sqlEx.Number == 2627)
-                        throw new InvalidOperationException("Correo o usuario ya existe (índice único).", sqlEx);
-                    if (sqlEx.Number == 1205)
-                        throw new InvalidOperationException("Deadlock creando usuario. Reintenta.", sqlEx);
-
-                    throw new InvalidOperationException("DB error creando usuario: " + sqlEx.Message, sqlEx);
+                    // Deja que AuthService mapee por Number (2601/2627/1205/…)
+                    throw;
                 }
-                catch (Exception ex)
+                catch
                 {
                     tx.Rollback();
-                    throw new InvalidOperationException("Could not create user.", ex);
+                    throw;
                 }
             }
         }
-
 
         public (int userId, string passwordHash, string displayName)? GetAuthByIdentifier(string identifier)
         {
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                // Busca por correo
                 var cuenta = db.Cuenta.AsNoTracking()
                     .Where(c => c.Correo == identifier)
                     .Select(c => new { c.UsuarioIdUsuario })
                     .FirstOrDefault();
 
-                // Si no, busca por username
                 int userId = 0;
                 if (cuenta != null)
                 {
