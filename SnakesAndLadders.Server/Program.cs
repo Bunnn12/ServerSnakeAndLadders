@@ -63,7 +63,7 @@ internal static class Program
             
             var authSvc = new AuthService(authApp);
             var userSvc = new UserService(userApp);
-            var lobbySvc = new LobbyService(lobbyApp, appLogger);      
+            var lobbySvc = new LobbyService();      
 
            
             authHost = new ServiceHost(authSvc);

@@ -52,8 +52,17 @@
     <Compile Include="Dtos\AuthResult.cs" />
     <Compile Include="Dtos\CreateGameRequest.cs" />
     <Compile Include="Dtos\CreateGameResponse.cs" />
+    <Compile Include="Dtos\GetLobbyInfoRequest.cs" />
+    <Compile Include="Dtos\JoinLobbyRequest.cs" />
+    <Compile Include="Dtos\JoinLobbyResponse.cs" />
+    <Compile Include="Dtos\LeaveLobbyRequest.cs" />
+    <Compile Include="Dtos\LobbyInfo.cs" />
+    <Compile Include="Dtos\LobbyMember.cs" />
+    <Compile Include="Dtos\LobbyStatus.cs" />
     <Compile Include="Dtos\LoginDto.cs" />
+    <Compile Include="Dtos\OperationResult.cs" />
     <Compile Include="Dtos\RegistrationDto.cs" />
+    <Compile Include="Dtos\StartMatchRequest.cs" />
     <Compile Include="Faults\Faults.cs" />
     <Compile Include="Faults\ServiceFault.cs" />
     <Compile Include="Interfaces\IAccountsRepository.cs" />
