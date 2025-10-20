@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Security.Cryptography;
 using System.Text;
-using SnakesAndLadders.Contracts.Interfaces;
+using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Host.Helpers
 {

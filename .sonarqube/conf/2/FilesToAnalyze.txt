@@ -1,7 +1,9 @@
 ﻿C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\AuthAppService.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\IAuthAppService.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\IUserAppService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\LobbyAppService.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\UserAppService.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Wcf\AuthService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Wcf\LobbyService.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Wcf\UserService.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Properties\AssemblyInfo.cs

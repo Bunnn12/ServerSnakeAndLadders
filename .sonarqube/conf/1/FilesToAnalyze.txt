@@ -15,6 +15,7 @@ C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Propertie
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\RedesSociales.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Reporte.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Repositories\AccountsRepository.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Repositories\LobbyRepository.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Repositories\UserRepository.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Sancion.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Sticker.cs
@@ -24,5 +25,6 @@ C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\UsuarioHa
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\DataBase.Context.tt
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\DataBase.tt
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\DataBase.edmx
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\App.Config
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\DataBase.edmx.diagram
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\packages.config

@@ -6,13 +6,11 @@ using System.ServiceModel;
 using log4net;
 using log4net.Config;
 using ServerSnakesAndLadders;
-using SnakeAndLadders.Contracts;
-using SnakesAndLadders.Contracts.Interfaces;
+using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data.Repositories;
-using SnakesAndLadders.Host.Helpers;
+using SnakesAndLadders.Host.Helpers;  
 using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Wcf;
-
 
 internal static class ServerLogBootstrap
 {
@@ -32,46 +30,55 @@ internal static class Program
 
     private static void Main()
     {
-        // Logging
+       
         ServerLogBootstrap.Init();
         XmlConfigurator.Configure(LogManager.GetRepository());
 
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             Log.Fatal("Excepción no controlada.", e.ExceptionObject as Exception);
 
-        ServiceHost userHost = null;
         ServiceHost authHost = null;
+        ServiceHost userHost = null;
+        ServiceHost lobbyHost = null;
 
         try
         {
             Log.Info("Iniciando el servidor…");
 
-            // 1) Infra/Repos (Data)
+           
             var accountsRepo = new AccountsRepository();
             var userRepo = new UserRepository();
+            var lobbyRepo = new LobbyRepository(); 
 
-            // 2) Helpers (Host)
+            
             IPasswordHasher hasher = new Sha256PasswordHasher();
             IEmailSender email = new SmtpEmailSender();
+            IAppLogger appLogger = new AppLogger(Log); 
 
-            // 3) Lógica de aplicación (Services.Logic)
+            
             var authApp = new AuthAppService(accountsRepo, hasher, email);
             var userApp = new UserAppService(userRepo);
+            var lobbyApp = new LobbyAppService(lobbyRepo, appLogger); 
 
-            // 4) Adaptadores WCF (Services.Wcf) — hostear por instancia
+            
             var authSvc = new AuthService(authApp);
             var userSvc = new UserService(userApp);
+            var lobbySvc = new LobbyService(lobbyApp, appLogger);      
 
+           
             authHost = new ServiceHost(authSvc);
             userHost = new ServiceHost(userSvc);
+            lobbyHost = new ServiceHost(lobbySvc); 
 
             authHost.Open();
             userHost.Open();
+            lobbyHost.Open();
 
             Log.Info("Servidor iniciado y servicios levantados.");
             Console.WriteLine("Servicios levantados:");
             Console.WriteLine(" - " + typeof(AuthService).FullName);
             Console.WriteLine(" - " + typeof(UserService).FullName);
+            Console.WriteLine(" - " + typeof(LobbyService).FullName); 
             Console.WriteLine("Presiona Enter para detener…");
             Console.ReadLine();
         }
@@ -101,6 +108,7 @@ internal static class Program
         }
         finally
         {
+            CloseSafely(lobbyHost, "LobbyService"); 
             CloseSafely(authHost, "AuthService");
             CloseSafely(userHost, "UserService");
             Log.Info("Servidor detenido.");

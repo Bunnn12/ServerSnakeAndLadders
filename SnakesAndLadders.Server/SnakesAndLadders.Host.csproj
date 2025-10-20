@@ -60,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="Helpers\AppLogger.cs" />
     <Compile Include="Helpers\EmailSender.cs" />
     <Compile Include="Helpers\Sha256PasswordHasher.cs" />
     <Compile Include="Program.cs" />

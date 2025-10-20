@@ -1,4 +1,4 @@
-﻿namespace SnakesAndLadders.Contracts.Interfaces
+﻿namespace SnakeAndLadders.Contracts.Interfaces
 {
     public interface IEmailSender
     {

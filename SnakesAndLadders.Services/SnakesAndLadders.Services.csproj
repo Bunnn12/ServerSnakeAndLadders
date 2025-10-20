@@ -45,8 +45,10 @@
     <Compile Include="Logic\AuthAppService.cs" />
     <Compile Include="Logic\IAuthAppService.cs" />
     <Compile Include="Logic\IUserAppService.cs" />
+    <Compile Include="Logic\LobbyAppService.cs" />
     <Compile Include="Logic\UserAppService.cs" />
     <Compile Include="Wcf\AuthService.cs" />
+    <Compile Include="Wcf\LobbyService.cs" />
     <Compile Include="Wcf\UserService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

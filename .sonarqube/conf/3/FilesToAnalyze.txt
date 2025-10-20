@@ -1,4 +1,5 @@
 ﻿C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\AssemblyInfo.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\AppLogger.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\EmailSender.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\Sha256PasswordHasher.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Program.cs

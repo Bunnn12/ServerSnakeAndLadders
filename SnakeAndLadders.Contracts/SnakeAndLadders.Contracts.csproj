@@ -50,15 +50,23 @@
   <ItemGroup>
     <Compile Include="Dtos\AccountDto.cs" />
     <Compile Include="Dtos\AuthResult.cs" />
+    <Compile Include="Dtos\CreateGameRequest.cs" />
+    <Compile Include="Dtos\CreateGameResponse.cs" />
     <Compile Include="Dtos\LoginDto.cs" />
     <Compile Include="Dtos\RegistrationDto.cs" />
+    <Compile Include="Faults\Faults.cs" />
+    <Compile Include="Faults\ServiceFault.cs" />
     <Compile Include="Interfaces\IAccountsRepository.cs" />
+    <Compile Include="Interfaces\IAppLogger.cs" />
     <Compile Include="Interfaces\IEmailSender.cs" />
+    <Compile Include="Interfaces\ILobbyAppService.cs" />
+    <Compile Include="Interfaces\ILobbyRepository.cs" />
     <Compile Include="Interfaces\IPasswordHasher.cs" />
     <Compile Include="Interfaces\IUserRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\IAccountService.cs" />
     <Compile Include="Services\IAuthService.cs" />
+    <Compile Include="Services\ILobbyService.cs" />
     <Compile Include="Services\IUserService.cs" />
   </ItemGroup>
   <ItemGroup>

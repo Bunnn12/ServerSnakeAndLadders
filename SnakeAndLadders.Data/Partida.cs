@@ -23,7 +23,7 @@ namespace SnakesAndLadders.Data
         public int IdPartida { get; set; }
         public string Dificultad { get; set; }
         public string CodigoPartida { get; set; }
-        public byte[] EstadoPartida { get; set; }
+        public byte EstadoPartida { get; set; }
         public Nullable<System.DateTime> FechaInicio { get; set; }
         public Nullable<System.DateTime> FechaTermino { get; set; }
         public System.DateTime fechaCreacion { get; set; }
