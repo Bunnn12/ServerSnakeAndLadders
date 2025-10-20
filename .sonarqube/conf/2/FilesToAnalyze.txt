@@ -1,0 +1,8 @@
+﻿C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\AssemblyInfo.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\EmailSender.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Program.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Properties\AssemblyInfo.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Services\AuthService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Services\UserService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\App.config
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\packages.config

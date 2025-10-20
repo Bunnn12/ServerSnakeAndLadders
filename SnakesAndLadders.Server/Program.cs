@@ -1,39 +1,38 @@
-﻿using log4net;
-using log4net.Appender;
-using log4net.Config;
-using log4net.Repository;
-using SnakeAndLadders.Host.Services;
-using SnakesAndLadders.Host.Services;
-using System;
+﻿using System;
 using System.Configuration;
 using System.IO;
-using System.Linq;              // Para OfType(), FirstOrDefault()
+using System.Linq;
 using System.ServiceModel;
+using log4net;
+using log4net.Config;
+using ServerSnakesAndLadders;
+using SnakeAndLadders.Contracts;
+using SnakesAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Data.Repositories;
+using SnakesAndLadders.Host.Helpers;
+using SnakesAndLadders.Services.Logic;
+using SnakesAndLadders.Services.Wcf;
 
 
 internal static class ServerLogBootstrap
 {
-    
     public static void Init()
     {
-        
         var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
         var logsDir = Path.Combine(baseDir, "SnakeAndLadders", "logs");
         Directory.CreateDirectory(logsDir);
 
-        
         log4net.GlobalContext.Properties["LogFileName"] = Path.Combine(logsDir, "server.log");
     }
 }
 
-
-class Program
+internal static class Program
 {
     private static readonly ILog Log = LogManager.GetLogger(typeof(Program));
 
     private static void Main()
     {
-        
+        // Logging
         ServerLogBootstrap.Init();
         XmlConfigurator.Configure(LogManager.GetRepository());
 
@@ -47,27 +46,42 @@ class Program
         {
             Log.Info("Iniciando el servidor…");
 
-            userHost = new ServiceHost(typeof(UserService));
-            authHost = new ServiceHost(typeof(AuthService));
+            // 1) Infra/Repos (Data)
+            var accountsRepo = new AccountsRepository();
+            var userRepo = new UserRepository();
 
-            userHost.Open();
+            // 2) Helpers (Host)
+            IPasswordHasher hasher = new Sha256PasswordHasher();
+            IEmailSender email = new SmtpEmailSender();
+
+            // 3) Lógica de aplicación (Services.Logic)
+            var authApp = new AuthAppService(accountsRepo, hasher, email);
+            var userApp = new UserAppService(userRepo);
+
+            // 4) Adaptadores WCF (Services.Wcf) — hostear por instancia
+            var authSvc = new AuthService(authApp);
+            var userSvc = new UserService(userApp);
+
+            authHost = new ServiceHost(authSvc);
+            userHost = new ServiceHost(userSvc);
+
             authHost.Open();
+            userHost.Open();
 
             Log.Info("Servidor iniciado y servicios levantados.");
             Console.WriteLine("Servicios levantados:");
-            Console.WriteLine($" - {typeof(UserService).FullName}");
-            Console.WriteLine($" - {typeof(AuthService).FullName}");
+            Console.WriteLine(" - " + typeof(AuthService).FullName);
+            Console.WriteLine(" - " + typeof(UserService).FullName);
             Console.WriteLine("Presiona Enter para detener…");
             Console.ReadLine();
         }
-        
         catch (AddressAccessDeniedException ex)
         {
             Log.Error("Acceso denegado al abrir puertos HTTP/NET.TCP. Ejecuta como admin o cambia puertos.", ex);
         }
         catch (AddressAlreadyInUseException ex)
         {
-            Log.Error("Puerto/URL en uso (¿8085/8095 ocupados?). Cambia baseAddress o cierra quien lo use.", ex);
+            Log.Error("Puerto/URL en uso. Cambia baseAddress o libera el puerto.", ex);
         }
         catch (CommunicationException ex)
         {
@@ -79,7 +93,7 @@ class Program
         }
         catch (ConfigurationErrorsException ex)
         {
-            Log.Error("Error en App.config (secciones duplicadas, bindings, endpoints).", ex);
+            Log.Error("Error en App.config (secciones, bindings, endpoints).", ex);
         }
         catch (Exception ex)
         {
@@ -87,7 +101,6 @@ class Program
         }
         finally
         {
-            
             CloseSafely(authHost, "AuthService");
             CloseSafely(userHost, "UserService");
             Log.Info("Servidor detenido.");
@@ -102,7 +115,7 @@ class Program
         {
             if (host.State == CommunicationState.Faulted)
             {
-                Log.Warn($"{name} en estado Faulted. Abortando…");
+                Log.Warn(name + " en estado Faulted. Abortando…");
                 host.Abort();
             }
             else
@@ -112,7 +125,7 @@ class Program
         }
         catch (Exception ex)
         {
-            Log.Warn($"Error al cerrar {name}. Se aborta.", ex);
+            Log.Warn("Error al cerrar " + name + ". Se aborta.", ex);
             host.Abort();
         }
     }

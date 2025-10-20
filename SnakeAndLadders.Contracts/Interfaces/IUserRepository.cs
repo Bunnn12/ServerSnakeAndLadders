@@ -1,0 +1,14 @@
+﻿
+
+using SnakeAndLadders.Contracts.Dtos;
+
+
+namespace SnakeAndLadders.Contracts.Interfaces {
+    public interface IUserRepository
+    {
+        AccountDto GetByUsername(string username);
+        ProfilePhotoDto GetPhotoByUserId(int userId);
+    }
+
+}
+
