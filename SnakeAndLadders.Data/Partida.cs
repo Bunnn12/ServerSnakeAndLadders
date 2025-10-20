@@ -26,6 +26,8 @@ namespace SnakesAndLadders.Data
         public byte[] EstadoPartida { get; set; }
         public Nullable<System.DateTime> FechaInicio { get; set; }
         public Nullable<System.DateTime> FechaTermino { get; set; }
+        public System.DateTime fechaCreacion { get; set; }
+        public Nullable<System.DateTime> expiraEn { get; set; }
     
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<UsuarioHasPartida> UsuarioHasPartida { get; set; }

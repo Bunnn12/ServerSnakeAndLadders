@@ -1,8 +1,11 @@
-﻿C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Class1.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Dtos\AccountDto.cs
+﻿C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Dtos\AccountDto.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Dtos\AuthResult.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Dtos\LoginDto.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Dtos\RegistrationDto.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Interfaces\IAccountsRepository.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Interfaces\IEmailSender.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Interfaces\IPasswordHasher.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Interfaces\IUserRepository.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Properties\AssemblyInfo.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Services\IAccountService.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Contracts\Services\IAuthService.cs

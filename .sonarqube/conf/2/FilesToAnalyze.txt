@@ -1,8 +1,7 @@
-﻿C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\AssemblyInfo.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\EmailSender.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Program.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Properties\AssemblyInfo.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Services\AuthService.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Services\UserService.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\App.config
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Server\packages.config
+﻿C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\AuthAppService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\IAuthAppService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\IUserAppService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Logic\UserAppService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Wcf\AuthService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Wcf\UserService.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakesAndLadders.Services\Properties\AssemblyInfo.cs

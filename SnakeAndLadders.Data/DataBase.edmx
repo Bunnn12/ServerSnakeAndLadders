@@ -4,7 +4,7 @@
   <edmx:Runtime>
     <!-- SSDL content -->
     <edmx:StorageModels>
-      <Schema Namespace="SnakeAndLaddersDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+    <Schema Namespace="SnakeAndLaddersDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
         <EntityType Name="Avatar">
           <Key>
             <PropertyRef Name="IdAvatar" />
@@ -122,10 +122,12 @@
           </Key>
           <Property Name="IdPartida" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="Dificultad" Type="nvarchar" MaxLength="50" />
-          <Property Name="CodigoPartida" Type="nvarchar" MaxLength="45" />
+          <Property Name="CodigoPartida" Type="char" MaxLength="6" Nullable="false" />
           <Property Name="EstadoPartida" Type="binary" MaxLength="1" Nullable="false" />
           <Property Name="FechaInicio" Type="datetime2" Precision="0" />
           <Property Name="FechaTermino" Type="datetime2" Precision="0" />
+          <Property Name="fechaCreacion" Type="datetime2" Precision="0" Nullable="false" />
+          <Property Name="expiraEn" Type="datetime2" Precision="0" />
         </EntityType>
         <EntityType Name="RedesSociales">
           <Key>
@@ -193,6 +195,7 @@
           <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
           <Property Name="PartidaIdPartida" Type="int" Nullable="false" />
           <Property Name="Ganador" Type="binary" MaxLength="1" />
+          <Property Name="esHost" Type="bit" Nullable="false" />
         </EntityType>
         <Association Name="FK_Avatar_CajaAvatar">
           <End Role="CajaAvatar" Type="Self.CajaAvatar" Multiplicity="0..1" />
@@ -562,8 +565,7 @@
             <End Role="UsuarioHasPartida" EntitySet="UsuarioHasPartida" />
           </AssociationSet>
         </EntityContainer>
-      </Schema>
-    </edmx:StorageModels>
+      </Schema></edmx:StorageModels>
     <!-- CSDL content -->
     <edmx:ConceptualModels>
       <Schema Namespace="SnakeAndLaddersDBModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
@@ -704,11 +706,13 @@
           </Key>
           <Property Name="IdPartida" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
           <Property Name="Dificultad" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
-          <Property Name="CodigoPartida" Type="String" MaxLength="45" FixedLength="false" Unicode="true" />
+          <Property Name="CodigoPartida" Type="String" MaxLength="6" FixedLength="true" Unicode="false" Nullable="false" />
           <Property Name="EstadoPartida" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
           <Property Name="FechaInicio" Type="DateTime" Precision="0" />
           <Property Name="FechaTermino" Type="DateTime" Precision="0" />
           <NavigationProperty Name="UsuarioHasPartida" Relationship="Self.FK_UHP_Partida" FromRole="Partida" ToRole="UsuarioHasPartida" />
+          <Property Name="fechaCreacion" Type="DateTime" Nullable="false" Precision="0" />
+          <Property Name="expiraEn" Type="DateTime" Precision="0" />
         </EntityType>
         <EntityType Name="RedesSociales">
           <Key>
@@ -797,6 +801,7 @@
           <Property Name="Ganador" Type="Binary" MaxLength="1" FixedLength="true" />
           <NavigationProperty Name="Partida" Relationship="Self.FK_UHP_Partida" FromRole="UsuarioHasPartida" ToRole="Partida" />
           <NavigationProperty Name="Usuario" Relationship="Self.FK_UHP_Usuario" FromRole="UsuarioHasPartida" ToRole="Usuario" />
+          <Property Name="esHost" Type="Boolean" Nullable="false" />
         </EntityType>
         <Association Name="FK_Avatar_CajaAvatar">
           <End Role="CajaAvatar" Type="Self.CajaAvatar" Multiplicity="0..1" />
@@ -1298,6 +1303,8 @@
           <EntitySetMapping Name="Partida">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Partida">
               <MappingFragment StoreEntitySet="Partida">
+                <ScalarProperty Name="expiraEn" ColumnName="expiraEn" />
+                <ScalarProperty Name="fechaCreacion" ColumnName="fechaCreacion" />
                 <ScalarProperty Name="IdPartida" ColumnName="IdPartida" />
                 <ScalarProperty Name="Dificultad" ColumnName="Dificultad" />
                 <ScalarProperty Name="CodigoPartida" ColumnName="CodigoPartida" />
@@ -1374,6 +1381,7 @@
           <EntitySetMapping Name="UsuarioHasPartida">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.UsuarioHasPartida">
               <MappingFragment StoreEntitySet="UsuarioHasPartida">
+                <ScalarProperty Name="esHost" ColumnName="esHost" />
                 <ScalarProperty Name="IdUsuarioHasPartida" ColumnName="IdUsuarioHasPartida" />
                 <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
                 <ScalarProperty Name="PartidaIdPartida" ColumnName="PartidaIdPartida" />

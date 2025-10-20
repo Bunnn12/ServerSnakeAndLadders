@@ -18,6 +18,7 @@ namespace SnakesAndLadders.Data
         public int UsuarioIdUsuario { get; set; }
         public int PartidaIdPartida { get; set; }
         public byte[] Ganador { get; set; }
+        public bool esHost { get; set; }
     
         public virtual Partida Partida { get; set; }
         public virtual Usuario Usuario { get; set; }
