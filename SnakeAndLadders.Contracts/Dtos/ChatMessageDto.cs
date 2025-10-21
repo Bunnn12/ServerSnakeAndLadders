@@ -9,8 +9,8 @@ namespace SnakeAndLadders.Contracts.Dtos
         [DataMember(IsRequired = true)] public string Sender { get; set; } = string.Empty;
         [DataMember(IsRequired = true)] public string Text { get; set; } = string.Empty;
         [DataMember(IsRequired = true)] public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
+        [DataMember(IsRequired = true)] public int SenderId { get; set; }
 
-        // Azúcar para el cliente (no es obligatorio serializarlo)
         public string Header => $"{Sender} · {TimestampUtc:HH:mm}";
     }
 }

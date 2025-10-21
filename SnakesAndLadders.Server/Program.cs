@@ -2,17 +2,14 @@
 using log4net.Config;
 using ServerSnakesAndLadders;
 using SnakeAndLadders.Contracts.Interfaces;
-using SnakeAndLadders.Services.Logic;
 using SnakesAndLadders.Data.Repositories;
-using SnakesAndLadders.Host.Helpers;  
+using SnakesAndLadders.Host.Helpers;
 using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Wcf;
 using System;
 using System.Configuration;
 using System.IO;
-using System.Linq;
 using System.ServiceModel;
-
 
 internal static class ServerLogBootstrap
 {
@@ -21,7 +18,6 @@ internal static class ServerLogBootstrap
         var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
         var logsDir = Path.Combine(baseDir, "SnakeAndLadders", "logs");
         Directory.CreateDirectory(logsDir);
-
         log4net.GlobalContext.Properties["LogFileName"] = Path.Combine(logsDir, "server.log");
     }
 }
@@ -32,7 +28,6 @@ internal static class Program
 
     private static void Main()
     {
-       
         ServerLogBootstrap.Init();
         XmlConfigurator.Configure(LogManager.GetRepository());
 
@@ -48,38 +43,34 @@ internal static class Program
         {
             Log.Info("Iniciando el servidor…");
 
-            var chatFilePath = Environment.ExpandEnvironmentVariables(
-            ConfigurationManager.AppSettings["ChatFilePath"] ??
-            @"%LOCALAPPDATA%\SnakesAndLadders\Chat\chat.jsonl");
+            // ChatFilePath ahora es carpeta; el repo guarda {lobbyId}.jsonl
+            var chatPath = Environment.ExpandEnvironmentVariables(
+                ConfigurationManager.AppSettings["ChatFilePath"] ??
+                @"%LOCALAPPDATA%\SnakesAndLadders\Chat\");
+
             var accountsRepo = new AccountsRepository();
             var userRepo = new UserRepository();
             var lobbyRepo = new LobbyRepository();
-            IChatRepository chatRepo = new FileChatRepository(chatFilePath);
+            IChatRepository chatRepo = new FileChatRepository(chatPath);
+
             var chatApp = new ChatAppService(chatRepo);
-
-
 
             IPasswordHasher hasher = new Sha256PasswordHasher();
             IEmailSender email = new SmtpEmailSender();
-            IAppLogger appLogger = new AppLogger(Log); 
+            IAppLogger appLogger = new AppLogger(Log);
 
-            
             var authApp = new AuthAppService(accountsRepo, hasher, email);
             var userApp = new UserAppService(userRepo);
-            var lobbyApp = new LobbyAppService(lobbyRepo, appLogger); 
+            var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
 
-            
             var authSvc = new AuthService(authApp);
             var userSvc = new UserService(userApp);
-            var lobbySvc = new LobbyService();      
-
-
-
+            var lobbySvc = new LobbyService();
+            var chatSvc = new ChatService(chatApp);
 
             authHost = new ServiceHost(authSvc);
             userHost = new ServiceHost(userSvc);
             lobbyHost = new ServiceHost(lobbySvc);
-            var chatSvc = new ChatService(chatApp);
             chatHost = new ServiceHost(chatSvc);
 
             authHost.Open();
@@ -107,7 +98,6 @@ internal static class Program
             Log.Error("Puerto/URL en uso. Cambia baseAddress o libera el puerto.", ex);
             Console.Error.WriteLine("\n" + ex);
             Console.WriteLine("\nPresiona Enter para cerrar…"); Console.ReadLine();
-
         }
         catch (CommunicationException ex)
         {
@@ -135,7 +125,7 @@ internal static class Program
         }
         finally
         {
-            CloseSafely(lobbyHost, "LobbyService"); 
+            CloseSafely(lobbyHost, "LobbyService");
             CloseSafely(authHost, "AuthService");
             CloseSafely(userHost, "UserService");
             CloseSafely(chatHost, "ChatService");

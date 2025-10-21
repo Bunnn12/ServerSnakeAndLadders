@@ -63,11 +63,14 @@
     <Compile Include="Dtos\LoginDto.cs" />
     <Compile Include="Dtos\OperationResult.cs" />
     <Compile Include="Dtos\RegistrationDto.cs" />
+    <Compile Include="Dtos\SendMessageRequest2.cs" />
+    <Compile Include="Dtos\SendMessageResponse2.cs" />
     <Compile Include="Dtos\StartMatchRequest.cs" />
     <Compile Include="Faults\Faults.cs" />
     <Compile Include="Faults\ServiceFault.cs" />
     <Compile Include="Interfaces\IAccountsRepository.cs" />
     <Compile Include="Interfaces\IAppLogger.cs" />
+    <Compile Include="Interfaces\IChatClient.cs" />
     <Compile Include="Interfaces\IChatRepository.cs" />
     <Compile Include="Interfaces\IEmailSender.cs" />
     <Compile Include="Interfaces\ILobbyAppService.cs" />
@@ -81,7 +84,6 @@
     <Compile Include="Services\IChatService.cs" />
     <Compile Include="Services\ILobbyService.cs" />
     <Compile Include="Services\IUserService.cs" />
-    <Compile Include="Services\Logic\ChatAppService.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

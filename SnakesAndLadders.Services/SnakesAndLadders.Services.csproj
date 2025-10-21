@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Logic\AuthAppService.cs" />
+    <Compile Include="Logic\ChatAppService.cs" />
     <Compile Include="Logic\IAuthAppService.cs" />
     <Compile Include="Logic\IUserAppService.cs" />
     <Compile Include="Logic\LobbyAppService.cs" />
