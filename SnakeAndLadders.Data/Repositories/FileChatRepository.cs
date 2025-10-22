@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -16,34 +18,31 @@ namespace SnakesAndLadders.Data.Repositories
         public ChatRepositoryException(string message, Exception inner) : base(message, inner) { }
     }
 
-    /// <summary>
-    /// Repositorio de chat basado en archivo. Un JSON por línea por lobby.
-    /// Thread-safe (in-proc) y con validaciones básicas.
-    /// </summary>
     public sealed class FileChatRepository : IChatRepository
     {
         private static readonly object _sync = new object();
 
-        private readonly string _baseDir;
+        private readonly string _baseDirFull;
         private readonly JsonSerializerOptions _json;
 
         public FileChatRepository(string templatePathOrDir)
         {
+            // Root seguro
             var safeRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "SnakesAndLadders", "Chat");
 
-            if (!string.IsNullOrWhiteSpace(templatePathOrDir))
-            {
-                var nameOnly = Path.GetFileName(templatePathOrDir.Trim());
-                _baseDir = Path.Combine(safeRoot, nameOnly);
-            }
-            else
-            {
-                _baseDir = safeRoot;
-            }
+            // Subcarpeta opcional (solo nombre, sin ruta)
+            string sub = string.IsNullOrWhiteSpace(templatePathOrDir)
+                ? null
+                : Path.GetFileName(templatePathOrDir.Trim());
 
-            Directory.CreateDirectory(_baseDir);
+            var baseDir = string.IsNullOrEmpty(sub) ? safeRoot : Path.Combine(safeRoot, sub);
+
+            Directory.CreateDirectory(baseDir);
+
+            // Normalizar a camino absoluto canónico
+            _baseDirFull = Path.GetFullPath(baseDir);
 
             _json = new JsonSerializerOptions
             {
@@ -52,14 +51,42 @@ namespace SnakesAndLadders.Data.Repositories
             };
         }
 
+        // ==== Helpers de seguridad ====
+
+        private static void ValidateLobbyId(int lobbyId)
+        {
+            if (lobbyId <= 0) throw new ArgumentOutOfRangeException("lobbyId");
+            // Opcional: top bound razonable para evitar archivos infinitos
+            if (lobbyId > 1_000_000_000) throw new ArgumentOutOfRangeException("lobbyId");
+        }
+
         private string FileFor(int lobbyId)
         {
-            return Path.Combine(_baseDir, string.Format("{0}.jsonl", lobbyId));
+            // Nombre fijo y limpio: solo dígitos, tamaño constante
+            var fileName = string.Format(CultureInfo.InvariantCulture, "{0:D10}.jsonl", lobbyId);
+            var combined = Path.Combine(_baseDirFull, fileName);
+
+            var full = Path.GetFullPath(combined);
+
+            // Confinamiento: full debe iniciar con el root normalizado (terminado en separador)
+            // Para evitar falsos positivos por prefijo, comparamos con separador garantizado.
+            var baseWithSep = _baseDirFull.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                ? _baseDirFull
+                : _baseDirFull + Path.DirectorySeparatorChar;
+
+            if (!full.StartsWith(baseWithSep, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new SecurityException("Intento de escape de directorio en FileChatRepository.");
+            }
+
+            return full;
         }
+
+        // ==== API ====
 
         public void Append(int lobbyId, ChatMessageDto message)
         {
-            if (lobbyId <= 0) throw new ArgumentOutOfRangeException("lobbyId");
+            ValidateLobbyId(lobbyId);
             if (message == null) throw new ArgumentNullException("message");
 
             var path = FileFor(lobbyId);
@@ -87,11 +114,10 @@ namespace SnakesAndLadders.Data.Repositories
                         sw = new StreamWriter(fs, utf8NoBom);
                         sw.Write(line);
                         sw.Flush();
-                        fs.Flush(true); // flushToDisk
+                        fs.Flush(true);
                     }
                     finally
                     {
-                        // C# 7.3: liberar explícitamente
                         if (sw != null) sw.Dispose();
                         if (fs != null) fs.Dispose();
                     }
@@ -104,7 +130,7 @@ namespace SnakesAndLadders.Data.Repositories
             }
             catch (DirectoryNotFoundException ex)
             {
-                try { Directory.CreateDirectory(_baseDir); } catch { /* ignoramos; re-lanzamos abajo */ }
+                try { Directory.CreateDirectory(_baseDirFull); } catch { }
                 throw new ChatRepositoryException(
                     "DirectoryNotFoundException al escribir el chat '" + path + "': " + ex.Message, ex);
             }
@@ -112,6 +138,10 @@ namespace SnakesAndLadders.Data.Repositories
             {
                 throw new ChatRepositoryException(
                     "IOException al escribir el chat '" + path + "': " + ex.Message, ex);
+            }
+            catch (SecurityException ex)
+            {
+                throw; // ya es precisa; deja que suba tal cual
             }
             catch (Exception ex)
             {
@@ -122,7 +152,7 @@ namespace SnakesAndLadders.Data.Repositories
 
         public IList<ChatMessageDto> ReadLast(int lobbyId, int take)
         {
-            if (lobbyId <= 0) throw new ArgumentOutOfRangeException("lobbyId");
+            ValidateLobbyId(lobbyId);
             if (take <= 0) take = 50;
 
             var path = FileFor(lobbyId);
@@ -159,7 +189,7 @@ namespace SnakesAndLadders.Data.Repositories
                     }
                     catch (JsonException)
                     {
-                        // línea corrupta: se omite; aquí podrías loggear el tipo exacto
+                        // línea corrupta: se omite
                     }
                 }
 
@@ -175,6 +205,10 @@ namespace SnakesAndLadders.Data.Repositories
             {
                 throw new ChatRepositoryException(
                     "IOException al leer el chat '" + path + "': " + ex.Message, ex);
+            }
+            catch (SecurityException)
+            {
+                throw; // pasa tal cual
             }
             catch (Exception ex)
             {
