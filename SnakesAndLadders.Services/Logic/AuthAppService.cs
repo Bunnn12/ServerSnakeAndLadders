@@ -55,10 +55,10 @@ namespace SnakesAndLadders.Services.Logic
 
         public AuthResult Login(LoginDto request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Username))
+            if (request == null || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Email))
                 return Fail("Auth.InvalidRequest");
 
-            var auth = _repo.GetAuthByIdentifier(request.Username); 
+            var auth = _repo.GetAuthByIdentifier(request.Email); 
             if (auth == null) return Fail("Auth.InvalidCredentials");
 
             var (userId, hash, display) = auth.Value;
