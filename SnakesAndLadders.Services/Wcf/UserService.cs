@@ -1,6 +1,6 @@
 ﻿using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Services;
-using SnakesAndLadders.Services.Logic;     // IUserAppService
+using SnakesAndLadders.Services.Logic;    
 using System;
 using System.ServiceModel;
 

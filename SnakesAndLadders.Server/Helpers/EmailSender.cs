@@ -7,12 +7,6 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Host.Helpers
 {
-    /// <summary>
-    /// Implementación concreta de IEmailSender usando System.Net.Mail (SMTP).
-    /// Lee configuración de AppSettings:
-    ///   Smtp:Host, Smtp:Port (por defecto 587), Smtp:EnableSsl (por defecto true),
-    ///   Smtp:User, Smtp:Pass, Smtp:From (por defecto = User), Smtp:FromName.
-    /// </summary>
     public sealed class SmtpEmailSender : IEmailSender
     {
         private static string Get(string key, string fallback)
@@ -64,7 +58,6 @@ namespace SnakesAndLadders.Host.Helpers
                     else
                         smtp.UseDefaultCredentials = true;
 
-                    // Forzar TLS razonable en .NET Framework
                     ServicePointManager.SecurityProtocol =
                         SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
 

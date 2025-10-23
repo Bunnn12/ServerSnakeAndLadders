@@ -9,7 +9,6 @@ namespace SnakesAndLadders.Data.Repositories
 {
     public sealed class UserRepository : IUserRepository
     {
-        // Si tu clase de contexto NO se llama DataBaseEntities, cámbialo aquí y en ambos using.
         public AccountDto GetByUsername(string username)
         {
             if (string.IsNullOrWhiteSpace(username))

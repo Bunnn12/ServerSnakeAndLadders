@@ -27,12 +27,10 @@ namespace SnakesAndLadders.Data.Repositories
 
         public FileChatRepository(string templatePathOrDir)
         {
-            // Root seguro
             var safeRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "SnakesAndLadders", "Chat");
 
-            // Subcarpeta opcional (solo nombre, sin ruta)
             string sub = string.IsNullOrWhiteSpace(templatePathOrDir)
                 ? null
                 : Path.GetFileName(templatePathOrDir.Trim());
@@ -40,8 +38,6 @@ namespace SnakesAndLadders.Data.Repositories
             var baseDir = string.IsNullOrEmpty(sub) ? safeRoot : Path.Combine(safeRoot, sub);
 
             Directory.CreateDirectory(baseDir);
-
-            // Normalizar a camino absoluto canónico
             _baseDirFull = Path.GetFullPath(baseDir);
 
             _json = new JsonSerializerOptions
@@ -51,25 +47,18 @@ namespace SnakesAndLadders.Data.Repositories
             };
         }
 
-        // ==== Helpers de seguridad ====
-
         private static void ValidateLobbyId(int lobbyId)
         {
             if (lobbyId <= 0) throw new ArgumentOutOfRangeException("lobbyId");
-            // Opcional: top bound razonable para evitar archivos infinitos
             if (lobbyId > 1_000_000_000) throw new ArgumentOutOfRangeException("lobbyId");
         }
 
         private string FileFor(int lobbyId)
         {
-            // Nombre fijo y limpio: solo dígitos, tamaño constante
             var fileName = string.Format(CultureInfo.InvariantCulture, "{0:D10}.jsonl", lobbyId);
             var combined = Path.Combine(_baseDirFull, fileName);
 
             var full = Path.GetFullPath(combined);
-
-            // Confinamiento: full debe iniciar con el root normalizado (terminado en separador)
-            // Para evitar falsos positivos por prefijo, comparamos con separador garantizado.
             var baseWithSep = _baseDirFull.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
                 ? _baseDirFull
                 : _baseDirFull + Path.DirectorySeparatorChar;
@@ -82,7 +71,6 @@ namespace SnakesAndLadders.Data.Repositories
             return full;
         }
 
-        // ==== API ====
 
         public void Append(int lobbyId, ChatMessageDto message)
         {
@@ -141,7 +129,7 @@ namespace SnakesAndLadders.Data.Repositories
             }
             catch (SecurityException ex)
             {
-                throw; // ya es precisa; deja que suba tal cual
+                throw; 
             }
             catch (Exception ex)
             {
@@ -187,9 +175,9 @@ namespace SnakesAndLadders.Data.Repositories
                         if (m != null) result.Add(m);
                         if (result.Count >= take) break;
                     }
-                    catch (JsonException)
+                    catch (JsonException ex)
                     {
-                        // línea corrupta: se omite
+                        throw new JsonException ("Hubo un problema con el archivo json"+ ex.Message);
                     }
                 }
 
@@ -206,9 +194,9 @@ namespace SnakesAndLadders.Data.Repositories
                 throw new ChatRepositoryException(
                     "IOException al leer el chat '" + path + "': " + ex.Message, ex);
             }
-            catch (SecurityException)
+            catch (SecurityException ex)
             {
-                throw; // pasa tal cual
+                throw new SecurityException(ex.Message); 
             }
             catch (Exception ex)
             {

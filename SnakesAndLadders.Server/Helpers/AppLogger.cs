@@ -4,7 +4,6 @@ using System;
 
 namespace SnakesAndLadders.Host.Helpers
 {
-    /// <summary>Bridges log4net ILog to the IAppLogger abstraction.</summary>
     public sealed class AppLogger : IAppLogger
     {
         private readonly ILog log;

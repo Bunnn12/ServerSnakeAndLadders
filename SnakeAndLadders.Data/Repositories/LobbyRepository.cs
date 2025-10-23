@@ -5,7 +5,6 @@ using System.Linq;
 
 namespace SnakesAndLadders.Data.Repositories
 {
-    /// <summary>EF6 repository that persists Partida and host membership.</summary>
     public sealed class LobbyRepository : ILobbyRepository
     {
         public bool CodeExists(string code)
@@ -32,15 +31,15 @@ namespace SnakesAndLadders.Data.Repositories
 
                     Dificultad = string.IsNullOrWhiteSpace(dificultad) ? null : dificultad,
                     CodigoPartida = code,
-                    EstadoPartida = 1,               // Waiting
+                    EstadoPartida = 1,               
                     FechaInicio = null,
                     FechaTermino = null,
-                    fechaCreacion = DateTime.UtcNow, // BD también lo setea por DEFAULT; duplicado no estorba
+                    fechaCreacion = DateTime.UtcNow, 
                     expiraEn = expiresAtUtc
                 };
 
                 ctx.Partida.Add(partida);
-                ctx.SaveChanges(); // auto identity
+                ctx.SaveChanges(); 
 
                 var host = new UsuarioHasPartida
                 {

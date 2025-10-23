@@ -1,4 +1,4 @@
-﻿// Contracts/Dtos/StartMatchRequest.cs
+﻿
 using System.Runtime.Serialization;
 
 namespace SnakeAndLadders.Contracts.Dtos

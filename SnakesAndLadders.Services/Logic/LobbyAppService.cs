@@ -7,7 +7,6 @@ using System.Text;
 
 namespace SnakesAndLadders.Services.Logic
 {
-    /// <summary>Application service that validates, generates code, persists, logs and rethrows.</summary>
     public sealed class LobbyAppService : ILobbyAppService
     {
         private readonly ILobbyRepository repo;
@@ -43,7 +42,7 @@ namespace SnakesAndLadders.Services.Logic
                     ExpiresAtUtc = created.ExpiresAtUtc
                 };
             }
-            catch (InvalidOperationException ex) // e.g., UNIQUE collision race
+            catch (InvalidOperationException ex) 
             {
                 log.Error("DbUpdateException while creating game.", ex);
                 throw new InvalidOperationException("A conflict occurred while creating the game. Please try again.", ex);
@@ -51,7 +50,7 @@ namespace SnakesAndLadders.Services.Logic
             catch (Exception ex)
             {
                 log.Error("Unexpected error while creating game.", ex);
-                throw; // rethrow (WCF layer will map to Fault)
+                throw; 
             }
         }
 

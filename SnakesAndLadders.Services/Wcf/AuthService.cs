@@ -8,7 +8,6 @@ namespace SnakesAndLadders.Services.Wcf
     [ServiceBehavior(
         InstanceContextMode = InstanceContextMode.Single,
         IncludeExceptionDetailInFaults = false
-    // opcional si esperas concurrencia: ConcurrencyMode = ConcurrencyMode.Multiple
     )]
     public sealed class AuthService : IAuthService
     {

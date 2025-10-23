@@ -1,5 +1,4 @@
-﻿// Contracts/Dtos/GetLobbyInfoRequest.cs
-using System.Runtime.Serialization;
+﻿using System.Runtime.Serialization;
 
 namespace SnakeAndLadders.Contracts.Dtos
 {

@@ -1,4 +1,4 @@
-﻿// Contracts/Dtos/LobbyMember.cs
+﻿
 using System;
 using System.Runtime.Serialization;
 

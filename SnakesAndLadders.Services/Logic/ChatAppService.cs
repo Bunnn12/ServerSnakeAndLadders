@@ -13,7 +13,9 @@ namespace SnakesAndLadders.Services.Logic
         public void Send(int lobbyId, ChatMessageDto message)
         {
             if (message == null || string.IsNullOrWhiteSpace(message.Text)) return;
-            message.TimestampUtc = DateTime.UtcNow; // server as source of truth
+            message.TimestampUtc = DateTime.UtcNow;
+            message.Text = message.Text.Trim();
+            if (string.IsNullOrEmpty(message.Text)) return;
             repository.Append(lobbyId, message);
         }
 

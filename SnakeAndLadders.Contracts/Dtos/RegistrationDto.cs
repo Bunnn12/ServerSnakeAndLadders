@@ -2,9 +2,6 @@
 
 namespace SnakeAndLadders.Contracts.Dtos
 {
-    /// <summary>
-    /// Data required to create a user, account and password.
-    /// </summary>
     [DataContract]
     public class RegistrationDto
     {

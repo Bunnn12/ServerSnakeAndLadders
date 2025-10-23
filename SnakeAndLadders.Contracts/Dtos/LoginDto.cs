@@ -2,9 +2,6 @@
 
 namespace SnakeAndLadders.Contracts.Dtos
 {
-    /// <summary>
-    /// Credentials used to authenticate an existing account.
-    /// </summary>
     [DataContract]
     public class LoginDto
     {

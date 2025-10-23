@@ -83,7 +83,6 @@ namespace SnakesAndLadders.Services.Wcf
 
             lobby.Players.Remove(member);
 
-            // si se va el host, asigna nuevo host o cierra
             if (member.IsHost)
             {
                 var next = lobby.Players.FirstOrDefault();
@@ -114,7 +113,7 @@ namespace SnakesAndLadders.Services.Wcf
             if (lobby.Players.Count < 2)
                 return new OperationResult { Success = false, Message = "Se requieren al menos 2 jugadores." };
 
-            // Simbólico: cambiamos estado, no se crea partida real aún.
+          
             lobby.Status = LobbyStatus.InMatch;
             return new OperationResult { Success = true, Message = "La partida se está iniciando..." };
         }
@@ -122,7 +121,7 @@ namespace SnakesAndLadders.Services.Wcf
         public LobbyInfo GetLobbyInfo(GetLobbyInfoRequest request)
         {
             _lobbies.TryGetValue(request.PartidaId, out var lobby);
-            return lobby; // puede ser null si expiró/cerró
+            return lobby;
         }
 
         private static void Throw(string code, string message)

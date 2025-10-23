@@ -1,4 +1,4 @@
-﻿// Contracts/Services/ILobbyService.cs
+﻿
 using System.ServiceModel;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Faults;
