@@ -13,11 +13,6 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Data.Repositories
 {
-    public sealed class ChatRepositoryException : Exception
-    {
-        public ChatRepositoryException(string message, Exception inner) : base(message, inner) { }
-    }
-
     public sealed class FileChatRepository : IChatRepository
     {
         private static readonly object _sync = new object();
@@ -49,8 +44,8 @@ namespace SnakesAndLadders.Data.Repositories
 
         private static void ValidateLobbyId(int lobbyId)
         {
-            if (lobbyId <= 0) throw new ArgumentOutOfRangeException("lobbyId");
-            if (lobbyId > 1_000_000_000) throw new ArgumentOutOfRangeException("lobbyId");
+            if (lobbyId <= 0) throw new ArgumentOutOfRangeException(nameof(lobbyId));
+            if (lobbyId > 1_000_000_000) throw new ArgumentOutOfRangeException(nameof(lobbyId));
         }
 
         private string FileFor(int lobbyId)
@@ -71,11 +66,10 @@ namespace SnakesAndLadders.Data.Repositories
             return full;
         }
 
-
         public void Append(int lobbyId, ChatMessageDto message)
         {
             ValidateLobbyId(lobbyId);
-            if (message == null) throw new ArgumentNullException("message");
+            if (message == null) throw new ArgumentNullException(nameof(message));
 
             var path = FileFor(lobbyId);
 
@@ -106,35 +100,42 @@ namespace SnakesAndLadders.Data.Repositories
                     }
                     finally
                     {
-                        if (sw != null) sw.Dispose();
-                        if (fs != null) fs.Dispose();
+                        sw?.Dispose();
+                        fs?.Dispose();
                     }
                 }
             }
             catch (UnauthorizedAccessException ex)
             {
-                throw new ChatRepositoryException(
-                    "UnauthorizedAccessException al escribir el chat '" + path + "': " + ex.Message, ex);
+                throw new InvalidOperationException(
+                    $"No se tienen permisos para escribir el archivo '{path}'.", ex);
             }
             catch (DirectoryNotFoundException ex)
             {
-                try { Directory.CreateDirectory(_baseDirFull); } catch { }
-                throw new ChatRepositoryException(
-                    "DirectoryNotFoundException al escribir el chat '" + path + "': " + ex.Message, ex);
+                try
+                {
+                    Directory.CreateDirectory(_baseDirFull);
+                }
+                catch
+                {
+                    throw new IOException(
+                        $"El directorio '{_baseDirFull}' no existe y no se pudo crear.", ex);
+                }
             }
             catch (IOException ex)
             {
-                throw new ChatRepositoryException(
-                    "IOException al escribir el chat '" + path + "': " + ex.Message, ex);
+                throw new IOException(
+                    $"Error de E/S al escribir el chat '{path}': {ex.Message}", ex);
             }
             catch (SecurityException ex)
             {
-                throw; 
+                throw new UnauthorizedAccessException(
+                    $"Error de seguridad al acceder a '{path}': {ex.Message}", ex);
             }
             catch (Exception ex)
             {
-                throw new ChatRepositoryException(
-                    ex.GetType().Name + " al escribir el chat '" + path + "': " + ex.Message, ex);
+                throw new Exception(
+                    $"Error inesperado al escribir el chat '{path}': {ex.Message}", ex);
             }
         }
 
@@ -151,19 +152,11 @@ namespace SnakesAndLadders.Data.Repositories
                 string[] lines;
                 var utf8 = new UTF8Encoding(true);
 
-                FileStream fs = null;
-                StreamReader sr = null;
-                try
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var sr = new StreamReader(fs, utf8, true))
                 {
-                    fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    sr = new StreamReader(fs, utf8, true);
                     var all = sr.ReadToEnd();
                     lines = all.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-                }
-                finally
-                {
-                    if (sr != null) sr.Dispose();
-                    if (fs != null) fs.Dispose();
                 }
 
                 var result = new List<ChatMessageDto>(Math.Min(take, lines.Length));
@@ -177,7 +170,7 @@ namespace SnakesAndLadders.Data.Repositories
                     }
                     catch (JsonException ex)
                     {
-                        throw new JsonException ("Hubo un problema con el archivo json"+ ex.Message);
+                        throw new JsonException("Hubo un problema con el archivo JSON: " + ex.Message, ex);
                     }
                 }
 
@@ -186,22 +179,23 @@ namespace SnakesAndLadders.Data.Repositories
             }
             catch (UnauthorizedAccessException ex)
             {
-                throw new ChatRepositoryException(
-                    "UnauthorizedAccessException al leer el chat '" + path + "': " + ex.Message, ex);
+                throw new InvalidOperationException(
+                    $"No se tienen permisos para leer el archivo '{path}'.", ex);
             }
             catch (IOException ex)
             {
-                throw new ChatRepositoryException(
-                    "IOException al leer el chat '" + path + "': " + ex.Message, ex);
+                throw new IOException(
+                    $"Error de E/S al leer el chat '{path}': {ex.Message}", ex);
             }
             catch (SecurityException ex)
             {
-                throw new SecurityException(ex.Message); 
+                throw new UnauthorizedAccessException(
+                    $"Error de seguridad al acceder a '{path}': {ex.Message}", ex);
             }
             catch (Exception ex)
             {
-                throw new ChatRepositoryException(
-                    ex.GetType().Name + " al leer el chat '" + path + "': " + ex.Message, ex);
+                throw new Exception(
+                    $"Error inesperado al leer el chat '{path}': {ex.Message}", ex);
             }
         }
     }

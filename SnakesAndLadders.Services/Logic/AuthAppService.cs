@@ -28,20 +28,20 @@ namespace SnakesAndLadders.Services.Logic
             _email = email ?? throw new ArgumentNullException(nameof(email));
         }
 
-        public AuthResult Register(RegistrationDto r)
+        public AuthResult Register(RegistrationDto registration)
         {
-            if (r == null || string.IsNullOrWhiteSpace(r.Email) ||
-                string.IsNullOrWhiteSpace(r.Password) || string.IsNullOrWhiteSpace(r.UserName))
+            if (registration == null || string.IsNullOrWhiteSpace(registration.Email) ||
+                string.IsNullOrWhiteSpace(registration.Password) || string.IsNullOrWhiteSpace(registration.UserName))
                 return Fail("Auth.InvalidRequest");
 
-            if (_repo.EmailExists(r.Email)) return Fail("Auth.EmailAlreadyExists");
-            if (_repo.UserNameExists(r.UserName)) return Fail("Auth.UserNameAlreadyExists");
+            if (_repo.EmailExists(registration.Email)) return Fail("Auth.EmailAlreadyExists");
+            if (_repo.UserNameExists(registration.UserName)) return Fail("Auth.UserNameAlreadyExists");
 
             try
             {
-                var hash = _hasher.Hash(r.Password);
-                var id = _repo.CreateUserWithAccountAndPassword(r.UserName, r.FirstName, r.LastName, r.Email, hash);
-                return Ok(userId: id, displayName: r.UserName);
+                var hash = _hasher.Hash(registration.Password);
+                var id = _repo.CreateUserWithAccountAndPassword(registration.UserName, registration.FirstName, registration.LastName, registration.Email, hash);
+                return Ok(userId: id, displayName: registration.UserName);
             }
             catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
             {
@@ -55,10 +55,10 @@ namespace SnakesAndLadders.Services.Logic
 
         public AuthResult Login(LoginDto request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Email))
+            if (request == null || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Username))
                 return Fail("Auth.InvalidRequest");
 
-            var auth = _repo.GetAuthByIdentifier(request.Email); // email o username
+            var auth = _repo.GetAuthByIdentifier(request.Username); 
             if (auth == null) return Fail("Auth.InvalidCredentials");
 
             var (userId, hash, display) = auth.Value;
