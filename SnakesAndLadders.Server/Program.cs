@@ -43,7 +43,7 @@ internal static class Program
         {
             Log.Info("Iniciando el servidor…");
 
-            // ChatFilePath ahora es carpeta; el repo guarda {lobbyId}.jsonl
+            
             var chatPath = Environment.ExpandEnvironmentVariables(
                 ConfigurationManager.AppSettings["ChatFilePath"] ??
                 @"%LOCALAPPDATA%\SnakesAndLadders\Chat\");
@@ -90,37 +90,37 @@ internal static class Program
         catch (AddressAccessDeniedException ex)
         {
             Log.Error("Acceso denegado al abrir puertos HTTP/NET.TCP. Ejecuta como admin o cambia puertos.", ex);
-            Console.Error.WriteLine("\n" + ex);
+            
             Console.WriteLine("\nPresiona Enter para cerrar…"); Console.ReadLine();
         }
         catch (AddressAlreadyInUseException ex)
         {
             Log.Error("Puerto/URL en uso. Cambia baseAddress o libera el puerto.", ex);
-            Console.Error.WriteLine("\n" + ex);
+            
             Console.WriteLine("\nPresiona Enter para cerrar…"); Console.ReadLine();
         }
         catch (CommunicationException ex)
         {
             Log.Error("Fallo de comunicación al abrir los hosts WCF.", ex);
-            Console.Error.WriteLine("\n" + ex);
+           
             Console.WriteLine("\nPresiona Enter para cerrar…"); Console.ReadLine();
         }
         catch (TimeoutException ex)
         {
             Log.Error("Timeout al abrir los hosts WCF.", ex);
-            Console.Error.WriteLine("\n" + ex);
+            
             Console.WriteLine("\nPresiona Enter para cerrar…"); Console.ReadLine();
         }
         catch (ConfigurationErrorsException ex)
         {
             Log.Error("Error en App.config (secciones, bindings, endpoints).", ex);
-            Console.Error.WriteLine("\n" + ex);
+            
             Console.WriteLine("\nPresiona Enter para cerrar…"); Console.ReadLine();
         }
         catch (Exception ex)
         {
             Log.Error("Error inesperado al iniciar el servidor.", ex);
-            Console.Error.WriteLine("\n" + ex);
+           
             Console.WriteLine("\nPresiona Enter para cerrar…"); Console.ReadLine();
         }
         finally
@@ -141,7 +141,7 @@ internal static class Program
         {
             if (host.State == CommunicationState.Faulted)
             {
-                Log.Warn(name + " en estado Faulted. Abortando…");
+                Log.Warn(" en estado Faulted. Abortando…");
                 host.Abort();
             }
             else

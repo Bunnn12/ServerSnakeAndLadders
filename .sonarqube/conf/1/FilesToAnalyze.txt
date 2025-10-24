@@ -15,6 +15,7 @@ C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Propertie
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\RedesSociales.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Reporte.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Repositories\AccountsRepository.cs
+C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Repositories\FileChatRepository.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Repositories\LobbyRepository.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Repositories\UserRepository.cs
 C:\Users\irene\Source\Repos\ServerSnakeAndLadders\SnakeAndLadders.Data\Sancion.cs
