@@ -12,5 +12,8 @@ namespace SnakeAndLadders.Contracts.Services
 
         [OperationContract]
         ProfilePhotoDto GetProfilePhoto(int userId);
+
+        [OperationContract]
+        AccountDto UpdateProfile(UpdateProfileRequestDto request);
     }
 }

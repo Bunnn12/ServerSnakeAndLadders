@@ -14,6 +14,21 @@ namespace SnakesAndLadders.Services.Wcf
 
         public AccountDto GetProfileByUsername(string username) => _app.GetProfileByUsername(username);
         public ProfilePhotoDto GetProfilePhoto(int userId) => _app.GetProfilePhoto(userId);
-    }
 
+        public AccountDto UpdateProfile(UpdateProfileRequestDto request)
+        {
+            try
+            {
+                return _app.UpdateProfile(request);
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+    }
 }
+
+
+
