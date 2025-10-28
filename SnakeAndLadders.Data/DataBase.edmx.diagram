@@ -4,7 +4,7 @@
   <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
     <!-- Diagram content (shape and connector positions) -->
     <edmx:Diagrams>
-      <Diagram DiagramId="9bffc836cdfe4e78a4629e6b5e058cc1" Name="Diagram1" ZoomLevel="90">
+      <Diagram DiagramId="9bffc836cdfe4e78a4629e6b5e058cc1" Name="Diagram1" ZoomLevel="59">
         <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Avatar" Width="1.5" PointX="0.75" PointY="7" IsExpanded="true" />
         <EntityTypeShape EntityType="SnakeAndLaddersDBModel.AvatarDesbloqueado" Width="1.5" PointX="3" PointY="14.125" IsExpanded="true" />
         <EntityTypeShape EntityType="SnakeAndLaddersDBModel.Caja" Width="1.5" PointX="1.5" PointY="38.25" IsExpanded="true" />

@@ -47,7 +47,7 @@ namespace SnakesAndLadders.Data.Repositories
                     .Select(u => new ProfilePhotoDto
                     {
                         UserId = u.IdUsuario,
-                        Photo = u.FotoPerfil
+                       // Photo = u.FotoPerfil
                     })
                     .SingleOrDefault();
 
