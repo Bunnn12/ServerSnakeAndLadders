@@ -38,7 +38,7 @@ namespace SnakesAndLadders.Services.Logic
                 return new CreateGameResponse
                 {
                     PartidaId = created.PartidaId,
-                    CodigoPartida = created.Code,
+                    CodigoPartida = created.Code,  //cambiar
                     ExpiresAtUtc = created.ExpiresAtUtc
                 };
             }

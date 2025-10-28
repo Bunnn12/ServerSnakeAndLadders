@@ -17,7 +17,7 @@ namespace SnakesAndLadders.Data.Repositories
     {
         private static readonly object _sync = new object();
 
-        private readonly string _baseDirFull;
+        private readonly string _baseDirFull;   //cambiar nombre
         private readonly JsonSerializerOptions _json;
 
         public FileChatRepository(string templatePathOrDir)
@@ -80,8 +80,8 @@ namespace SnakesAndLadders.Data.Repositories
 
                 lock (_sync)
                 {
-                    FileStream fs = null;
-                    StreamWriter sw = null;
+                    FileStream fs = null;   //cambiar nombre
+                    StreamWriter sw = null;   //cambiar nombre
                     try
                     {
                         fs = new FileStream(

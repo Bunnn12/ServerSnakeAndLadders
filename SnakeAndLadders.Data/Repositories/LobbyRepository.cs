@@ -20,7 +20,7 @@ namespace SnakesAndLadders.Data.Repositories
         public CreatedGameInfo CreateGame(
             int hostUserId,
             byte maxPlayers,
-            string dificultad,
+            string dificultad,   //cambiar 
             string code,
             DateTime expiresAtUtc)
         {

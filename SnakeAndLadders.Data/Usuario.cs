@@ -36,7 +36,7 @@ namespace SnakesAndLadders.Data
         public string NombreUsuario { get; set; }
         public string Nombre { get; set; }
         public string Apellidos { get; set; }
-        public byte[] FotoPerfil { get; set; }
+        public string FotoPerfil { get; set; }
         public string DescripcionPerfil { get; set; }
         public int Monedas { get; set; }
         public byte[] Estado { get; set; }

@@ -182,7 +182,7 @@
           <Property Name="NombreUsuario" Type="nvarchar" MaxLength="45" Nullable="false" />
           <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
           <Property Name="Apellidos" Type="nvarchar" MaxLength="45" Nullable="false" />
-          <Property Name="FotoPerfil" Type="varbinary(max)" />
+          <Property Name="FotoPerfil" Type="varchar" MaxLength="5" />
           <Property Name="DescripcionPerfil" Type="nvarchar" MaxLength="255" />
           <Property Name="Monedas" Type="int" Nullable="false" />
           <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
@@ -773,7 +773,7 @@
           <Property Name="NombreUsuario" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
           <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
           <Property Name="Apellidos" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
-          <Property Name="FotoPerfil" Type="Binary" MaxLength="Max" FixedLength="false" />
+          <Property Name="FotoPerfil" Type="String" />
           <Property Name="DescripcionPerfil" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
           <Property Name="Monedas" Type="Int32" Nullable="false" />
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
