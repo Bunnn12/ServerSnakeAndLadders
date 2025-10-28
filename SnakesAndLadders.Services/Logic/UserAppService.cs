@@ -27,5 +27,9 @@ namespace SnakesAndLadders.Services.Logic
             if (userId <= 0) throw new ArgumentOutOfRangeException("userId");
             return _users.GetPhotoByUserId(userId);
         }
+        public AccountDto UpdateProfile(UpdateProfileRequestDto request)
+        {
+            return _users.UpdateProfile(request);
+        }
     }
 }

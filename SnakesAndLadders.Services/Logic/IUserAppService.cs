@@ -7,6 +7,7 @@ namespace SnakesAndLadders.Services.Logic
     {
         AccountDto GetProfileByUsername(string username);
         ProfilePhotoDto GetProfilePhoto(int userId);
+        AccountDto UpdateProfile(UpdateProfileRequestDto request);
     }
 }
 
