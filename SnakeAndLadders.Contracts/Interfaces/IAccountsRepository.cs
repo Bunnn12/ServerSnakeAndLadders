@@ -1,18 +1,12 @@
-﻿namespace SnakeAndLadders.Contracts.Interfaces
+﻿using SnakeAndLadders.Contracts.Dtos;
+
+namespace SnakeAndLadders.Contracts.Interfaces
 {
     public interface IAccountsRepository
     {
         bool EmailExists(string email);
         bool UserNameExists(string userName);
-        int CreateUserWithAccountAndPassword(
-            string userName,
-            string firstName,
-            string lastName,
-            string email,
-            string passwordHash
-        );
+        int CreateUserWithAccountAndPassword(CreateAccountRequestDto createAccountRequest);
         (int userId, string passwordHash, string displayName)? GetAuthByIdentifier(string identifier);
-
-
     }
 }

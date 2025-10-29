@@ -3,7 +3,7 @@ using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Diagnostics;
 using System.Linq;
-using ServerSnakesAndLadders;
+using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data;
 
@@ -11,85 +11,105 @@ namespace ServerSnakesAndLadders
 {
     public class AccountsRepository : IAccountsRepository
     {
-        public bool EmailExists(string email)
+        public bool EmailExists(string emailAddress)
         {
-            email = (email ?? "").Trim();
+            var normalized = Normalize(emailAddress, 200);
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                var cn = db.Database.Connection;
-                Trace.WriteLine($"[EmailExists] DS={cn.DataSource} DB={cn.Database} email={email}");
                 ((IObjectContextAdapter)db).ObjectContext.CommandTimeout = 30;
-
-                return db.Cuenta.AsNoTracking().Any(c => c.Correo == email);
+                return db.Cuenta.AsNoTracking().Any(c => c.Correo == normalized);
             }
         }
 
-        public bool UserNameExists(string userName)
+        public bool UserNameExists(string username)
         {
-            userName = (userName ?? "").Trim();
+            var normalized = Normalize(username, 90);
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                var cn = db.Database.Connection;
-                Trace.WriteLine($"[UserNameExists] DS={cn.DataSource} DB={cn.Database} user={userName}");
-                ((IObjectContextAdapter)db).ObjectContext.CommandTimeout = 10;
-
-                return db.Usuario.AsNoTracking().Any(u => u.NombreUsuario == userName);
+                ((IObjectContextAdapter)db).ObjectContext.CommandTimeout = 30;
+                return db.Usuario.AsNoTracking().Any(u => u.NombreUsuario == normalized);
             }
         }
 
-        public int CreateUserWithAccountAndPassword(string userName, string firstName, string lastName, string email, string passwordHash)
+
+        public int CreateUserWithAccountAndPassword(CreateAccountRequestDto createAccountRequest)
         {
+            if (createAccountRequest == null) throw new ArgumentNullException(nameof(createAccountRequest));
+
+            var username = RequireParam(Normalize(createAccountRequest.Username, 90), nameof(createAccountRequest.Username));
+            var firstName = Normalize(createAccountRequest.FirstName, 90);
+            var lastName = Normalize(createAccountRequest.LastName, 90);
+            var profileDescription = Normalize(createAccountRequest.ProfileDescription, 510);
+            var profilePhotoId = Normalize(createAccountRequest.ProfilePhotoId, 5);
+            var email = RequireParam(Normalize(createAccountRequest.Email, 200), nameof(createAccountRequest.Email));
+            var passwordHash = RequireParam(Normalize(createAccountRequest.PasswordHash, 510), nameof(createAccountRequest.PasswordHash));
+
             using (var db = new SnakeAndLaddersDBEntities1())
             using (var tx = db.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
             {
                 try
                 {
-                    var user = new Usuario
+                    var userRow = new Usuario
                     {
-                        NombreUsuario = userName,
+                        NombreUsuario = username,
                         Nombre = firstName,
                         Apellidos = lastName,
+                        DescripcionPerfil = string.IsNullOrWhiteSpace(profileDescription) ? null : profileDescription,
+                        FotoPerfil = string.IsNullOrWhiteSpace(profilePhotoId) ? null : profilePhotoId,
                         Monedas = 0,
                         Estado = new byte[] { 1 }
                     };
-                    db.Usuario.Add(user);
-                    db.SaveChanges();
+                    db.Usuario.Add(userRow);
+                    db.SaveChanges(); 
 
-                    var account = new Cuenta
+                    var accountRow = new Cuenta
                     {
-                        UsuarioIdUsuario = user.IdUsuario,
+                        UsuarioIdUsuario = userRow.IdUsuario,
                         Correo = email,
                         Estado = new byte[] { 1 }
                     };
-                    db.Cuenta.Add(account);
-                    db.SaveChanges();
+                    db.Cuenta.Add(accountRow);
+                    db.SaveChanges(); 
 
-                    var pwd = new Contrasenia
+                    var passwordRow = new Contrasenia
                     {
-                        UsuarioIdUsuario = user.IdUsuario,
+                        UsuarioIdUsuario = userRow.IdUsuario,
                         Contrasenia1 = passwordHash,
                         Estado = new byte[] { 1 },
                         FechaCreacion = DateTime.UtcNow,
-                        Cuenta = account
+                        Cuenta = accountRow      
                     };
-                    db.Contrasenia.Add(pwd);
+                    db.Contrasenia.Add(passwordRow);
 
                     db.SaveChanges();
                     tx.Commit();
-                    return user.IdUsuario;
+                    return userRow.IdUsuario;
                 }
-                catch (System.Data.SqlClient.SqlException sqlEx)
+                catch (System.Data.SqlClient.SqlException ex)
                 {
                     tx.Rollback();
-                    // Deja que AuthService mapee por Number (2601/2627/1205/…)
                     throw;
                 }
-                catch
+                catch (Exception ex)
                 {
                     tx.Rollback();
                     throw;
                 }
             }
+        }
+
+        private static string Normalize(string value, int maxLen)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            var trimmed = value.Trim();
+            return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+        }
+
+        private static string RequireParam(string value, string paramName)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException($"{paramName} is required.", paramName);
+            return value;
         }
 
         public (int userId, string passwordHash, string displayName)? GetAuthByIdentifier(string identifier)
