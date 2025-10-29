@@ -28,7 +28,7 @@ namespace SnakesAndLadders.Services.Logic
             _email = email ?? throw new ArgumentNullException(nameof(email));
         }
 
-        public AuthResult Register(RegistrationDto registration)
+        public AuthResult RegisterUser(RegistrationDto registration)
         {
             if (registration == null || string.IsNullOrWhiteSpace(registration.Email) ||
                 string.IsNullOrWhiteSpace(registration.Password) || string.IsNullOrWhiteSpace(registration.UserName))
@@ -39,15 +39,25 @@ namespace SnakesAndLadders.Services.Logic
 
             try
             {
-                var hash = _hasher.Hash(registration.Password);
-                var id = _repo.CreateUserWithAccountAndPassword(registration.UserName, registration.FirstName, registration.LastName, registration.Email, hash);
-                return Ok(userId: id, displayName: registration.UserName);
+                var passwordHash = _hasher.Hash(registration.Password);
+                var requestDto = new CreateAccountRequestDto
+                {
+                    Username = registration.UserName,
+                    FirstName = registration.FirstName,          
+                    LastName = registration.LastName,           
+                    Email = registration.Email,
+                    PasswordHash = passwordHash
+                };
+
+                var newUserId = _repo.CreateUserWithAccountAndPassword(requestDto);
+
+                return Ok(userId: newUserId, displayName: registration.UserName);
             }
             catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
             {
                 return Fail("Auth.EmailAlreadyExists");
             }
-            catch
+            catch (Exception ex)
             {
                 return Fail("Auth.ServerError");
             }

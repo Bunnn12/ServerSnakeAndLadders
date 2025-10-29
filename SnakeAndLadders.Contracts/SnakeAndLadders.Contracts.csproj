@@ -51,6 +51,7 @@
     <Compile Include="Dtos\AccountDto.cs" />
     <Compile Include="Dtos\AuthResult.cs" />
     <Compile Include="Dtos\ChatMessageDto.cs" />
+    <Compile Include="Dtos\CreateAccountRequest.cs" />
     <Compile Include="Dtos\CreateGameRequest.cs" />
     <Compile Include="Dtos\CreateGameResponse.cs" />
     <Compile Include="Dtos\GetLobbyInfoRequest.cs" />

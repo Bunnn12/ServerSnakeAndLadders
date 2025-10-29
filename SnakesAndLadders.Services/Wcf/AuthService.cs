@@ -14,7 +14,7 @@ namespace SnakesAndLadders.Services.Wcf
         private readonly IAuthAppService _app;
         public AuthService(IAuthAppService app) { _app = app; }
 
-        public AuthResult Register(RegistrationDto r) => _app.Register(r);
+        public AuthResult Register(RegistrationDto r) => _app.RegisterUser(r);
         public AuthResult Login(LoginDto r) => _app.Login(r);
         public AuthResult RequestEmailVerification(string email) => _app.RequestEmailVerification(email);
         public AuthResult ConfirmEmailVerification(string email, string code) => _app.ConfirmEmailVerification(email, code);

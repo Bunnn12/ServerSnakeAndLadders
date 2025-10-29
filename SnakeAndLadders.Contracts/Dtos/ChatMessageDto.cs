@@ -10,6 +10,7 @@ namespace SnakeAndLadders.Contracts.Dtos
         [DataMember(IsRequired = true)] public string Text { get; set; } = string.Empty;
         [DataMember(IsRequired = true)] public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
         [DataMember(IsRequired = true)] public int SenderId { get; set; }
+        [DataMember] public string SenderAvatarId { get; set; }
 
         public string Header => $"{Sender} · {TimestampUtc:HH:mm}";
     }

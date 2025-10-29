@@ -17,7 +17,7 @@ namespace SnakesAndLadders.Data.Repositories
     {
         private static readonly object _sync = new object();
 
-        private readonly string _baseDirFull;   //cambiar nombre
+        private readonly string _chatDirectory;   //cambiar nombre
         private readonly JsonSerializerOptions _json;
 
         public FileChatRepository(string templatePathOrDir)
@@ -33,7 +33,7 @@ namespace SnakesAndLadders.Data.Repositories
             var baseDir = string.IsNullOrEmpty(sub) ? safeRoot : Path.Combine(safeRoot, sub);
 
             Directory.CreateDirectory(baseDir);
-            _baseDirFull = Path.GetFullPath(baseDir);
+            _chatDirectory = Path.GetFullPath(baseDir);
 
             _json = new JsonSerializerOptions
             {
@@ -51,12 +51,12 @@ namespace SnakesAndLadders.Data.Repositories
         private string FileFor(int lobbyId)
         {
             var fileName = string.Format(CultureInfo.InvariantCulture, "{0:D10}.jsonl", lobbyId);
-            var combined = Path.Combine(_baseDirFull, fileName);
+            var combined = Path.Combine(_chatDirectory, fileName);
 
             var full = Path.GetFullPath(combined);
-            var baseWithSep = _baseDirFull.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
-                ? _baseDirFull
-                : _baseDirFull + Path.DirectorySeparatorChar;
+            var baseWithSep = _chatDirectory.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                ? _chatDirectory
+                : _chatDirectory + Path.DirectorySeparatorChar;
 
             if (!full.StartsWith(baseWithSep, StringComparison.OrdinalIgnoreCase))
             {
@@ -114,12 +114,12 @@ namespace SnakesAndLadders.Data.Repositories
             {
                 try
                 {
-                    Directory.CreateDirectory(_baseDirFull);
+                    Directory.CreateDirectory(_chatDirectory);
                 }
                 catch
                 {
                     throw new IOException(
-                        $"El directorio '{_baseDirFull}' no existe y no se pudo crear.", ex);
+                        $"El directorio '{_chatDirectory}' no existe y no se pudo crear.", ex);
                 }
             }
             catch (IOException ex)
