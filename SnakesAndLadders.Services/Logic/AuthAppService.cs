@@ -65,16 +65,31 @@ namespace SnakesAndLadders.Services.Logic
 
         public AuthResult Login(LoginDto request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Email))
+            if (request == null ||
+                string.IsNullOrWhiteSpace(request.Password) ||
+                string.IsNullOrWhiteSpace(request.Email))
+            {
                 return Fail("Auth.InvalidRequest");
+            }
 
-            var auth = _repo.GetAuthByIdentifier(request.Email); 
-            if (auth == null) return Fail("Auth.InvalidCredentials");
+            var auth = _repo.GetAuthByIdentifier(request.Email);
+            if (auth == null)
+            {
+                return Fail("Auth.InvalidCredentials");
+            }
 
-            var (userId, hash, display) = auth.Value;
-            if (!_hasher.Verify(request.Password, hash)) return Fail("Auth.InvalidCredentials");
+            var (userId, hash, display, photoId) = auth.Value;
 
-            return Ok(userId: userId, displayName: display);
+            if (!_hasher.Verify(request.Password, hash))
+            {
+                return Fail("Auth.InvalidCredentials");
+            }
+
+            return Ok(
+                userId: userId,
+                displayName: display,
+                profilePhotoId: photoId
+            );
         }
 
         public AuthResult RequestEmailVerification(string email)
@@ -138,9 +153,24 @@ namespace SnakesAndLadders.Services.Logic
             return num.ToString(new string('0', digits));
         }
 
-        private static AuthResult Ok(string code = "Auth.Ok", Dictionary<string, string> meta = null,
-                                     int? userId = null, string displayName = null)
-            => new AuthResult { Success = true, Code = code, Meta = meta, UserId = userId, DisplayName = displayName };
+        private static AuthResult Ok(
+            string code = "Auth.Ok",
+            Dictionary<string, string> meta = null,
+            int? userId = null,
+            string displayName = null,
+            string profilePhotoId = null)
+        {
+            return new AuthResult
+            {
+                Success = true,
+                Code = code,
+                Meta = meta,
+                UserId = userId,
+                DisplayName = displayName,
+                ProfilePhotoId = profilePhotoId
+            };
+        }
+
 
         private static AuthResult Fail(string code, Dictionary<string, string> meta = null)
             => new AuthResult { Success = false, Code = code, Meta = meta };

@@ -7,6 +7,6 @@ namespace SnakeAndLadders.Contracts.Interfaces
         bool EmailExists(string email);
         bool UserNameExists(string userName);
         int CreateUserWithAccountAndPassword(CreateAccountRequestDto createAccountRequest);
-        (int userId, string passwordHash, string displayName)? GetAuthByIdentifier(string identifier);
+        (int userId, string passwordHash, string displayName, string profilePhotoId)? GetAuthByIdentifier(string identifier);
     }
 }

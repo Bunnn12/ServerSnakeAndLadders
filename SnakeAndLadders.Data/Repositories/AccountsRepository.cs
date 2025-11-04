@@ -6,6 +6,7 @@ using System.Linq;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data;
+using SnakesAndLadders.Server.Helpers;
 
 namespace ServerSnakesAndLadders
 {
@@ -112,7 +113,7 @@ namespace ServerSnakesAndLadders
             return value;
         }
 
-        public (int userId, string passwordHash, string displayName)? GetAuthByIdentifier(string identifier)
+        public (int userId, string passwordHash, string displayName, string profilePhotoId)? GetAuthByIdentifier(string identifier)
         {
             using (var db = new SnakeAndLaddersDBEntities1())
             {
@@ -122,6 +123,7 @@ namespace ServerSnakesAndLadders
                     .FirstOrDefault();
 
                 int userId = 0;
+
                 if (cuenta != null)
                 {
                     userId = cuenta.UsuarioIdUsuario;
@@ -132,7 +134,12 @@ namespace ServerSnakesAndLadders
                         .Where(u => u.NombreUsuario == identifier)
                         .Select(u => new { u.IdUsuario })
                         .FirstOrDefault();
-                    if (usuario == null) return null;
+
+                    if (usuario == null)
+                    {
+                        return null;
+                    }
+
                     userId = usuario.IdUsuario;
                 }
 
@@ -142,14 +149,28 @@ namespace ServerSnakesAndLadders
                     .Select(p => p.Contrasenia1)
                     .FirstOrDefault();
 
-                if (lastPwd == null) return null;
+                if (lastPwd == null)
+                {
+                    return null;
+                }
 
-                var display = db.Usuario.AsNoTracking()
+                var userData = db.Usuario.AsNoTracking()
                     .Where(u => u.IdUsuario == userId)
-                    .Select(u => u.NombreUsuario)
+                    .Select(u => new
+                    {
+                        u.NombreUsuario,
+                        u.FotoPerfil
+                    })
                     .FirstOrDefault();
 
-                return (userId, lastPwd, display);
+                if (userData == null)
+                {
+                    return null;
+                }
+
+                var normalizedAvatarId = AvatarIdHelper.MapFromDb(userData.FotoPerfil);
+
+                return (userId, lastPwd, userData.NombreUsuario, normalizedAvatarId);
             }
         }
     }

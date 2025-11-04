@@ -69,6 +69,7 @@
     <Compile Include="Dtos\StartMatchRequest.cs" />
     <Compile Include="Faults\Faults.cs" />
     <Compile Include="Faults\ServiceFault.cs" />
+    <Compile Include="Helpers\AvatarIdHelper.cs" />
     <Compile Include="Interfaces\IAccountsRepository.cs" />
     <Compile Include="Interfaces\IAppLogger.cs" />
     <Compile Include="Interfaces\IChatClient.cs" />

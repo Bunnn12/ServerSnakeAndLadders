@@ -18,5 +18,7 @@ namespace SnakeAndLadders.Contracts.Dtos
         [DataMember] public string TechnicalMessage { get; set; }
 
         [DataMember] public string Message { get; set; }
+
+        [DataMember] public string ProfilePhotoId { get; set; }
     }
 }

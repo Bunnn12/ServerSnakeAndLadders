@@ -9,7 +9,6 @@ namespace SnakeAndLadders.Contracts.Interfaces {
         AccountDto GetByUsername(string username);
         ProfilePhotoDto GetPhotoByUserId(int userId);
         AccountDto UpdateProfile(UpdateProfileRequestDto request);
-        string GetAvatarIdByUserId(int userId);
     }
 
 }
