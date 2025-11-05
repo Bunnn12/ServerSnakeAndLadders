@@ -129,6 +129,11 @@ namespace SnakesAndLadders.Data.Repositories
                 };
             }
         }
+
+        public String GetAvatarIdByUserId(int a)
+        {
+            return ("a");
+        }
     }
 }
 

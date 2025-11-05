@@ -16,5 +16,9 @@ namespace SnakeAndLadders.Contracts.Dtos
         [DataMember] public LobbyStatus Status { get; set; }
         [DataMember] public DateTime ExpiresAtUtc { get; set; }
         [DataMember] public List<LobbyMember> Players { get; set; } = new List<LobbyMember>();
+        [DataMember] public int BoardSide { get; set; }
+        [DataMember] public string Difficulty { get; set; }
+        [DataMember] public byte PlayersRequested { get; set; }
+        [DataMember] public string SpecialTiles { get; set; }
     }
 }

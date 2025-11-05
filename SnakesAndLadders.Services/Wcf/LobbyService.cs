@@ -23,6 +23,8 @@ namespace SnakesAndLadders.Services.Wcf
             var partidaId = NextId();
             var codigo = GenerateCode();
 
+            var effectiveTtl = Math.Max(5, request.TtlMinutes);
+
             var lobby = new LobbyInfo
             {
                 PartidaId = partidaId,
@@ -31,8 +33,15 @@ namespace SnakesAndLadders.Services.Wcf
                 HostUserName = $"User{request.HostUserId}",
                 MaxPlayers = request.MaxPlayers,
                 Status = LobbyStatus.Waiting,
-                ExpiresAtUtc = DateTime.UtcNow.AddMinutes(Math.Max(5, request.TtlMinutes))
+                ExpiresAtUtc = DateTime.UtcNow.AddMinutes(effectiveTtl),
+
+                
+                BoardSide = request.BoardSide,
+                Difficulty = request.Dificultad,
+                PlayersRequested = request.PlayersRequested,
+                SpecialTiles = request.SpecialTiles
             };
+
             lobby.Players.Add(new LobbyMember
             {
                 UserId = request.HostUserId,
@@ -50,6 +59,7 @@ namespace SnakesAndLadders.Services.Wcf
                 ExpiresAtUtc = lobby.ExpiresAtUtc
             };
         }
+
 
         public JoinLobbyResponse JoinLobby(JoinLobbyRequest request)
         {
