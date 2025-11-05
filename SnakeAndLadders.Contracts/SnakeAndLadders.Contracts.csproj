@@ -54,6 +54,10 @@
     <Compile Include="Dtos\CreateAccountRequest.cs" />
     <Compile Include="Dtos\CreateGameRequest.cs" />
     <Compile Include="Dtos\CreateGameResponse.cs" />
+    <Compile Include="Dtos\Gameplay\BoardCellDto.cs" />
+    <Compile Include="Dtos\Gameplay\BoardDefinitionDto.cs" />
+    <Compile Include="Dtos\Gameplay\CreateBoardRequestDto.cs" />
+    <Compile Include="Dtos\Gameplay\CreateBoardResponseDto.cs" />
     <Compile Include="Dtos\GetLobbyInfoRequest.cs" />
     <Compile Include="Dtos\JoinLobbyRequest.cs" />
     <Compile Include="Dtos\JoinLobbyResponse.cs" />
@@ -70,6 +74,8 @@
     <Compile Include="Faults\Faults.cs" />
     <Compile Include="Faults\ServiceFault.cs" />
     <Compile Include="Helpers\AvatarIdHelper.cs" />
+    <Compile Include="Helpers\BoardSizeOption.cs" />
+    <Compile Include="Helpers\SpecialCellType.cs" />
     <Compile Include="Interfaces\IAccountsRepository.cs" />
     <Compile Include="Interfaces\IAppLogger.cs" />
     <Compile Include="Interfaces\IChatClient.cs" />
@@ -83,6 +89,7 @@
     <Compile Include="Services\IAccountService.cs" />
     <Compile Include="Services\IAuthService.cs" />
     <Compile Include="Services\IChatService.cs" />
+    <Compile Include="Services\IGameBoardService.cs" />
     <Compile Include="Services\ILobbyService.cs" />
     <Compile Include="Services\IUserService.cs" />
   </ItemGroup>

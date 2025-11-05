@@ -31,9 +31,14 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="log4net, Version=3.2.0.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
+      <HintPath>..\packages\log4net.3.2.0\lib\net462\log4net.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -44,12 +49,14 @@
   <ItemGroup>
     <Compile Include="Logic\AuthAppService.cs" />
     <Compile Include="Logic\ChatAppService.cs" />
+    <Compile Include="Logic\GameBoardBuilder.cs" />
     <Compile Include="Logic\IAuthAppService.cs" />
     <Compile Include="Logic\IUserAppService.cs" />
     <Compile Include="Logic\LobbyAppService.cs" />
     <Compile Include="Logic\UserAppService.cs" />
     <Compile Include="Wcf\AuthService.cs" />
     <Compile Include="Wcf\ChatService.cs" />
+    <Compile Include="Wcf\GameBoardService.cs" />
     <Compile Include="Wcf\LobbyService.cs" />
     <Compile Include="Wcf\UserService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -59,6 +66,9 @@
       <Project>{53fb80f1-7fe8-4254-b678-68a7700c679b}</Project>
       <Name>SnakeAndLadders.Contracts</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
