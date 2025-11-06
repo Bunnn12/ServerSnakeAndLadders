@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.ServiceModel;
-using System.Text;
-using System.Threading.Tasks;
 using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Faults;
@@ -39,13 +36,21 @@ namespace SnakesAndLadders.Services.Logic
 
         private readonly IReportRepository reportRepository;
         private readonly ISanctionRepository sanctionRepository;
+        private readonly IAccountStatusRepository accountStatusRepository;
 
         public PlayerReportAppService(
             IReportRepository reportRepositoryValue,
-            ISanctionRepository sanctionRepositoryValue)
+            ISanctionRepository sanctionRepositoryValue,
+            IAccountStatusRepository accountStatusRepositoryValue)
         {
-            reportRepository = reportRepositoryValue ?? throw new ArgumentNullException(nameof(reportRepositoryValue));
-            sanctionRepository = sanctionRepositoryValue ?? throw new ArgumentNullException(nameof(sanctionRepositoryValue));
+            reportRepository = reportRepositoryValue
+                ?? throw new ArgumentNullException(nameof(reportRepositoryValue));
+
+            sanctionRepository = sanctionRepositoryValue
+                ?? throw new ArgumentNullException(nameof(sanctionRepositoryValue));
+
+            accountStatusRepository = accountStatusRepositoryValue
+                ?? throw new ArgumentNullException(nameof(accountStatusRepositoryValue));
         }
 
         public void CreateReport(ReportDto report)
@@ -71,7 +76,6 @@ namespace SnakesAndLadders.Services.Logic
                 };
 
                 bool hasActiveReport = reportRepository.ReporterHasActiveReport(reportCriteria);
-
                 if (hasActiveReport)
                 {
                     Logger.WarnFormat(
@@ -168,8 +172,6 @@ namespace SnakesAndLadders.Services.Logic
             {
                 var nowUtc = DateTime.UtcNow;
 
-                // Si quieres que quick-kick no cuente como sanción formal,
-                // aquí podrías solo loguear y no insertar sanción.
                 var sanction = new SanctionDto
                 {
                     UserId = quickKick.TargetUserId,
@@ -299,6 +301,26 @@ namespace SnakesAndLadders.Services.Logic
                 userId,
                 banInfo.IsBanned,
                 banInfo.BanEndsAtUtc?.ToString("o") ?? "null");
+
+            if (string.Equals(sanctionType, SANCTION_TYPE_S4, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    accountStatusRepository.SetUserAndAccountActiveState(userId, false);
+
+                    Logger.InfoFormat(
+                        "User {0} permanently banned. User, account and passwords set to inactive.",
+                        userId);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error(
+                        $"Error applying permanent deactivation for user {userId}.",
+                        ex);
+                    // No relanzamos para no romper el flujo de CreateReport:
+                    // la sanción S4 ya quedó registrada.
+                }
+            }
         }
 
         private BanInfoDto BuildBanInfo(SanctionDto sanction)

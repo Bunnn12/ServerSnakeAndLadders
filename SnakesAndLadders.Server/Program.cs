@@ -59,15 +59,17 @@ internal static class Program
 
             var reportRepo = new ReportRepository();
             var sanctionRepo = new SanctionRepository();
+            var accountStatusRepo = new AccountStatusRepository();
 
             IPasswordHasher hasher = new Sha256PasswordHasher();
             IEmailSender email = new SmtpEmailSender();
             IAppLogger appLogger = new AppLogger(Log);
 
-            var authApp = new AuthAppService(accountsRepo, hasher, email);
+
+            var playerReportApp = new PlayerReportAppService(reportRepo, sanctionRepo, accountStatusRepo);
+            var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp);
             var userApp = new UserAppService(userRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
-            var playerReportApp = new PlayerReportAppService(reportRepo, sanctionRepo);
 
             var authSvc = new AuthService(authApp);
             var userSvc = new UserService(userApp);

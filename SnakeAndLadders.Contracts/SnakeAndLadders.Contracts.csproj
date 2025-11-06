@@ -83,6 +83,7 @@
     <Compile Include="Helpers\BoardSizeOption.cs" />
     <Compile Include="Helpers\SpecialCellType.cs" />
     <Compile Include="Interfaces\IAccountsRepository.cs" />
+    <Compile Include="Interfaces\IAccountStatusRepository.cs" />
     <Compile Include="Interfaces\IAppLogger.cs" />
     <Compile Include="Interfaces\IChatClient.cs" />
     <Compile Include="Interfaces\IChatRepository.cs" />

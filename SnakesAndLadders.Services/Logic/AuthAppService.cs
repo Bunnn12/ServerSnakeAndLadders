@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Security.Cryptography;
+using SnakeAndLadders.Contracts.Services;
 
 namespace SnakesAndLadders.Services.Logic
 {
@@ -13,6 +14,8 @@ namespace SnakesAndLadders.Services.Logic
         private readonly IAccountsRepository _repo;
         private readonly IPasswordHasher _hasher;
         private readonly IEmailSender _email;
+        private readonly IPlayerReportAppService _playerReportApp;
+
 
         private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpiresUtc, DateTime LastSentUtc)> _codes
             = new ConcurrentDictionary<string, (string, DateTime, DateTime)>(StringComparer.OrdinalIgnoreCase);
@@ -21,12 +24,23 @@ namespace SnakesAndLadders.Services.Logic
         private static readonly TimeSpan VerificationTtl = TimeSpan.FromMinutes(10);
         private static readonly TimeSpan ResendWindow = TimeSpan.FromSeconds(45);
 
-        public AuthAppService(IAccountsRepository repo, IPasswordHasher hasher, IEmailSender email)
+        private const string AUTH_CODE_BANNED = "Auth.Banned";
+        private const string META_KEY_SANCTION_TYPE = "sanctionType";
+        private const string META_KEY_BAN_ENDS_AT_UTC = "banEndsAtUtc";
+
+
+        public AuthAppService(
+            IAccountsRepository repo,
+            IPasswordHasher hasher,
+            IEmailSender email,
+            IPlayerReportAppService playerReportApp)
         {
             _repo = repo ?? throw new ArgumentNullException(nameof(repo));
             _hasher = hasher ?? throw new ArgumentNullException(nameof(hasher));
             _email = email ?? throw new ArgumentNullException(nameof(email));
+            _playerReportApp = playerReportApp ?? throw new ArgumentNullException(nameof(playerReportApp));
         }
+
 
         public AuthResult RegisterUser(RegistrationDto registration)
         {
@@ -85,11 +99,38 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail("Auth.InvalidCredentials");
             }
 
+            try
+            {
+                var banInfo = _playerReportApp.GetCurrentBan(userId);
+
+                if (banInfo != null && banInfo.IsBanned)
+                {
+                    var meta = new Dictionary<string, string>();
+
+                    if (!string.IsNullOrWhiteSpace(banInfo.SanctionType))
+                    {
+                        meta[META_KEY_SANCTION_TYPE] = banInfo.SanctionType;
+                    }
+
+                    if (banInfo.BanEndsAtUtc.HasValue)
+                    {
+                        meta[META_KEY_BAN_ENDS_AT_UTC] = banInfo.BanEndsAtUtc.Value.ToString("o");
+                    }
+
+                    return Fail(AUTH_CODE_BANNED, meta);
+                }
+            }
+            catch (Exception)
+            {
+                return Fail("Auth.ServerError");
+            }
+
             return Ok(
                 userId: userId,
                 displayName: display,
                 profilePhotoId: photoId
             );
+
         }
 
         public AuthResult RequestEmailVerification(string email)

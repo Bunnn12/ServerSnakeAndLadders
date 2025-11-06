@@ -153,6 +153,7 @@
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
     <Compile Include="Repositories\AccountsRepository.cs" />
+    <Compile Include="Repositories\AccountStatusRepository.cs" />
     <Compile Include="Repositories\FileChatRepository.cs" />
     <Compile Include="Repositories\LobbyRepository.cs" />
     <Compile Include="Repositories\ReportRepository.cs" />
