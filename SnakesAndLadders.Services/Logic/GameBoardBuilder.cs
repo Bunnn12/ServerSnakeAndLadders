@@ -759,5 +759,7 @@ namespace SnakesAndLadders.Services.Logic
 
             public int CellCount { get; }
         }
+
+        //aaaa
     }
 }
