@@ -39,21 +39,21 @@ namespace SnakesAndLadders.Services.Logic
         private const int COLOR_PATTERN_MODULO = 2;
         private const int MIN_CELL_INDEX = 1;
 
-        private const int LADDERS_8 = 3;
-        private const int LADDERS_10 = 4;
-        private const int LADDERS_12 = 5;
+        private const int LADDERS_8 = 4;
+        private const int LADDERS_10 = 5;
+        private const int LADDERS_12 = 6;
 
-        private const int SNAKES_8_EASY = 3;
-        private const int SNAKES_8_MEDIUM = 4;
-        private const int SNAKES_8_HARD = 5;
+        private const int SNAKES_8_EASY = 4;
+        private const int SNAKES_8_MEDIUM = 5;
+        private const int SNAKES_8_HARD = 6;
 
-        private const int SNAKES_10_EASY = 4;
-        private const int SNAKES_10_MEDIUM = 5;
-        private const int SNAKES_10_HARD = 6;
+        private const int SNAKES_10_EASY = 5;
+        private const int SNAKES_10_MEDIUM = 6;
+        private const int SNAKES_10_HARD = 7;
 
-        private const int SNAKES_12_EASY = 5;
-        private const int SNAKES_12_MEDIUM = 6;
-        private const int SNAKES_12_HARD = 7;
+        private const int SNAKES_12_EASY = 6;
+        private const int SNAKES_12_MEDIUM = 7;
+        private const int SNAKES_12_HARD = 8;
 
 
         private static readonly Random RandomGenerator = new Random();
@@ -98,25 +98,38 @@ namespace SnakesAndLadders.Services.Logic
             Logger.Info("tablero creado");
             return board;
         }
-
-
         private static void AddSnakesAndLadders(
-        IList<BoardCellDto> cells,
-        BoardDefinitionDto board,
-        string difficulty)
+    IList<BoardCellDto> cells,
+    BoardDefinitionDto board,
+    string difficulty)
         {
+            if (cells == null || cells.Count == 0)
+            {
+                board.Links = new List<BoardLinkDto>();
+                return;
+            }
+
             int totalCells = cells.Count;
-            int rows = board.Rows;
 
             int ladders = GetLadderCount(board.BoardSize);
             int snakes = GetSnakeCount(board.BoardSize, difficulty);
 
-            var usedIndexes = new HashSet<int>(
-                cells.Where(c => c.SpecialType != SpecialCellType.None)
-                     .Select(c => c.Index));
+            
+            var usedIndexes = new HashSet<int>();
 
-            usedIndexes.Add(1);
-            usedIndexes.Add(totalCells);
+            foreach (var cell in cells)
+            {
+                if (cell.Index == MIN_CELL_INDEX || cell.Index == totalCells)
+                {
+                    usedIndexes.Add(cell.Index);
+                    continue;
+                }
+
+                if (cell.SpecialType != SpecialCellType.None)
+                {
+                    usedIndexes.Add(cell.Index);
+                }
+            }
 
             var links = new List<BoardLinkDto>();
 
@@ -127,6 +140,7 @@ namespace SnakesAndLadders.Services.Logic
 
             Logger.InfoFormat("Snakes and ladders added. Ladders={0}, Snakes={1}", ladders, snakes);
         }
+
 
         private static int GetLadderCount(BoardSizeOption size)
         {
@@ -149,7 +163,7 @@ namespace SnakesAndLadders.Services.Logic
 
         private static int GetSnakeCount(BoardSizeOption size, string difficulty)
         {
-            // Normalizamos el texto por seguridad
+            
             if (string.IsNullOrWhiteSpace(difficulty))
             {
                 difficulty = "medium";
@@ -202,21 +216,30 @@ namespace SnakesAndLadders.Services.Logic
                     }
 
                 default:
-                    return 4; // fallback general
+                    return 4; 
             }
         }
 
 
         private static void AddLadders(
-    IList<BoardCellDto> cells,
-    int count,
-    IList<BoardLinkDto> links,
-    HashSet<int> usedIndexes,
-    int totalCells)
+     IList<BoardCellDto> cells,
+     int count,
+     IList<BoardLinkDto> links,
+     HashSet<int> usedIndexes,
+     int totalCells
+     )
         {
+            if (count <= 0)
+                return;
+
+            if (usedIndexes == null)
+                usedIndexes = new HashSet<int>();
+
+            var cellByIndex = cells.ToDictionary(c => c.Index);
+
             int attempts = 0;
 
-            while (links.Count(l => l.IsLadder) < count && attempts < 500)
+            while (links.Count(l => l.IsLadder) < count && attempts < 1000)
             {
                 attempts++;
 
@@ -225,12 +248,11 @@ namespace SnakesAndLadders.Services.Logic
 
                 lock (RandomLock)
                 {
-                    // Escalera: empieza en una celda segura (no primera ni última ni penúltima)
+                    
                     start = RandomGenerator.Next(2, totalCells - 4);
-                    end = RandomGenerator.Next(start + 2, totalCells - 1);
+                    end = RandomGenerator.Next(start + 2, totalCells);
                 }
 
-                // 1) No usar ni la primera ni la última celda
                 if (start <= MIN_CELL_INDEX ||
                     end <= MIN_CELL_INDEX ||
                     start >= totalCells ||
@@ -240,36 +262,25 @@ namespace SnakesAndLadders.Services.Logic
                 }
 
                 if (usedIndexes.Contains(start) || usedIndexes.Contains(end))
+                    continue;
+
+                if (cellByIndex[start].SpecialType != SpecialCellType.None ||
+                    cellByIndex[end].SpecialType != SpecialCellType.None)
                 {
                     continue;
                 }
 
-                if (cells[start - 1].SpecialType != SpecialCellType.None ||
-                    cells[end - 1].SpecialType != SpecialCellType.None)
-                {
-                    continue;
-                }
+                int startRow = cellByIndex[start].Row;
+                int endRow = cellByIndex[end].Row;
 
-                int startRow = cells[start - 1].Row;
-                int endRow = cells[end - 1].Row;
-
-                // 2) No permitir escaleras horizontales
                 if (startRow == endRow)
-                {
                     continue;
-                }
 
-                // 3) Asegurar que la escalera suba visualmente
                 if (startRow <= endRow)
-                {
                     continue;
-                }
 
-                // 4) No permitir que termine en la última fila
                 if (end == totalCells)
-                {
                     continue;
-                }
 
                 usedIndexes.Add(start);
                 usedIndexes.Add(end);
@@ -284,15 +295,27 @@ namespace SnakesAndLadders.Services.Logic
         }
 
         private static void AddSnakes(
-            IList<BoardCellDto> cells,
-            int count,
-            IList<BoardLinkDto> links,
-            HashSet<int> usedIndexes,
-            int totalCells)
+    IList<BoardCellDto> cells,
+    int count,
+    IList<BoardLinkDto> links,
+    HashSet<int> usedIndexes,
+    int totalCells)
         {
+            if (count <= 0)
+            {
+                return;
+            }
+
+            if (usedIndexes == null)
+            {
+                usedIndexes = new HashSet<int>();
+            }
+
+            var cellByIndex = cells.ToDictionary(c => c.Index);
+
             int attempts = 0;
 
-            while (links.Count(l => !l.IsLadder) < count && attempts < 500)
+            while (links.Count(l => !l.IsLadder) < count && attempts < 1000)
             {
                 attempts++;
 
@@ -301,12 +324,10 @@ namespace SnakesAndLadders.Services.Logic
 
                 lock (RandomLock)
                 {
-                    // Serpiente: empieza más arriba, termina más abajo, sin tocar bordes
-                    start = RandomGenerator.Next(5, totalCells - 1);
-                    end = RandomGenerator.Next(2, start - 3);
+                    start = RandomGenerator.Next(5, totalCells - 1); 
+                    end = RandomGenerator.Next(2, start - 3);      
                 }
 
-                // 1) No usar ni la primera ni la última celda
                 if (start <= MIN_CELL_INDEX ||
                     end <= MIN_CELL_INDEX ||
                     start >= totalCells ||
@@ -320,28 +341,25 @@ namespace SnakesAndLadders.Services.Logic
                     continue;
                 }
 
-                if (cells[start - 1].SpecialType != SpecialCellType.None ||
-                    cells[end - 1].SpecialType != SpecialCellType.None)
+                if (cellByIndex[start].SpecialType != SpecialCellType.None ||
+                    cellByIndex[end].SpecialType != SpecialCellType.None)
                 {
                     continue;
                 }
 
-                int startRow = cells[start - 1].Row;
-                int endRow = cells[end - 1].Row;
+                int startRow = cellByIndex[start].Row;
+                int endRow = cellByIndex[end].Row;
 
-                // 2) No permitir serpientes horizontales
                 if (startRow == endRow)
                 {
                     continue;
                 }
 
-                // 3) Asegurar que la serpiente baje visualmente
                 if (startRow >= endRow)
                 {
                     continue;
                 }
 
-                // 4) No permitir que empiece en la primera fila ni termine en la última
                 if (start == totalCells || end == MIN_CELL_INDEX)
                 {
                     continue;
@@ -358,8 +376,6 @@ namespace SnakesAndLadders.Services.Logic
                 });
             }
         }
-
-
 
         private static BoardLayoutDefinition GetBoardLayout(BoardSizeOption boardSize)
         {
@@ -378,7 +394,6 @@ namespace SnakesAndLadders.Services.Logic
                     throw new ArgumentOutOfRangeException(nameof(boardSize), "Unsupported board size.");
             }
         }
-
 
         private static IList<BoardCellDto> CreateCells(BoardLayoutDefinition layout)
         {
@@ -481,7 +496,6 @@ namespace SnakesAndLadders.Services.Logic
                 totalSpecial = candidates.Count;
             }
 
-            // 1) Distribución por tipo (mantiene tus cantidades: 2+2+2, 4+4+4, etc.)
             var specialTypesSequence = new List<SpecialCellType>(totalSpecial);
             int perType = totalSpecial / enabledTypesCount;
 
@@ -493,7 +507,6 @@ namespace SnakesAndLadders.Services.Logic
                 }
             }
 
-            // 2) Info de filas y zonas (arriba / medio / abajo)
             int totalRows = GetRowsForBoardSize(boardSize);
 
             int[] zoneTargets = CalculateZoneTargets(totalSpecial);
@@ -507,7 +520,6 @@ namespace SnakesAndLadders.Services.Logic
             {
                 bool placed = false;
 
-                // Intentamos respetar: no adyacente + cupo de zona
                 for (int attempt = 0; attempt < MAX_ATTEMPTS_PER_CELL && candidates.Count > 0; attempt++)
                 {
                     int randomIndex;
@@ -521,19 +533,16 @@ namespace SnakesAndLadders.Services.Logic
 
                     int zoneIndex = GetZoneIndex(candidate, totalRows);
 
-                    // Validación 1: no adyacente a otra casilla especial ya colocada
                     if (IsAdjacentToAny(candidate, selectedCells))
                     {
                         continue;
                     }
 
-                    // Validación 2: no pasar del cupo planeado en esa zona
                     if (zoneCounts[zoneIndex] >= zoneTargets[zoneIndex])
                     {
                         continue;
                     }
 
-                    // OK, esta celda cumple las reglas
                     candidate.SpecialType = specialType;
                     selectedCells.Add(candidate);
                     zoneCounts[zoneIndex]++;
@@ -542,8 +551,6 @@ namespace SnakesAndLadders.Services.Logic
                     break;
                 }
 
-                // Fallback 1: si no encontramos respetando la zona, ignoramos zona
-                // pero seguimos evitando adyacencia.
                 if (!placed && candidates.Count > 0)
                 {
                     BoardCellDto fallback = candidates
@@ -561,8 +568,6 @@ namespace SnakesAndLadders.Services.Logic
                     }
                 }
 
-                // Fallback 2: si ni así se puede, colocamos donde se pueda
-                // (para no perder la cantidad total de especiales).
                 if (!placed && candidates.Count > 0)
                 {
                     BoardCellDto fallback = candidates[0];
@@ -604,11 +609,6 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
-        /// <summary>
-        /// Divide el tablero en 3 zonas (arriba, medio, abajo)
-        /// y calcula cuántas casillas especiales debería tener cada zona
-        /// para que queden lo más equilibradas posible.
-        /// </summary>
         private static int[] CalculateZoneTargets(int totalSpecial)
         {
             var zoneTargets = new int[3];
@@ -630,18 +630,13 @@ namespace SnakesAndLadders.Services.Logic
             return zoneTargets;
         }
 
-        /// <summary>
-        /// Devuelve el índice de zona (0 = arriba, 1 = medio, 2 = abajo)
-        /// en función de la fila de la celda.
-        /// </summary>
         private static int GetZoneIndex(BoardCellDto cell, int totalRows)
         {
             if (totalRows <= 0)
             {
-                return 1; // medio por defecto
+                return 1; 
             }
 
-            // Row va de 0 (arriba) a totalRows - 1 (abajo).
             int rowFromTop = cell.Row;
 
             int zone = (rowFromTop * 3) / totalRows;
@@ -658,11 +653,6 @@ namespace SnakesAndLadders.Services.Logic
 
             return zone;
         }
-
-        /// <summary>
-        /// Indica si la celda candidata es adyacente (incluye diagonales)
-        /// a cualquiera de las ya seleccionadas como especiales.
-        /// </summary>
         private static bool IsAdjacentToAny(BoardCellDto candidate, IList<BoardCellDto> selected)
         {
             foreach (BoardCellDto cell in selected)
@@ -675,11 +665,6 @@ namespace SnakesAndLadders.Services.Logic
 
             return false;
         }
-
-        /// <summary>
-        /// Dos celdas son adyacentes si están pegadas horizontal, vertical
-        /// o diagonalmente (diferencia de fila y columna <= 1).
-        /// </summary>
         private static bool AreAdjacent(BoardCellDto a, BoardCellDto b)
         {
             int deltaRow = Math.Abs(a.Row - b.Row);
@@ -687,10 +672,6 @@ namespace SnakesAndLadders.Services.Logic
 
             return deltaRow <= 1 && deltaColumn <= 1;
         }
-
-
-
-
 
         private static int GetTotalSpecialCells(BoardSizeOption boardSize, int enabledTypesCount)
         {
@@ -744,8 +725,6 @@ namespace SnakesAndLadders.Services.Logic
                     return 0;
             }
         }
-
-
 
         private static IEnumerable<SpecialCellType> GetEnabledSpecialTypes(CreateBoardRequestDto request)
         {
