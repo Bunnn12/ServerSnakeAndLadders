@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,5 +19,9 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
         public bool EnableTrapCells { get; set; }
 
         public bool EnableTeleportCells { get; set; }
+
+        [DataMember]
+        public string Difficulty { get; set; }
+
     }
 }

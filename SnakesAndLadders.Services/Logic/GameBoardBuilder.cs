@@ -39,6 +39,23 @@ namespace SnakesAndLadders.Services.Logic
         private const int COLOR_PATTERN_MODULO = 2;
         private const int MIN_CELL_INDEX = 1;
 
+        private const int LADDERS_8 = 3;
+        private const int LADDERS_10 = 4;
+        private const int LADDERS_12 = 5;
+
+        private const int SNAKES_8_EASY = 3;
+        private const int SNAKES_8_MEDIUM = 4;
+        private const int SNAKES_8_HARD = 5;
+
+        private const int SNAKES_10_EASY = 4;
+        private const int SNAKES_10_MEDIUM = 5;
+        private const int SNAKES_10_HARD = 6;
+
+        private const int SNAKES_12_EASY = 5;
+        private const int SNAKES_12_MEDIUM = 6;
+        private const int SNAKES_12_HARD = 7;
+
+
         private static readonly Random RandomGenerator = new Random();
         private static readonly object RandomLock = new object();
 
@@ -75,9 +92,274 @@ namespace SnakesAndLadders.Services.Logic
                 Cells = cells
             };
 
+            AddSnakesAndLadders(cells, board, request.Difficulty);
+
+
             Logger.Info("tablero creado");
             return board;
         }
+
+
+        private static void AddSnakesAndLadders(
+        IList<BoardCellDto> cells,
+        BoardDefinitionDto board,
+        string difficulty)
+        {
+            int totalCells = cells.Count;
+            int rows = board.Rows;
+
+            int ladders = GetLadderCount(board.BoardSize);
+            int snakes = GetSnakeCount(board.BoardSize, difficulty);
+
+            var usedIndexes = new HashSet<int>(
+                cells.Where(c => c.SpecialType != SpecialCellType.None)
+                     .Select(c => c.Index));
+
+            usedIndexes.Add(1);
+            usedIndexes.Add(totalCells);
+
+            var links = new List<BoardLinkDto>();
+
+            AddLadders(cells, ladders, links, usedIndexes, totalCells);
+            AddSnakes(cells, snakes, links, usedIndexes, totalCells);
+
+            board.Links = links;
+
+            Logger.InfoFormat("Snakes and ladders added. Ladders={0}, Snakes={1}", ladders, snakes);
+        }
+
+        private static int GetLadderCount(BoardSizeOption size)
+        {
+            switch (size)
+            {
+                case BoardSizeOption.EightByEight:
+                    return LADDERS_8;
+
+                case BoardSizeOption.TenByTen:
+                    return LADDERS_10;
+
+                case BoardSizeOption.TwelveByTwelve:
+                    return LADDERS_12;
+
+                default:
+                    return 3; 
+            }
+        }
+
+
+        private static int GetSnakeCount(BoardSizeOption size, string difficulty)
+        {
+            // Normalizamos el texto por seguridad
+            if (string.IsNullOrWhiteSpace(difficulty))
+            {
+                difficulty = "medium";
+            }
+
+            difficulty = difficulty.Trim().ToLowerInvariant();
+
+            switch (size)
+            {
+                case BoardSizeOption.EightByEight:
+                    if (difficulty == "easy")
+                    {
+                        return SNAKES_8_EASY;
+                    }
+                    else if (difficulty == "hard")
+                    {
+                        return SNAKES_8_HARD;
+                    }
+                    else
+                    {
+                        return SNAKES_8_MEDIUM;
+                    }
+
+                case BoardSizeOption.TenByTen:
+                    if (difficulty == "easy")
+                    {
+                        return SNAKES_10_EASY;
+                    }
+                    else if (difficulty == "hard")
+                    {
+                        return SNAKES_10_HARD;
+                    }
+                    else
+                    {
+                        return SNAKES_10_MEDIUM;
+                    }
+
+                case BoardSizeOption.TwelveByTwelve:
+                    if (difficulty == "easy")
+                    {
+                        return SNAKES_12_EASY;
+                    }
+                    else if (difficulty == "hard")
+                    {
+                        return SNAKES_12_HARD;
+                    }
+                    else
+                    {
+                        return SNAKES_12_MEDIUM;
+                    }
+
+                default:
+                    return 4; // fallback general
+            }
+        }
+
+
+        private static void AddLadders(
+    IList<BoardCellDto> cells,
+    int count,
+    IList<BoardLinkDto> links,
+    HashSet<int> usedIndexes,
+    int totalCells)
+        {
+            int attempts = 0;
+
+            while (links.Count(l => l.IsLadder) < count && attempts < 500)
+            {
+                attempts++;
+
+                int start;
+                int end;
+
+                lock (RandomLock)
+                {
+                    // Escalera: empieza en una celda segura (no primera ni última ni penúltima)
+                    start = RandomGenerator.Next(2, totalCells - 4);
+                    end = RandomGenerator.Next(start + 2, totalCells - 1);
+                }
+
+                // 1) No usar ni la primera ni la última celda
+                if (start <= MIN_CELL_INDEX ||
+                    end <= MIN_CELL_INDEX ||
+                    start >= totalCells ||
+                    end >= totalCells)
+                {
+                    continue;
+                }
+
+                if (usedIndexes.Contains(start) || usedIndexes.Contains(end))
+                {
+                    continue;
+                }
+
+                if (cells[start - 1].SpecialType != SpecialCellType.None ||
+                    cells[end - 1].SpecialType != SpecialCellType.None)
+                {
+                    continue;
+                }
+
+                int startRow = cells[start - 1].Row;
+                int endRow = cells[end - 1].Row;
+
+                // 2) No permitir escaleras horizontales
+                if (startRow == endRow)
+                {
+                    continue;
+                }
+
+                // 3) Asegurar que la escalera suba visualmente
+                if (startRow <= endRow)
+                {
+                    continue;
+                }
+
+                // 4) No permitir que termine en la última fila
+                if (end == totalCells)
+                {
+                    continue;
+                }
+
+                usedIndexes.Add(start);
+                usedIndexes.Add(end);
+
+                links.Add(new BoardLinkDto
+                {
+                    StartIndex = start,
+                    EndIndex = end,
+                    IsLadder = true
+                });
+            }
+        }
+
+        private static void AddSnakes(
+            IList<BoardCellDto> cells,
+            int count,
+            IList<BoardLinkDto> links,
+            HashSet<int> usedIndexes,
+            int totalCells)
+        {
+            int attempts = 0;
+
+            while (links.Count(l => !l.IsLadder) < count && attempts < 500)
+            {
+                attempts++;
+
+                int start;
+                int end;
+
+                lock (RandomLock)
+                {
+                    // Serpiente: empieza más arriba, termina más abajo, sin tocar bordes
+                    start = RandomGenerator.Next(5, totalCells - 1);
+                    end = RandomGenerator.Next(2, start - 3);
+                }
+
+                // 1) No usar ni la primera ni la última celda
+                if (start <= MIN_CELL_INDEX ||
+                    end <= MIN_CELL_INDEX ||
+                    start >= totalCells ||
+                    end >= totalCells)
+                {
+                    continue;
+                }
+
+                if (usedIndexes.Contains(start) || usedIndexes.Contains(end))
+                {
+                    continue;
+                }
+
+                if (cells[start - 1].SpecialType != SpecialCellType.None ||
+                    cells[end - 1].SpecialType != SpecialCellType.None)
+                {
+                    continue;
+                }
+
+                int startRow = cells[start - 1].Row;
+                int endRow = cells[end - 1].Row;
+
+                // 2) No permitir serpientes horizontales
+                if (startRow == endRow)
+                {
+                    continue;
+                }
+
+                // 3) Asegurar que la serpiente baje visualmente
+                if (startRow >= endRow)
+                {
+                    continue;
+                }
+
+                // 4) No permitir que empiece en la primera fila ni termine en la última
+                if (start == totalCells || end == MIN_CELL_INDEX)
+                {
+                    continue;
+                }
+
+                usedIndexes.Add(start);
+                usedIndexes.Add(end);
+
+                links.Add(new BoardLinkDto
+                {
+                    StartIndex = start,
+                    EndIndex = end,
+                    IsLadder = false
+                });
+            }
+        }
+
+
 
         private static BoardLayoutDefinition GetBoardLayout(BoardSizeOption boardSize)
         {

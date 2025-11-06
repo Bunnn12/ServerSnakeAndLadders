@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,5 +17,9 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
         public int Columns { get; set; }
 
         public IList<BoardCellDto> Cells { get; set; }
+
+        [DataMember]
+        public IList<BoardLinkDto> Links { get; set; } = new List<BoardLinkDto>();
+
     }
 }

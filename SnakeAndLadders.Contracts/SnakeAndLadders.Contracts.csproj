@@ -56,6 +56,7 @@
     <Compile Include="Dtos\CreateGameResponse.cs" />
     <Compile Include="Dtos\Gameplay\BoardCellDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardDefinitionDto.cs" />
+    <Compile Include="Dtos\Gameplay\BoardLinkDto.cs" />
     <Compile Include="Dtos\Gameplay\CreateBoardRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\CreateBoardResponseDto.cs" />
     <Compile Include="Dtos\GetLobbyInfoRequest.cs" />
