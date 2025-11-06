@@ -2,6 +2,7 @@
 using log4net.Config;
 using ServerSnakesAndLadders;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Data;
 using SnakesAndLadders.Data.Repositories;
 using SnakesAndLadders.Host.Helpers;
 using SnakesAndLadders.Services.Logic;
@@ -40,7 +41,7 @@ internal static class Program
         ServiceHost lobbyHost = null;
         ServiceHost chatHost = null;
         ServiceHost gameBoardHost = null;
-
+        ServiceHost playerReportHost = null;
         try
         {
             Log.Info("Iniciando el servidor…");
@@ -56,6 +57,9 @@ internal static class Program
 
             var chatApp = new ChatAppService(chatRepo);
 
+            var reportRepo = new ReportRepository();
+            var sanctionRepo = new SanctionRepository();
+
             IPasswordHasher hasher = new Sha256PasswordHasher();
             IEmailSender email = new SmtpEmailSender();
             IAppLogger appLogger = new AppLogger(Log);
@@ -63,24 +67,28 @@ internal static class Program
             var authApp = new AuthAppService(accountsRepo, hasher, email);
             var userApp = new UserAppService(userRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
+            var playerReportApp = new PlayerReportAppService(reportRepo, sanctionRepo);
 
             var authSvc = new AuthService(authApp);
             var userSvc = new UserService(userApp);
             var lobbySvc = new LobbyService();
             var chatSvc = new ChatService(chatApp);
-            var gameBoardSvc = new GameBoardService(); 
+            var gameBoardSvc = new GameBoardService();
+            var playerReportSvc = new PlayerReportService(playerReportApp);
 
             authHost = new ServiceHost(authSvc);
             userHost = new ServiceHost(userSvc);
             lobbyHost = new ServiceHost(lobbySvc);
             chatHost = new ServiceHost(chatSvc);
             gameBoardHost = new ServiceHost(gameBoardSvc);
+            playerReportHost = new ServiceHost(playerReportSvc);
 
             authHost.Open();
             userHost.Open();
             lobbyHost.Open();
             chatHost.Open();
             gameBoardHost.Open();
+            playerReportHost.Open();
 
             Log.Info("Servidor iniciado y servicios levantados.");
             Console.WriteLine("Servicios levantados:");
@@ -89,6 +97,7 @@ internal static class Program
             Console.WriteLine(" - " + typeof(LobbyService).FullName);
             Console.WriteLine(" - " + typeof(ChatService).FullName);
             Console.WriteLine(" - " + typeof(GameBoardService).FullName);
+            Console.WriteLine(" - " + typeof(PlayerReportService).FullName);
             Console.WriteLine("Presiona Enter para detener…");
             Console.ReadLine();
         }
@@ -135,6 +144,7 @@ internal static class Program
             CloseSafely(userHost, "UserService");
             CloseSafely(chatHost, "ChatService");
             CloseSafely(gameBoardHost, "GameBoardService");
+            CloseSafely(playerReportHost, "PlayerReportService");
             Log.Info("Servidor detenido.");
         }
     }
