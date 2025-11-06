@@ -317,8 +317,6 @@ namespace SnakesAndLadders.Services.Logic
                     Logger.Error(
                         $"Error applying permanent deactivation for user {userId}.",
                         ex);
-                    // No relanzamos para no romper el flujo de CreateReport:
-                    // la sanción S4 ya quedó registrada.
                 }
             }
         }
