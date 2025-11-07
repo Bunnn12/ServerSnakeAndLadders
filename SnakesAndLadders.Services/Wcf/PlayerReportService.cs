@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Services;
+using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Wcf
 {

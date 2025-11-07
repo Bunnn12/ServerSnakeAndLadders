@@ -158,6 +158,7 @@
     <Compile Include="Repositories\LobbyRepository.cs" />
     <Compile Include="Repositories\ReportRepository.cs" />
     <Compile Include="Repositories\SanctionRepository.cs" />
+    <Compile Include="Repositories\StatsRepository.cs" />
     <Compile Include="Repositories\UserRepository.cs" />
     <Compile Include="Sancion.cs">
       <DependentUpon>DataBase.tt</DependentUpon>

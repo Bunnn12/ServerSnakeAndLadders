@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using SnakeAndLadders.Contracts.Dtos;
 
-namespace SnakeAndLadders.Contracts.Services
+namespace SnakeAndLadders.Contracts.Interfaces
 {
     public interface IPlayerReportAppService
     {
