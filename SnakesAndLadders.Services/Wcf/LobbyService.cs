@@ -35,7 +35,7 @@ namespace SnakesAndLadders.Services.Wcf
                 Status = LobbyStatus.Waiting,
                 ExpiresAtUtc = DateTime.UtcNow.AddMinutes(effectiveTtl),
 
-                
+
                 BoardSide = request.BoardSide,
                 Difficulty = request.Dificultad,
                 PlayersRequested = request.PlayersRequested,
@@ -123,7 +123,7 @@ namespace SnakesAndLadders.Services.Wcf
             if (lobby.Players.Count < 2)
                 return new OperationResult { Success = false, Message = "Se requieren al menos 2 jugadores." };
 
-          
+
             lobby.Status = LobbyStatus.InMatch;
             return new OperationResult { Success = true, Message = "La partida se está iniciando..." };
         }
@@ -143,5 +143,45 @@ namespace SnakesAndLadders.Services.Wcf
 
         private int NextId() => _rng.Next(100000, 999999);
         private string GenerateCode() => _rng.Next(0, 999999).ToString("000000");
+
+        public void KickUserFromAllLobbies(int userId, string reason)
+        {
+                if (userId <= 0)
+                {
+                    return;
+                }
+                var snapshot = _lobbies.Values.ToArray();
+
+                foreach (var lobby in snapshot)
+                {
+                    var member = lobby.Players.FirstOrDefault(p => p.UserId == userId);
+                    if (member == null)
+                    {
+                        continue;
+                    }
+
+                    lobby.Players.Remove(member);
+
+                    if (member.IsHost)
+                    {
+                        var next = lobby.Players.FirstOrDefault();
+                        if (next != null)
+                        {
+                            lobby.HostUserId = next.UserId;
+                            lobby.HostUserName = next.UserName;
+
+                            foreach (var p in lobby.Players)
+                            {
+                                p.IsHost = p.UserId == next.UserId;
+                            }
+                        }
+                        else
+                        {
+                            lobby.Status = LobbyStatus.Closed;
+                            _lobbies.TryRemove(lobby.PartidaId, out _);
+                        }
+                    }
+                }
+        }
     }
 }

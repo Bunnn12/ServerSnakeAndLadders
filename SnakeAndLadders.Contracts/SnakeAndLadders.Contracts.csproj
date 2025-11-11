@@ -93,6 +93,7 @@
     <Compile Include="Interfaces\ILobbyRepository.cs" />
     <Compile Include="Interfaces\IPasswordHasher.cs" />
     <Compile Include="Interfaces\IPlayerReportAppService.cs" />
+    <Compile Include="Interfaces\IPlayerSessionManager.cs" />
     <Compile Include="Interfaces\IReportRepository.cs" />
     <Compile Include="Interfaces\ISanctionRepository.cs" />
     <Compile Include="Interfaces\IStatsAppService.cs" />

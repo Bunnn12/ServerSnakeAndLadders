@@ -5,6 +5,7 @@ using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data;
 using SnakesAndLadders.Data.Repositories;
 using SnakesAndLadders.Host.Helpers;
+using SnakesAndLadders.Server.Helpers;
 using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Wcf;
 using System;
@@ -43,6 +44,7 @@ internal static class Program
         ServiceHost gameBoardHost = null;
         ServiceHost playerReportHost = null;
         ServiceHost statsHost = null;
+
         try
         {
             Log.Info("Iniciando el servidor…");
@@ -67,8 +69,16 @@ internal static class Program
             IEmailSender email = new SmtpEmailSender();
             IAppLogger appLogger = new AppLogger(Log);
 
+            var lobbySvc = new LobbyService();
 
-            var playerReportApp = new PlayerReportAppService(reportRepo, sanctionRepo, accountStatusRepo);
+            var playerSessionManager = new PlayerSessionManager(lobbySvc);
+
+            var playerReportApp = new PlayerReportAppService(
+                reportRepo,
+                sanctionRepo,
+                accountStatusRepo,
+                playerSessionManager);
+
             var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp);
             var userApp = new UserAppService(userRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
@@ -76,15 +86,14 @@ internal static class Program
 
             var authSvc = new AuthService(authApp);
             var userSvc = new UserService(userApp);
-            var lobbySvc = new LobbyService();
             var chatSvc = new ChatService(chatApp);
             var gameBoardSvc = new GameBoardService();
             var playerReportSvc = new PlayerReportService(playerReportApp);
             var statsSvc = new StatsService(statsApp);
 
+            lobbyHost = new ServiceHost(lobbySvc);
             authHost = new ServiceHost(authSvc);
             userHost = new ServiceHost(userSvc);
-            lobbyHost = new ServiceHost(lobbySvc);
             chatHost = new ServiceHost(chatSvc);
             gameBoardHost = new ServiceHost(gameBoardSvc);
             playerReportHost = new ServiceHost(playerReportSvc);

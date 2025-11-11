@@ -29,19 +29,28 @@ namespace SnakesAndLadders.Services.Logic
         private const string SANCTION_TYPE_S3 = "S3";
         private const string SANCTION_TYPE_S4 = "S4";
 
+        private const int SYSTEM_KICK_HOST_ID = 0;
+
         private const string ERROR_REPORT_INVALID_REQUEST = "REPORT_INVALID_REQUEST";
         private const string ERROR_REPORT_INVALID_USER = "REPORT_INVALID_USER";
         private const string ERROR_REPORT_DUPLICATE = "REPORT_DUPLICATE";
         private const string ERROR_REPORT_INTERNAL = "REPORT_INTERNAL_ERROR";
 
+        private const string AUTO_SANCTION_REASON_FORMAT =
+            "Automatic sanction {0} applied due to accumulated player reports.";
+
+        private const string QUICK_KICK_DEFAULT_REASON = "Quick kick by host.";
+
         private readonly IReportRepository reportRepository;
         private readonly ISanctionRepository sanctionRepository;
         private readonly IAccountStatusRepository accountStatusRepository;
+        private readonly IPlayerSessionManager playerSessionManager;
 
         public PlayerReportAppService(
             IReportRepository reportRepositoryValue,
             ISanctionRepository sanctionRepositoryValue,
-            IAccountStatusRepository accountStatusRepositoryValue)
+            IAccountStatusRepository accountStatusRepositoryValue,
+            IPlayerSessionManager playerSessionManagerValue)
         {
             reportRepository = reportRepositoryValue
                 ?? throw new ArgumentNullException(nameof(reportRepositoryValue));
@@ -51,6 +60,9 @@ namespace SnakesAndLadders.Services.Logic
 
             accountStatusRepository = accountStatusRepositoryValue
                 ?? throw new ArgumentNullException(nameof(accountStatusRepositoryValue));
+
+            playerSessionManager = playerSessionManagerValue
+                ?? throw new ArgumentNullException(nameof(playerSessionManagerValue));
         }
 
         public void CreateReport(ReportDto report)
@@ -165,27 +177,17 @@ namespace SnakesAndLadders.Services.Logic
             }
 
             string safeReason = string.IsNullOrWhiteSpace(quickKick.KickReason)
-                ? "Quick kick by host."
+                ? QUICK_KICK_DEFAULT_REASON
                 : quickKick.KickReason.Trim();
 
             try
             {
-                var nowUtc = DateTime.UtcNow;
-
-                var sanction = new SanctionDto
-                {
-                    UserId = quickKick.TargetUserId,
-                    SanctionType = SANCTION_TYPE_S1,
-                    SanctionDateUtc = nowUtc
-                };
-
-                sanctionRepository.InsertSanction(sanction);
-
-                Logger.InfoFormat(
-                    "QuickKick applied to user {0} by host {1}. Reason={2}",
+                KickUserAndRegisterSanction(
                     quickKick.TargetUserId,
                     quickKick.HostUserId,
-                    safeReason);
+                    safeReason,
+                    SANCTION_TYPE_S1,
+                    false);
             }
             catch (Exception ex)
             {
@@ -282,13 +284,39 @@ namespace SnakesAndLadders.Services.Logic
 
         private void ApplySanction(int userId, string sanctionType)
         {
+            bool deactivateAccount = string.Equals(
+                sanctionType,
+                SANCTION_TYPE_S4,
+                StringComparison.OrdinalIgnoreCase);
+
+            string autoReason = string.Format(
+                AUTO_SANCTION_REASON_FORMAT,
+                sanctionType);
+
+            KickUserAndRegisterSanction(
+                userId,
+                SYSTEM_KICK_HOST_ID,
+                autoReason,
+                sanctionType,
+                deactivateAccount);
+        }
+
+        private void KickUserAndRegisterSanction(
+            int targetUserId,
+            int hostUserId,
+            string reason,
+            string sanctionType,
+            bool deactivateAccount)
+        {
             var nowUtc = DateTime.UtcNow;
 
             var sanction = new SanctionDto
             {
-                UserId = userId,
+                UserId = targetUserId,
                 SanctionType = sanctionType,
-                SanctionDateUtc = nowUtc
+                SanctionDateUtc = nowUtc,
+                AppliedBySystem = hostUserId == SYSTEM_KICK_HOST_ID,
+                ReportReason = reason
             };
 
             sanctionRepository.InsertSanction(sanction);
@@ -296,28 +324,72 @@ namespace SnakesAndLadders.Services.Logic
             var banInfo = BuildBanInfo(sanction);
 
             Logger.InfoFormat(
-                "Applied sanction {0} to user {1}. IsBanned={2}, BanEndsAtUtc={3}",
+                "Applied sanction {0} to user {1}. Host={2}. IsBanned={3}, BanEndsAtUtc={4}",
                 sanctionType,
-                userId,
+                targetUserId,
+                hostUserId,
                 banInfo.IsBanned,
                 banInfo.BanEndsAtUtc?.ToString("o") ?? "null");
 
-            if (string.Equals(sanctionType, SANCTION_TYPE_S4, StringComparison.OrdinalIgnoreCase))
+            if (banInfo.IsBanned)
             {
-                try
-                {
-                    accountStatusRepository.SetUserAndAccountActiveState(userId, false);
+                TryKickUserFromSessions(targetUserId, reason, sanctionType);
+            }
 
-                    Logger.InfoFormat(
-                        "User {0} permanently banned. User, account and passwords set to inactive.",
-                        userId);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error(
-                        $"Error applying permanent deactivation for user {userId}.",
-                        ex);
-                }
+            if (deactivateAccount)
+            {
+                TryDeactivateAccount(targetUserId);
+            }
+        }
+
+        private void TryKickUserFromSessions(int userId, string reason, string sanctionType)
+        {
+            if (userId < MIN_VALID_USER_ID)
+            {
+                return;
+            }
+
+            try
+            {
+                string formattedReason = string.IsNullOrWhiteSpace(reason)
+                    ? string.Format(AUTO_SANCTION_REASON_FORMAT, sanctionType)
+                    : reason.Trim();
+
+                playerSessionManager.KickUserFromAllSessions(userId, formattedReason);
+
+                Logger.InfoFormat(
+                    "KickUserFromAllSessions invoked for user {0} after sanction {1}.",
+                    userId,
+                    sanctionType);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(
+                    string.Format(
+                        "Error while kicking user {0} from sessions after sanction {1}.",
+                        userId,
+                        sanctionType),
+                    ex);
+            }
+        }
+
+        private void TryDeactivateAccount(int userId)
+        {
+            try
+            {
+                accountStatusRepository.SetUserAndAccountActiveState(userId, false);
+
+                Logger.InfoFormat(
+                    "User {0} permanently banned. User, account and passwords set to inactive.",
+                    userId);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(
+                    string.Format(
+                        "Error applying permanent deactivation for user {0}.",
+                        userId),
+                    ex);
             }
         }
 
