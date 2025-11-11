@@ -1,68 +1,178 @@
 ﻿using System;
 using System.Configuration;
+using System.IO;
 using System.Net;
 using System.Net.Mail;
+using System.Net.Security;
+using System.Security.Authentication;
 using System.Text;
+using log4net;
 using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Host.Helpers
 {
     public sealed class SmtpEmailSender : IEmailSender
     {
-        private static string Get(string key, string fallback)
-        {
-            var v = ConfigurationManager.AppSettings[key];
-            return string.IsNullOrEmpty(v) ? fallback : v;
-        }
+        private const string SMTP_HOST_KEY = "Smtp:Host";
+        private const string SMTP_PORT_KEY = "Smtp:Port";
+        private const string SMTP_ENABLE_SSL_KEY = "Smtp:EnableSsl";
+        private const string SMTP_USER_KEY = "Smtp:User";
+        private const string SMTP_PASS_KEY = "Smtp:Pass";
+        private const string SMTP_FROM_KEY = "Smtp:From";
+        private const string SMTP_FROM_NAME_KEY = "Smtp:FromName";
 
-        public void SendVerificationCode(string toEmail, string code)
+        private const int DEFAULT_SMTP_PORT = 587;
+        private const bool DEFAULT_ENABLE_SSL = true;
+        private const string DEFAULT_FROM_NAME = "Snakes & Ladders";
+        private const string SECRET_FILE_NAME = "ServerSecrets.config";
+
+        private const string EMAIL_SUBJECT_VERIFICATION = "Your verification code";
+        private const string EMAIL_GREETING = "Hi!";
+        private const string EMAIL_CODE_PREFIX = "Your verification code is: ";
+        private const string EMAIL_EXPIRATION_TEXT = "This code expires in 10 minutes.";
+
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(SmtpEmailSender));
+
+        public void SendVerificationCode(string email, string code)
         {
-            if (string.IsNullOrWhiteSpace(toEmail))
-                throw new ArgumentException("Destino vacío.", nameof(toEmail));
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                throw new ArgumentException("Destination email is required.", nameof(email));
+            }
+
             if (string.IsNullOrWhiteSpace(code))
-                throw new ArgumentException("Código vacío.", nameof(code));
+            {
+                throw new ArgumentException("Verification code is required.", nameof(code));
+            }
 
-            var host = Get("Smtp:Host", "");
-            var portStr = Get("Smtp:Port", "587");
-            var enableSsl = Get("Smtp:EnableSsl", "true");
-            var user = Get("Smtp:User", "");
-            var pass = Get("Smtp:Pass", "");
-            var from = Get("Smtp:From", user);
-            var fromName = Get("Smtp:FromName", "Snake & Ladders");
+            var host = GetAppSetting(SMTP_HOST_KEY, string.Empty);
+            var portText = GetAppSetting(SMTP_PORT_KEY, DEFAULT_SMTP_PORT.ToString());
+            var enableSslText = GetAppSetting(
+                SMTP_ENABLE_SSL_KEY,
+                DEFAULT_ENABLE_SSL.ToString());
+
+            var user = GetAppSetting(SMTP_USER_KEY, string.Empty);
+            var pass = GetAppSetting(SMTP_PASS_KEY, string.Empty);
+            var from = GetAppSetting(SMTP_FROM_KEY, user);
+            var fromName = GetAppSetting(SMTP_FROM_NAME_KEY, DEFAULT_FROM_NAME);
 
             if (string.IsNullOrWhiteSpace(host))
-                throw new InvalidOperationException("SMTP no configurado (Smtp:Host).");
-
-            int port; if (!int.TryParse(portStr, out port)) port = 587;
-            bool ssl; if (!bool.TryParse(enableSsl, out ssl)) ssl = true;
-
-            using (var msg = new MailMessage())
             {
-                msg.From = new MailAddress(from, fromName);
-                msg.To.Add(new MailAddress(toEmail));
-                msg.Subject = "Your verification code";
-                msg.Body = new StringBuilder()
-                    .AppendLine("Hi!")
-                    .AppendLine()
-                    .AppendLine("Your verification code is: " + code)
-                    .AppendLine("This code expires in 10 minutes.")
-                    .ToString();
-                msg.IsBodyHtml = false;
+                Logger.Error("SMTP host is not configured (Smtp:Host).");
+                throw new InvalidOperationException("SMTP host is not configured.");
+            }
 
-                using (var smtp = new SmtpClient(host, port))
+            if (!int.TryParse(portText, out var port))
+            {
+                port = DEFAULT_SMTP_PORT;
+            }
+
+            if (!bool.TryParse(enableSslText, out var enableSsl))
+            {
+                enableSsl = DEFAULT_ENABLE_SSL;
+            }
+
+            using (var message = new MailMessage())
+            {
+                message.From = new MailAddress(from, fromName);
+                message.To.Add(new MailAddress(email));
+                message.Subject = EMAIL_SUBJECT_VERIFICATION;
+                message.Body = BuildBody(code);
+                message.IsBodyHtml = false;
+
+                // 🔽 AQUÍ VA EL BLOQUE QUE TE DECÍA
+                using (var smtpClient = new SmtpClient(host, port))
                 {
-                    smtp.EnableSsl = ssl;
+                    smtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
+                    smtpClient.EnableSsl = true; // Gmail requiere SSL/TLS siempre
+                    smtpClient.UseDefaultCredentials = false;
 
-                    if (!string.IsNullOrWhiteSpace(user))
-                        smtp.Credentials = new NetworkCredential(user, pass);
-                    else
-                        smtp.UseDefaultCredentials = true;
+                    if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
+                    {
+                        Logger.Error("SMTP credentials are not configured (Smtp:User / Smtp:Pass).");
+                        throw new InvalidOperationException("SMTP credentials are not configured.");
+                    }
 
-                    ServicePointManager.SecurityProtocol =
-                        SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+                    smtpClient.Credentials = new NetworkCredential(user, pass);
 
-                    smtp.Send(msg);
+                    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+                    Logger.Info(
+                        $"SMTP config: host={host}, port={port}, enableSsl={smtpClient.EnableSsl}, user={user}");
+
+                    try
+                    {
+                        smtpClient.Send(message);
+                    }
+                    catch (SmtpException ex)
+                    {
+                        Logger.Error("SMTP error while sending verification email.", ex);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error("Unexpected error while sending verification email.", ex);
+                        throw;
+                    }
                 }
+            }
+        }
+
+        private static string BuildBody(string code)
+        {
+            var builder = new StringBuilder();
+
+            builder.AppendLine(EMAIL_GREETING);
+            builder.AppendLine();
+            builder.AppendLine(EMAIL_CODE_PREFIX + code);
+            builder.AppendLine(EMAIL_EXPIRATION_TEXT);
+
+            return builder.ToString();
+        }
+
+        private static string GetAppSetting(string key, string fallback)
+        {
+            var secretValue = GetSecretAppSetting(key);
+            if (!string.IsNullOrWhiteSpace(secretValue))
+            {
+                return secretValue;
+            }
+
+            var value = ConfigurationManager.AppSettings[key];
+            return string.IsNullOrWhiteSpace(value) ? fallback : value;
+        }
+
+        private static string GetSecretAppSetting(string key)
+        {
+            try
+            {
+                var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                var secretsPath = Path.Combine(baseDirectory, SECRET_FILE_NAME);
+
+                Logger.Info("SMTP secrets path: " + secretsPath);
+
+                if (!File.Exists(secretsPath))
+                {
+                    Logger.Warn("SMTP secrets file not found.");
+                    return null;
+                }
+
+                var fileMap = new ExeConfigurationFileMap
+                {
+                    ExeConfigFilename = secretsPath
+                };
+
+                var config = ConfigurationManager.OpenMappedExeConfiguration(
+                    fileMap,
+                    ConfigurationUserLevel.None);
+
+                var setting = config.AppSettings.Settings[key];
+                return setting?.Value;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                Logger.Warn("Failed to read SMTP secrets configuration.", ex);
+                return null;
             }
         }
     }

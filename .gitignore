@@ -372,3 +372,8 @@ FodyWeavers.xsd
 # Historiales locales comunes
 .history/
 
+# secretos del servidor
+ServerSecrets.config
+SnakesAndLadders.Server/bin/
+SnakesAndLadders.Server/obj/
+
