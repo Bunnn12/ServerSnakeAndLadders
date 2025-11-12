@@ -44,6 +44,8 @@ internal static class Program
         ServiceHost gameBoardHost = null;
         ServiceHost playerReportHost = null;
         ServiceHost statsHost = null;
+        ServiceHost friendsHost = null;
+
 
         try
         {
@@ -56,6 +58,7 @@ internal static class Program
             var accountsRepo = new AccountsRepository();
             var userRepo = new UserRepository();
             var lobbyRepo = new LobbyRepository();
+            var friendsRepo = new FriendsRepository();
             IChatRepository chatRepo = new FileChatRepository(chatPath);
 
             var chatApp = new ChatAppService(chatRepo);
@@ -80,9 +83,11 @@ internal static class Program
                 playerSessionManager);
 
             var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp);
+            Func<string, int> getUserId = t => authApp.GetUserIdFromToken(t);
             var userApp = new UserAppService(userRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
             IStatsAppService statsApp = new StatsAppService(statsRepo);
+            var friendsApp = new FriendsAppService(friendsRepo, getUserId);
 
             var authSvc = new AuthService(authApp);
             var userSvc = new UserService(userApp);
@@ -90,6 +95,7 @@ internal static class Program
             var gameBoardSvc = new GameBoardService();
             var playerReportSvc = new PlayerReportService(playerReportApp);
             var statsSvc = new StatsService(statsApp);
+            var friendsSvc = new FriendsService(friendsApp);
 
             lobbyHost = new ServiceHost(lobbySvc);
             authHost = new ServiceHost(authSvc);
@@ -98,6 +104,7 @@ internal static class Program
             gameBoardHost = new ServiceHost(gameBoardSvc);
             playerReportHost = new ServiceHost(playerReportSvc);
             statsHost = new ServiceHost(statsSvc);
+            friendsHost = new ServiceHost(friendsSvc);
 
             authHost.Open();
             userHost.Open();
@@ -106,6 +113,7 @@ internal static class Program
             gameBoardHost.Open();
             playerReportHost.Open();
             statsHost.Open();
+            friendsHost.Open();
 
             Log.Info("Servidor iniciado y servicios levantados.");
             Console.WriteLine("Servicios levantados:");
@@ -116,6 +124,7 @@ internal static class Program
             Console.WriteLine(" - " + typeof(GameBoardService).FullName);
             Console.WriteLine(" - " + typeof(PlayerReportService).FullName);
             Console.WriteLine(" - " + typeof(StatsService).FullName);
+            Console.WriteLine(" - " + typeof(FriendsService).FullName);
             Console.WriteLine("Presiona Enter para detener…");
             Console.ReadLine();
         }
@@ -164,6 +173,7 @@ internal static class Program
             CloseSafely(gameBoardHost, "GameBoardService");
             CloseSafely(playerReportHost, "PlayerReportService");
             CloseSafely(statsHost, "StatsService");
+            CloseSafely(friendsHost, "FriendsService");
             Log.Info("Servidor detenido.");
         }
     }

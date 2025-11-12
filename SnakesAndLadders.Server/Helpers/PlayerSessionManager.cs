@@ -31,7 +31,6 @@ namespace SnakesAndLadders.Server.Helpers
 
             try
             {
-                // Por ahora solo te interesa el lobby.
                 lobbyService.KickUserFromAllLobbies(userId, safeReason);
 
                 Logger.InfoFormat(

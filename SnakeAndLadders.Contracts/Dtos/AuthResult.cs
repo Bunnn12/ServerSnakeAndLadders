@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace SnakeAndLadders.Contracts.Dtos
@@ -20,5 +21,7 @@ namespace SnakeAndLadders.Contracts.Dtos
         [DataMember] public string Message { get; set; }
 
         [DataMember] public string ProfilePhotoId { get; set; }
+        [DataMember] public string Token { get; set; }
+        [DataMember] public DateTime? ExpiresAtUtc { get; set; }
     }
 }

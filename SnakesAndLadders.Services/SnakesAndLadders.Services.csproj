@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="Logic\AuthAppService.cs" />
     <Compile Include="Logic\ChatAppService.cs" />
+    <Compile Include="Logic\FriendsAppService.cs" />
     <Compile Include="Logic\GameBoardBuilder.cs" />
     <Compile Include="Logic\IAuthAppService.cs" />
     <Compile Include="Logic\IUserAppService.cs" />
@@ -58,6 +59,7 @@
     <Compile Include="Logic\UserAppService.cs" />
     <Compile Include="Wcf\AuthService.cs" />
     <Compile Include="Wcf\ChatService.cs" />
+    <Compile Include="Wcf\FriendsService.cs" />
     <Compile Include="Wcf\GameBoardService.cs" />
     <Compile Include="Wcf\LobbyService.cs" />
     <Compile Include="Wcf\PlayerReportService.cs" />

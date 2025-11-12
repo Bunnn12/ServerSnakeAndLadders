@@ -8,5 +8,6 @@ namespace SnakesAndLadders.Services.Logic
         AuthResult Login(LoginDto request);
         AuthResult RequestEmailVerification(string email);
         AuthResult ConfirmEmailVerification(string email, string code);
+        int GetUserIdFromToken(string token);
     }
 }

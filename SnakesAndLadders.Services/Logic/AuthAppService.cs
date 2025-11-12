@@ -5,7 +5,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Security.Cryptography;
-using SnakeAndLadders.Contracts.Services;
+using System.Configuration;
+using System.Text;
 
 namespace SnakesAndLadders.Services.Logic
 {
@@ -27,6 +28,9 @@ namespace SnakesAndLadders.Services.Logic
         private const string AUTH_CODE_BANNED = "Auth.Banned";
         private const string META_KEY_SANCTION_TYPE = "sanctionType";
         private const string META_KEY_BAN_ENDS_AT_UTC = "banEndsAtUtc";
+        private const int DEFAULT_TOKEN_MINUTES = 10080; 
+        private const string APP_KEY_SECRET = "Auth:Secret";
+        private const string APP_KEY_TOKEN_MINUTES = "Auth:TokenMinutes";
 
 
         public AuthAppService(
@@ -125,11 +129,25 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail("Auth.ServerError");
             }
 
-            return Ok(
+            int ttlMinutes;
+            var ttlStr = ConfigurationManager.AppSettings[APP_KEY_TOKEN_MINUTES];
+            if (!int.TryParse(ttlStr, out ttlMinutes) || ttlMinutes <= 0)
+            {
+                ttlMinutes = DEFAULT_TOKEN_MINUTES; 
+            }
+
+            var expires = DateTime.UtcNow.AddMinutes(ttlMinutes);
+            var token = IssueToken(userId, expires);
+
+            var result = Ok(
                 userId: userId,
                 displayName: display,
                 profilePhotoId: photoId
             );
+
+            result.Token = token;
+            result.ExpiresAtUtc = expires;
+            return result;
 
         }
 
@@ -215,5 +233,58 @@ namespace SnakesAndLadders.Services.Logic
 
         private static AuthResult Fail(string code, Dictionary<string, string> meta = null)
             => new AuthResult { Success = false, Code = code, Meta = meta };
+
+        private static string ComputeHmacHex(string secret, string data)
+        {
+            using (var h = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+            {
+                var bytes = h.ComputeHash(Encoding.UTF8.GetBytes(data));
+                var sb = new StringBuilder(bytes.Length * 2);
+                for (int i = 0; i < bytes.Length; i++) sb.Append(bytes[i].ToString("x2"));
+                return sb.ToString();
+            }
+        }
+
+        private static string IssueToken(int userId, DateTime expiresAtUtc)
+        {
+            var secret = ConfigurationManager.AppSettings[APP_KEY_SECRET] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(secret)) return null;
+
+            var expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
+            var payload = $"{userId}|{expUnix}";
+            var sigHex = ComputeHmacHex(secret, payload);
+            var raw = $"{payload}|{sigHex}";
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
+        }
+
+        public int GetUserIdFromToken(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token)) return 0;
+            if (int.TryParse(token, out var uidCompat)) return uidCompat > 0 ? uidCompat : 0;
+
+            try
+            {
+                var raw = Encoding.UTF8.GetString(Convert.FromBase64String(token));
+                var parts = raw.Split('|');
+                if (parts.Length != 3) return 0;
+
+                if (!int.TryParse(parts[0], out var uid) || uid <= 0) return 0;
+                if (!long.TryParse(parts[1], out var expUnix) || expUnix <= 0) return 0;
+
+                var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                if (nowUnix > expUnix) return 0; // expirado
+
+                var secret = ConfigurationManager.AppSettings[APP_KEY_SECRET] ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(secret)) return 0;
+
+                var expected = ComputeHmacHex(secret, $"{uid}|{expUnix}");
+                return string.Equals(expected, parts[2], System.StringComparison.OrdinalIgnoreCase) ? uid : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
     }
 }

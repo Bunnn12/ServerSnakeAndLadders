@@ -155,6 +155,7 @@
     <Compile Include="Repositories\AccountsRepository.cs" />
     <Compile Include="Repositories\AccountStatusRepository.cs" />
     <Compile Include="Repositories\FileChatRepository.cs" />
+    <Compile Include="Repositories\FriendsRepository.cs" />
     <Compile Include="Repositories\LobbyRepository.cs" />
     <Compile Include="Repositories\ReportRepository.cs" />
     <Compile Include="Repositories\SanctionRepository.cs" />

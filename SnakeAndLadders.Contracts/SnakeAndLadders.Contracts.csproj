@@ -56,6 +56,7 @@
     <Compile Include="Dtos\CreateAccountRequest.cs" />
     <Compile Include="Dtos\CreateGameRequest.cs" />
     <Compile Include="Dtos\CreateGameResponse.cs" />
+    <Compile Include="Dtos\FriendLinkDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardCellDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardDefinitionDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardLinkDto.cs" />
@@ -78,6 +79,7 @@
     <Compile Include="Dtos\SendMessageRequest2.cs" />
     <Compile Include="Dtos\SendMessageResponse2.cs" />
     <Compile Include="Dtos\StartMatchRequest.cs" />
+    <Compile Include="Enums\FriendRequestStatus.cs" />
     <Compile Include="Faults\Faults.cs" />
     <Compile Include="Faults\ServiceFault.cs" />
     <Compile Include="Helpers\AvatarIdHelper.cs" />
@@ -89,6 +91,8 @@
     <Compile Include="Interfaces\IChatClient.cs" />
     <Compile Include="Interfaces\IChatRepository.cs" />
     <Compile Include="Interfaces\IEmailSender.cs" />
+    <Compile Include="Interfaces\IFriendsAppService.cs" />
+    <Compile Include="Interfaces\IFriendsRepository.cs" />
     <Compile Include="Interfaces\ILobbyAppService.cs" />
     <Compile Include="Interfaces\ILobbyRepository.cs" />
     <Compile Include="Interfaces\IPasswordHasher.cs" />
@@ -103,6 +107,7 @@
     <Compile Include="Services\IAccountService.cs" />
     <Compile Include="Services\IAuthService.cs" />
     <Compile Include="Services\IChatService.cs" />
+    <Compile Include="Services\IFriendsService.cs" />
     <Compile Include="Services\IGameBoardService.cs" />
     <Compile Include="Services\ILobbyService.cs" />
     <Compile Include="Services\IPlayerReportService.cs" />
