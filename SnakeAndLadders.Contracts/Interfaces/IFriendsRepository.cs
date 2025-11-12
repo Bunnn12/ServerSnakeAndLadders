@@ -17,5 +17,9 @@ namespace SnakeAndLadders.Contracts.Interfaces
 
         IReadOnlyList<int> GetAcceptedFriendsIds(int userId);
         IReadOnlyList<FriendLinkDto> GetPendingRelated(int userId);
+        IReadOnlyList<FriendListItemDto> GetAcceptedFriendsDetailed(int userId);
+        IReadOnlyList<FriendRequestItemDto> GetIncomingPendingDetailed(int userId);
+        IReadOnlyList<FriendRequestItemDto> GetOutgoingPendingDetailed(int userId);
+        IReadOnlyList<UserBriefDto> SearchUsers(string query, int maxResults, int excludeUserId);
     }
 }

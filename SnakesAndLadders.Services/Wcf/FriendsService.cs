@@ -32,5 +32,17 @@ namespace SnakesAndLadders.Services.Wcf
         public List<int> GetFriendsIds(string token) => new List<int>(app.GetFriendsIds(token));
         public List<FriendLinkDto> GetIncomingPending(string token) => new List<FriendLinkDto>(app.GetIncomingPending(token));
         public List<FriendLinkDto> GetOutgoingPending(string token) => new List<FriendLinkDto>(app.GetOutgoingPending(token));
+        public List<FriendListItemDto> GetFriends(string token)
+            => new List<FriendListItemDto>(app.GetFriends(token));
+
+        public List<FriendRequestItemDto> GetIncomingRequests(string token)
+            => new List<FriendRequestItemDto>(app.GetIncomingRequests(token));
+
+        public List<FriendRequestItemDto> GetOutgoingRequests(string token)
+            => new List<FriendRequestItemDto>(app.GetOutgoingRequests(token));
+
+        public List<UserBriefDto> SearchUsers(string token, string query, int maxResults)
+            => new List<UserBriefDto>(app.SearchUsers(token, query, maxResults));
+
     }
 }

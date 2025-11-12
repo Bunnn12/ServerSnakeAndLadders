@@ -23,7 +23,7 @@ namespace SnakesAndLadders.Services.Logic
         private const byte STATUS_REJECTED = 0x03;
 
         private readonly IFriendsRepository repository;
-        private readonly Func<string, int> getUserIdFromToken; 
+        private readonly Func<string, int> getUserIdFromToken;
 
         public FriendsAppService(
             IFriendsRepository repository,
@@ -38,13 +38,28 @@ namespace SnakesAndLadders.Services.Logic
             var current = EnsureUser(token);
             if (current == targetUserId) throw Faults.Create(CODE_SAME_USER, string.Empty);
 
-            var existing = repository.GetNormalized(current, targetUserId);
-            if (existing != null) throw Faults.Create(CODE_LINK_EXISTS, string.Empty);
+            try
+            {
+                var link = repository.CreatePending(current, targetUserId);
+                Logger.InfoFormat("Friend request created/reopened. users {0} -> {1}", current, targetUserId);
+                return link;
+            }
+            catch (InvalidOperationException ex)
+            {
+                var msg = ex.Message ?? string.Empty;
+                if (msg.Contains("Pending already exists"))
+                    throw Faults.Create(CODE_LINK_EXISTS, "There is already a pending request.");
+                if (msg.Contains("Already friends"))
+                    throw Faults.Create(CODE_LINK_EXISTS, "You are already friends.");
 
-            var link = repository.CreatePending(current, targetUserId);
-            Logger.InfoFormat("Friend request created. users {0} & {1}", link.UserId1, link.UserId2);
-            return link;
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
+
 
         public void AcceptFriendRequest(string token, int friendLinkId)
         {
@@ -98,18 +113,45 @@ namespace SnakesAndLadders.Services.Logic
             return repository.GetAcceptedFriendsIds(current);
         }
 
+        public IReadOnlyList<FriendListItemDto> GetFriends(string token)
+        {
+            var current = EnsureUser(token);
+            return repository.GetAcceptedFriendsDetailed(current);
+        }
+
+        public IReadOnlyList<FriendRequestItemDto> GetIncomingRequests(string token)
+        {
+            var current = EnsureUser(token);
+            return repository.GetIncomingPendingDetailed(current);
+        }
+
+        public IReadOnlyList<FriendRequestItemDto> GetOutgoingRequests(string token)
+        {
+            var current = EnsureUser(token);
+            return repository.GetOutgoingPendingDetailed(current);
+        }
+
+        public IReadOnlyList<UserBriefDto> SearchUsers(string token, string query, int maxResults)
+        {
+            var current = EnsureUser(token);
+            return repository.SearchUsers(query, maxResults, current);
+        }
+
         public IReadOnlyList<FriendLinkDto> GetIncomingPending(string token)
         {
             var current = EnsureUser(token);
-            return repository.GetPendingRelated(current).ToList();
+            return repository.GetPendingRelated(current)
+                             .Where(x => x.UserId2 == current) 
+                             .ToList();
         }
 
         public IReadOnlyList<FriendLinkDto> GetOutgoingPending(string token)
         {
             var current = EnsureUser(token);
-            return repository.GetPendingRelated(current).ToList();
+            return repository.GetPendingRelated(current)
+                             .Where(x => x.UserId1 == current) 
+                             .ToList();
         }
-
         private int EnsureUser(string token)
         {
             var userId = getUserIdFromToken(token);

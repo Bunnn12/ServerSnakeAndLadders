@@ -57,6 +57,8 @@
     <Compile Include="Dtos\CreateGameRequest.cs" />
     <Compile Include="Dtos\CreateGameResponse.cs" />
     <Compile Include="Dtos\FriendLinkDto.cs" />
+    <Compile Include="Dtos\FriendListItemDto.cs" />
+    <Compile Include="Dtos\FriendRequestItemDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardCellDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardDefinitionDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardLinkDto.cs" />
@@ -79,6 +81,7 @@
     <Compile Include="Dtos\SendMessageRequest2.cs" />
     <Compile Include="Dtos\SendMessageResponse2.cs" />
     <Compile Include="Dtos\StartMatchRequest.cs" />
+    <Compile Include="Dtos\UserBriefDto.cs" />
     <Compile Include="Enums\FriendRequestStatus.cs" />
     <Compile Include="Faults\Faults.cs" />
     <Compile Include="Faults\ServiceFault.cs" />

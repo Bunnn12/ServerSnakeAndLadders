@@ -28,54 +28,74 @@ namespace SnakesAndLadders.Data.Repositories
 
         public FriendLinkDto GetNormalized(int userIdA, int userIdB)
         {
-            NormalizePair(userIdA, userIdB, out var u1, out var u2);
-
             using (var ctx = new SnakeAndLaddersDBEntities1())
             {
                 var e = ctx.ListaAmigos.AsNoTracking()
-                    .SingleOrDefault(x => x.UsuarioIdUsuario1 == u1 && x.UsuarioIdUsuario2 == u2);
+                    .SingleOrDefault(x =>
+                        (x.UsuarioIdUsuario1 == userIdA && x.UsuarioIdUsuario2 == userIdB) ||
+                        (x.UsuarioIdUsuario1 == userIdB && x.UsuarioIdUsuario2 == userIdA));
                 return Map(e);
             }
         }
 
-        public FriendLinkDto CreatePending(int userIdA, int userIdB)
+        public FriendLinkDto CreatePending(int requesterUserId, int targetUserId)
         {
-            NormalizePair(userIdA, userIdB, out var u1, out var u2);
-
             using (var ctx = new SnakeAndLaddersDBEntities1())
             using (var tx = ctx.Database.BeginTransaction())
             {
                 var existsUsers = ctx.Usuario
-                    .Where(u => u.IdUsuario == u1 || u.IdUsuario == u2)
+                    .Where(u => u.IdUsuario == requesterUserId || u.IdUsuario == targetUserId)
                     .Select(u => u.IdUsuario)
                     .ToList();
-
                 if (existsUsers.Count != 2)
                 {
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException("Users not found.");
                 }
 
-                var exists = ctx.ListaAmigos
-                    .Any(x => x.UsuarioIdUsuario1 == u1 && x.UsuarioIdUsuario2 == u2);
-                if (exists)
+                var link = ctx.ListaAmigos
+                    .SingleOrDefault(x =>
+                        (x.UsuarioIdUsuario1 == requesterUserId && x.UsuarioIdUsuario2 == targetUserId) ||
+                        (x.UsuarioIdUsuario1 == targetUserId && x.UsuarioIdUsuario2 == requesterUserId));
+
+                var STATUS_PENDING_BIN = new[] { (byte)0x01 };
+                var STATUS_ACCEPTED_BIN = new[] { (byte)0x02 };
+                var STATUS_REJECTED_BIN = new[] { (byte)0x03 };
+
+                if (link == null)
                 {
-                    throw new InvalidOperationException();
+                    
+                    var entity = new ListaAmigos
+                    {
+                        UsuarioIdUsuario1 = requesterUserId,  
+                        UsuarioIdUsuario2 = targetUserId,     
+                        EstadoSolicitud = STATUS_PENDING_BIN
+                    };
+                    ctx.ListaAmigos.Add(entity);
+                    ctx.SaveChanges();
+                    tx.Commit();
+                    return Map(entity);
                 }
 
-                var entity = new ListaAmigos
+                if (link.EstadoSolicitud == STATUS_PENDING_BIN)
                 {
-                    UsuarioIdUsuario1 = u1,
-                    UsuarioIdUsuario2 = u2,
-                    EstadoSolicitud = STATUS_PENDING_BIN
-                };
+                    throw new InvalidOperationException("Pending already exists.");
+                }
+                if (link.EstadoSolicitud == STATUS_ACCEPTED_BIN)
+                {
+                    throw new InvalidOperationException("Already friends.");
+                }
 
-                ctx.ListaAmigos.Add(entity);
+               
+                link.UsuarioIdUsuario1 = requesterUserId;  
+                link.UsuarioIdUsuario2 = targetUserId;    
+                link.EstadoSolicitud = STATUS_PENDING_BIN;
                 ctx.SaveChanges();
                 tx.Commit();
 
-                return Map(entity);
+                return Map(link);
             }
         }
+
 
         public void UpdateStatus(int friendLinkId, byte newStatus)
         {
@@ -102,7 +122,7 @@ namespace SnakesAndLadders.Data.Repositories
                 var entity = ctx.ListaAmigos.SingleOrDefault(x => x.IdListaAmigos == friendLinkId);
                 if (entity == null)
                 {
-                    return; // idempotente
+                    return; 
                 }
 
                 ctx.ListaAmigos.Remove(entity);
@@ -158,5 +178,139 @@ namespace SnakesAndLadders.Data.Repositories
                 Status = (FriendRequestStatus)status
             };
         }
+        public IReadOnlyList<FriendListItemDto> GetAcceptedFriendsDetailed(int userId)
+        {
+            using (var ctx = new SnakeAndLaddersDBEntities1())
+            {
+                var rows = ctx.ListaAmigos.AsNoTracking()
+                    .Where(x => x.EstadoSolicitud == STATUS_ACCEPTED_BIN &&
+                                (x.UsuarioIdUsuario1 == userId || x.UsuarioIdUsuario2 == userId))
+                    .Select(x => new
+                    {
+                        x.IdListaAmigos,
+                        FriendUserId = x.UsuarioIdUsuario1 == userId ? x.UsuarioIdUsuario2 : x.UsuarioIdUsuario1
+                    })
+                    .ToList();
+
+                var friendIds = rows.Select(r => r.FriendUserId).ToList();
+
+                var users = ctx.Usuario.AsNoTracking()
+                    .Where(u => friendIds.Contains(u.IdUsuario))
+                    .Select(u => new { u.IdUsuario, u.NombreUsuario, u.FotoPerfil })
+                    .ToList()
+                    .ToDictionary(u => u.IdUsuario);
+
+                return rows.Select(r => new FriendListItemDto
+                {
+                    FriendLinkId = r.IdListaAmigos,
+                    FriendUserId = r.FriendUserId,
+                    FriendUserName = users.TryGetValue(r.FriendUserId, out var u) ? u.NombreUsuario : string.Empty,
+                    ProfilePhotoId = users.TryGetValue(r.FriendUserId, out var u2) ? u2.FotoPerfil : null
+                }).ToList();
+            }
+        }
+
+        public IReadOnlyList<FriendRequestItemDto> GetIncomingPendingDetailed(int userId)
+        {
+            using (var ctx = new SnakeAndLaddersDBEntities1())
+            {
+                var pend = ctx.ListaAmigos.AsNoTracking()
+                    .Where(x => x.EstadoSolicitud == STATUS_PENDING_BIN &&
+                                (x.UsuarioIdUsuario1 == userId || x.UsuarioIdUsuario2 == userId))
+                    .ToList();
+
+                var incoming = pend.Where(x => x.UsuarioIdUsuario2 == userId).ToList(); // el que “recibe” es userId2
+
+                var involvedIds = incoming.Select(x => x.UsuarioIdUsuario1).Concat(incoming.Select(x => x.UsuarioIdUsuario2)).Distinct().ToList();
+                var users = ctx.Usuario.AsNoTracking()
+                    .Where(u => involvedIds.Contains(u.IdUsuario))
+                    .Select(u => new { u.IdUsuario, u.NombreUsuario })
+                    .ToList()
+                    .ToDictionary(u => u.IdUsuario);
+
+                return incoming.Select(e => new FriendRequestItemDto
+                {
+                    FriendLinkId = e.IdListaAmigos,
+                    RequesterUserId = e.UsuarioIdUsuario1,
+                    RequesterUserName = users[e.UsuarioIdUsuario1].NombreUsuario,
+                    TargetUserId = e.UsuarioIdUsuario2,
+                    TargetUserName = users[e.UsuarioIdUsuario2].NombreUsuario,
+                    Status = FriendRequestStatus.Pending
+                }).ToList();
+            }
+        }
+
+        public IReadOnlyList<FriendRequestItemDto> GetOutgoingPendingDetailed(int userId)
+        {
+            using (var ctx = new SnakeAndLaddersDBEntities1())
+            {
+                var outgoing = ctx.ListaAmigos.AsNoTracking()
+                    .Where(x => x.EstadoSolicitud == STATUS_PENDING_BIN &&
+                                x.UsuarioIdUsuario1 == userId)
+                    .ToList();
+
+                var involvedIds = outgoing.Select(x => x.UsuarioIdUsuario1).Concat(outgoing.Select(x => x.UsuarioIdUsuario2)).Distinct().ToList();
+                var users = ctx.Usuario.AsNoTracking()
+                    .Where(u => involvedIds.Contains(u.IdUsuario))
+                    .Select(u => new { u.IdUsuario, u.NombreUsuario })
+                    .ToList()
+                    .ToDictionary(u => u.IdUsuario);
+
+                return outgoing.Select(e => new FriendRequestItemDto
+                {
+                    FriendLinkId = e.IdListaAmigos,
+                    RequesterUserId = e.UsuarioIdUsuario1,
+                    RequesterUserName = users[e.UsuarioIdUsuario1].NombreUsuario,
+                    TargetUserId = e.UsuarioIdUsuario2,
+                    TargetUserName = users[e.UsuarioIdUsuario2].NombreUsuario,
+                    Status = FriendRequestStatus.Pending
+                }).ToList();
+            }
+        }
+
+        public IReadOnlyList<UserBriefDto> SearchUsers(string query, int maxResults, int excludeUserId)
+        {
+            query = (query ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return new List<UserBriefDto>();
+            }
+
+            using (var ctx = new SnakeAndLaddersDBEntities1())
+            {
+                const int DEFAULT_MAX = 20;
+                int limit = maxResults > 0 && maxResults <= 100 ? maxResults : DEFAULT_MAX;
+
+                var pendingTargets = ctx.ListaAmigos.AsNoTracking()
+                    .Where(fr => fr.UsuarioIdUsuario1 == excludeUserId && fr.EstadoSolicitud == STATUS_PENDING_BIN)
+                    .Select(fr => fr.UsuarioIdUsuario2);
+
+                var acceptedTargets = ctx.ListaAmigos.AsNoTracking()
+                    .Where(fr =>
+                        fr.EstadoSolicitud == STATUS_ACCEPTED_BIN &&
+                       (fr.UsuarioIdUsuario1 == excludeUserId || fr.UsuarioIdUsuario2 == excludeUserId))
+                    .Select(fr => fr.UsuarioIdUsuario1 == excludeUserId ? fr.UsuarioIdUsuario2 : fr.UsuarioIdUsuario1);
+
+                var blockedIds = pendingTargets
+                    .Concat(acceptedTargets) 
+                    .Distinct();
+
+                var q = ctx.Usuario.AsNoTracking()
+                    .Where(u => u.IdUsuario != excludeUserId &&
+                                u.NombreUsuario.Contains(query) &&
+                                !blockedIds.Contains(u.IdUsuario))
+                    .OrderBy(u => u.NombreUsuario)
+                    .Take(limit)
+                    .Select(u => new UserBriefDto
+                    {
+                        UserId = u.IdUsuario,
+                        UserName = u.NombreUsuario,
+                        ProfilePhotoId = u.FotoPerfil
+                    });
+
+                return q.ToList();
+            }
+        }
+
     }
 }

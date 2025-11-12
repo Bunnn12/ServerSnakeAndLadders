@@ -21,5 +21,9 @@ namespace SnakeAndLadders.Contracts.Services
         [OperationContract] List<int> GetFriendsIds(string token);
         [OperationContract] List<FriendLinkDto> GetIncomingPending(string token);
         [OperationContract] List<FriendLinkDto> GetOutgoingPending(string token);
+        [OperationContract] List<FriendListItemDto> GetFriends(string token);
+        [OperationContract] List<FriendRequestItemDto> GetIncomingRequests(string token);
+        [OperationContract] List<FriendRequestItemDto> GetOutgoingRequests(string token);
+        [OperationContract] List<UserBriefDto> SearchUsers(string token, string query, int maxResults);
     }
 }

@@ -19,5 +19,9 @@ namespace SnakeAndLadders.Contracts.Interfaces
         IReadOnlyList<int> GetFriendsIds(string token);
         IReadOnlyList<FriendLinkDto> GetIncomingPending(string token);
         IReadOnlyList<FriendLinkDto> GetOutgoingPending(string token);
+        IReadOnlyList<FriendListItemDto> GetFriends(string token);
+        IReadOnlyList<FriendRequestItemDto> GetIncomingRequests(string token);
+        IReadOnlyList<FriendRequestItemDto> GetOutgoingRequests(string token);
+        IReadOnlyList<UserBriefDto> SearchUsers(string token, string query, int maxResults);
     }
 }
