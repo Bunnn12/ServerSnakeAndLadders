@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using log4net;
 using SnakeAndLadders.Contracts.Dtos;
+using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Faults;
 using SnakeAndLadders.Contracts.Interfaces;
 
@@ -41,7 +42,18 @@ namespace SnakesAndLadders.Services.Logic
             try
             {
                 var link = repository.CreatePending(current, targetUserId);
-                Logger.InfoFormat("Friend request created/reopened. users {0} -> {1}", current, targetUserId);
+
+                if (link.Status == FriendRequestStatus.Accepted)
+                {
+                    Logger.InfoFormat(
+                        "Friend auto-accepted due to cross-request. users {0} <-> {1}",
+                        current, targetUserId);
+                }
+                else
+                {
+                    Logger.InfoFormat("Friend request created/reopened. users {0} -> {1}", current, targetUserId);
+                }
+
                 return link;
             }
             catch (InvalidOperationException ex)
@@ -52,10 +64,6 @@ namespace SnakesAndLadders.Services.Logic
                 if (msg.Contains("Already friends"))
                     throw Faults.Create(CODE_LINK_EXISTS, "You are already friends.");
 
-                throw;
-            }
-            catch (Exception ex)
-            {
                 throw;
             }
         }

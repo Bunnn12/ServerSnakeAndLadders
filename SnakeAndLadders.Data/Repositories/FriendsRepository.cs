@@ -57,17 +57,12 @@ namespace SnakesAndLadders.Data.Repositories
                         (x.UsuarioIdUsuario1 == requesterUserId && x.UsuarioIdUsuario2 == targetUserId) ||
                         (x.UsuarioIdUsuario1 == targetUserId && x.UsuarioIdUsuario2 == requesterUserId));
 
-                var STATUS_PENDING_BIN = new[] { (byte)0x01 };
-                var STATUS_ACCEPTED_BIN = new[] { (byte)0x02 };
-                var STATUS_REJECTED_BIN = new[] { (byte)0x03 };
-
                 if (link == null)
                 {
-                    
                     var entity = new ListaAmigos
                     {
-                        UsuarioIdUsuario1 = requesterUserId,  
-                        UsuarioIdUsuario2 = targetUserId,     
+                        UsuarioIdUsuario1 = requesterUserId,
+                        UsuarioIdUsuario2 = targetUserId,
                         EstadoSolicitud = STATUS_PENDING_BIN
                     };
                     ctx.ListaAmigos.Add(entity);
@@ -76,25 +71,41 @@ namespace SnakesAndLadders.Data.Repositories
                     return Map(entity);
                 }
 
-                if (link.EstadoSolicitud == STATUS_PENDING_BIN)
+                var currentStatus = (link.EstadoSolicitud != null && link.EstadoSolicitud.Length > 0)
+                    ? link.EstadoSolicitud[0]
+                    : (byte)0x01; 
+
+                if (currentStatus == STATUS_PENDING_BIN[0])
                 {
+                    bool isReverse =
+                        link.UsuarioIdUsuario1 == targetUserId &&
+                        link.UsuarioIdUsuario2 == requesterUserId;
+
+                    if (isReverse)
+                    {
+                        link.EstadoSolicitud = STATUS_ACCEPTED_BIN;
+                        ctx.SaveChanges();
+                        tx.Commit();
+                        return Map(link);
+                    }
+
                     throw new InvalidOperationException("Pending already exists.");
                 }
-                if (link.EstadoSolicitud == STATUS_ACCEPTED_BIN)
+
+                if (currentStatus == STATUS_ACCEPTED_BIN[0])
                 {
                     throw new InvalidOperationException("Already friends.");
                 }
-
-               
-                link.UsuarioIdUsuario1 = requesterUserId;  
-                link.UsuarioIdUsuario2 = targetUserId;    
+                link.UsuarioIdUsuario1 = requesterUserId;
+                link.UsuarioIdUsuario2 = targetUserId;
                 link.EstadoSolicitud = STATUS_PENDING_BIN;
+
                 ctx.SaveChanges();
                 tx.Commit();
-
                 return Map(link);
             }
         }
+
 
 
         public void UpdateStatus(int friendLinkId, byte newStatus)
