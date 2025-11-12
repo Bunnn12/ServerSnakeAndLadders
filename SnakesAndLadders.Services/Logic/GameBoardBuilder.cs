@@ -3,10 +3,7 @@ using SnakeAndLadders.Contracts.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using log4net;
-using log4net.Repository.Hierarchy;
 
 namespace SnakesAndLadders.Services.Logic
 {
@@ -399,7 +396,7 @@ namespace SnakesAndLadders.Services.Logic
         {
             var cells = new List<BoardCellDto>(layout.CellCount);
 
-            int currentIndex = 1;
+            int currentIndex = MIN_CELL_INDEX;
 
             for (int row = layout.Rows - 1; row >= 0; row--)
             {
@@ -421,7 +418,9 @@ namespace SnakesAndLadders.Services.Logic
                             Row = row,
                             Column = column,
                             IsDark = isDark,
-                            SpecialType = SpecialCellType.None
+                            SpecialType = SpecialCellType.None,
+                            IsStart = (currentIndex == MIN_CELL_INDEX),          // 👈 inicio
+                            IsFinal = (currentIndex == layout.CellCount)         // 👈 final
                         });
 
                         currentIndex++;
@@ -442,7 +441,9 @@ namespace SnakesAndLadders.Services.Logic
                             Row = row,
                             Column = column,
                             IsDark = isDark,
-                            SpecialType = SpecialCellType.None
+                            SpecialType = SpecialCellType.None,
+                            IsStart = (currentIndex == MIN_CELL_INDEX),          // 👈 inicio
+                            IsFinal = (currentIndex == layout.CellCount)         // 👈 final
                         });
 
                         currentIndex++;

@@ -20,5 +20,9 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
         public SpecialCellType SpecialType { get; set; }
 
         public bool HasSpecial => SpecialType != SpecialCellType.None;
+
+        public bool IsStart { get; set; }
+
+        public bool IsFinal { get; set; }
     }
 }
