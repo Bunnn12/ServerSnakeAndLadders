@@ -14,6 +14,12 @@ namespace SnakesAndLadders.Data
     
     public partial class AvatarDesbloqueado
     {
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2214:DoNotCallOverridableMethodsInConstructors")]
+        public AvatarDesbloqueado()
+        {
+            this.Usuario1 = new HashSet<Usuario>();
+        }
+    
         public int IdAvatarDesbloqueado { get; set; }
         public int AvatarIdAvatar { get; set; }
         public int UsuarioIdUsuario { get; set; }
@@ -21,5 +27,7 @@ namespace SnakesAndLadders.Data
     
         public virtual Avatar Avatar { get; set; }
         public virtual Usuario Usuario { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<Usuario> Usuario1 { get; set; }
     }
 }

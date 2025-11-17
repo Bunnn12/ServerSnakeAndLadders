@@ -186,6 +186,7 @@
           <Property Name="DescripcionPerfil" Type="nvarchar" MaxLength="255" />
           <Property Name="Monedas" Type="int" Nullable="false" />
           <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="IdAvatarDesbloqueadoActual" Type="int" />
         </EntityType>
         <EntityType Name="UsuarioHasPartida">
           <Key>
@@ -459,6 +460,18 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
+        <Association Name="FK_Usuario_AvatarDesbloqueadoActual">
+          <End Role="AvatarDesbloqueado" Type="Self.AvatarDesbloqueado" Multiplicity="0..1" />
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="AvatarDesbloqueado">
+              <PropertyRef Name="IdAvatarDesbloqueado" />
+            </Principal>
+            <Dependent Role="Usuario">
+              <PropertyRef Name="IdAvatarDesbloqueadoActual" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
         <EntityContainer Name="SnakeAndLaddersDBModelStoreContainer">
           <EntitySet Name="Avatar" EntityType="Self.Avatar" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="AvatarDesbloqueado" EntityType="Self.AvatarDesbloqueado" Schema="dbo" store:Type="Tables" />
@@ -564,6 +577,10 @@
             <End Role="Usuario" EntitySet="Usuario" />
             <End Role="UsuarioHasPartida" EntitySet="UsuarioHasPartida" />
           </AssociationSet>
+          <AssociationSet Name="FK_Usuario_AvatarDesbloqueadoActual" Association="Self.FK_Usuario_AvatarDesbloqueadoActual">
+            <End Role="AvatarDesbloqueado" EntitySet="AvatarDesbloqueado" />
+            <End Role="Usuario" EntitySet="Usuario" />
+          </AssociationSet>
         </EntityContainer>
       </Schema></edmx:StorageModels>
     <!-- CSDL content -->
@@ -591,6 +608,7 @@
           <Property Name="FechaDesbloqueo" Type="DateTime" Nullable="false" Precision="0" />
           <NavigationProperty Name="Avatar" Relationship="Self.FK_AvatarDesbloqueado_Avatar" FromRole="AvatarDesbloqueado" ToRole="Avatar" />
           <NavigationProperty Name="Usuario" Relationship="Self.FK_AvatarDesbloqueado_Usuario" FromRole="AvatarDesbloqueado" ToRole="Usuario" />
+          <NavigationProperty Name="Usuario1" Relationship="SnakeAndLaddersDBModel.FK_Usuario_AvatarDesbloqueadoActual" FromRole="AvatarDesbloqueado" ToRole="Usuario" />
         </EntityType>
         <EntityType Name="Caja">
           <Key>
@@ -773,7 +791,7 @@
           <Property Name="NombreUsuario" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
           <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
           <Property Name="Apellidos" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
-          <Property Name="FotoPerfil" Type="String" />
+          <Property Name="FotoPerfil" Type="String" MaxLength="5" Unicode="false" FixedLength="false" />
           <Property Name="DescripcionPerfil" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
           <Property Name="Monedas" Type="Int32" Nullable="false" />
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
@@ -790,6 +808,8 @@
           <NavigationProperty Name="Sancion" Relationship="Self.FK_Sancion_Usuario" FromRole="Usuario" ToRole="Sancion" />
           <NavigationProperty Name="StickersUsuario" Relationship="Self.FK_StickersUsuario_Usuario" FromRole="Usuario" ToRole="StickersUsuario" />
           <NavigationProperty Name="UsuarioHasPartida" Relationship="Self.FK_UHP_Usuario" FromRole="Usuario" ToRole="UsuarioHasPartida" />
+          <Property Name="IdAvatarDesbloqueadoActual" Type="Int32" />
+          <NavigationProperty Name="AvatarDesbloqueado1" Relationship="SnakeAndLaddersDBModel.FK_Usuario_AvatarDesbloqueadoActual" FromRole="Usuario" ToRole="AvatarDesbloqueado" />
         </EntityType>
         <EntityType Name="UsuarioHasPartida">
           <Key>
@@ -1170,7 +1190,23 @@
             <End Role="Usuario" EntitySet="Usuario" />
             <End Role="UsuarioHasPartida" EntitySet="UsuarioHasPartida" />
           </AssociationSet>
+          <AssociationSet Name="FK_Usuario_AvatarDesbloqueadoActual" Association="SnakeAndLaddersDBModel.FK_Usuario_AvatarDesbloqueadoActual">
+            <End Role="AvatarDesbloqueado" EntitySet="AvatarDesbloqueado" />
+            <End Role="Usuario" EntitySet="Usuario" />
+          </AssociationSet>
         </EntityContainer>
+        <Association Name="FK_Usuario_AvatarDesbloqueadoActual">
+          <End Type="SnakeAndLaddersDBModel.AvatarDesbloqueado" Role="AvatarDesbloqueado" Multiplicity="0..1" />
+          <End Type="SnakeAndLaddersDBModel.Usuario" Role="Usuario" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="AvatarDesbloqueado">
+              <PropertyRef Name="IdAvatarDesbloqueado" />
+            </Principal>
+            <Dependent Role="Usuario">
+              <PropertyRef Name="IdAvatarDesbloqueadoActual" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
       </Schema>
     </edmx:ConceptualModels>
     <!-- C-S mapping content -->
@@ -1367,6 +1403,7 @@
           <EntitySetMapping Name="Usuario">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Usuario">
               <MappingFragment StoreEntitySet="Usuario">
+                <ScalarProperty Name="IdAvatarDesbloqueadoActual" ColumnName="IdAvatarDesbloqueadoActual" />
                 <ScalarProperty Name="IdUsuario" ColumnName="IdUsuario" />
                 <ScalarProperty Name="NombreUsuario" ColumnName="NombreUsuario" />
                 <ScalarProperty Name="Nombre" ColumnName="Nombre" />

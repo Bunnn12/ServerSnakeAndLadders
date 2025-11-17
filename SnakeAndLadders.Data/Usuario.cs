@@ -40,6 +40,7 @@ namespace SnakesAndLadders.Data
         public string DescripcionPerfil { get; set; }
         public int Monedas { get; set; }
         public byte[] Estado { get; set; }
+        public Nullable<int> IdAvatarDesbloqueadoActual { get; set; }
     
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<AvatarDesbloqueado> AvatarDesbloqueado { get; set; }
@@ -67,5 +68,6 @@ namespace SnakesAndLadders.Data
         public virtual ICollection<StickersUsuario> StickersUsuario { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<UsuarioHasPartida> UsuarioHasPartida { get; set; }
+        public virtual AvatarDesbloqueado AvatarDesbloqueado1 { get; set; }
     }
 }

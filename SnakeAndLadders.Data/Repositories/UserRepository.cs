@@ -1,6 +1,5 @@
 ﻿using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
-
 using System;
 using System.Data.Entity;
 using System.Linq;
@@ -13,26 +12,38 @@ namespace SnakesAndLadders.Data.Repositories
         private const int MAX_FIRST_NAME = 100;
         private const int MAX_LAST_NAME = 255;
         private const int MAX_DESCRIPTION = 500;
+
         public AccountDto GetByUsername(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
-                throw new ArgumentException("username es obligatorio.", nameof(username));
-
-            using (var db = new SnakeAndLaddersDBEntities1()) 
             {
-                var dto = db.Usuario
-                    .AsNoTracking()
-                    .Where(u => u.NombreUsuario == username)
-                    .Select(u => new AccountDto
-                    {
-                        UserId = u.IdUsuario,
-                        Username = u.NombreUsuario,
-                        FirstName = u.Nombre,
-                        LastName = u.Apellidos,
-                        ProfileDescription = u.DescripcionPerfil,
-                        Coins = u.Monedas,
-                        HasProfilePhoto = u.FotoPerfil != null && u.FotoPerfil.Length > 0
-                    })
+                throw new ArgumentException("username es obligatorio.", nameof(username));
+            }
+
+            using (var db = new SnakeAndLaddersDBEntities1())
+            {
+                var dto =
+                    (from u in db.Usuario.AsNoTracking()
+                     join a in db.AvatarDesbloqueado.AsNoTracking()
+                         on u.IdAvatarDesbloqueadoActual equals a.IdAvatarDesbloqueado
+                         into avatarGroup
+                     from a in avatarGroup.DefaultIfEmpty() // LEFT JOIN
+                     where u.NombreUsuario == username
+                     select new AccountDto
+                     {
+                         UserId = u.IdUsuario,
+                         Username = u.NombreUsuario,
+                         FirstName = u.Nombre,
+                         LastName = u.Apellidos,
+                         ProfileDescription = u.DescripcionPerfil,
+                         Coins = u.Monedas,
+                         HasProfilePhoto = u.FotoPerfil != null && u.FotoPerfil.Length > 0,
+                         ProfilePhotoId = (u.FotoPerfil ?? "DEF").Trim().ToUpper(),
+
+                         // SKIN actual leído desde las columnas de tu captura
+                         CurrentSkinUnlockedId = u.IdAvatarDesbloqueadoActual,
+                         CurrentSkinId = a.AvatarIdAvatar.ToString()
+                     })
                     .SingleOrDefault();
 
                 return dto;
@@ -41,7 +52,10 @@ namespace SnakesAndLadders.Data.Repositories
 
         public ProfilePhotoDto GetPhotoByUserId(int userId)
         {
-            if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
 
             using (var db = new SnakeAndLaddersDBEntities1())
             {
@@ -71,7 +85,6 @@ namespace SnakesAndLadders.Data.Repositories
                 throw new ArgumentOutOfRangeException(nameof(request.UserId), "UserId must be positive.");
             }
 
-            // Validaciones de longitud según tu estándar
             if (!string.IsNullOrWhiteSpace(request.FirstName) && request.FirstName.Length > MAX_FIRST_NAME)
             {
                 throw new ArgumentException($"FirstName exceeds {MAX_FIRST_NAME} characters.", nameof(request.FirstName));
@@ -112,28 +125,61 @@ namespace SnakesAndLadders.Data.Repositories
 
                 if (request.ProfilePhotoId != null)
                 {
-                    entity.FotoPerfil = request.ProfilePhotoId.Length == 0 ? null : request.ProfilePhotoId;
+                    entity.FotoPerfil = request.ProfilePhotoId.Length == 0
+                        ? null
+                        : request.ProfilePhotoId;
                 }
 
                 db.SaveChanges();
 
-                return new AccountDto
-                {
-                    UserId = entity.IdUsuario,
-                    Username = entity.NombreUsuario,
-                    FirstName = entity.Nombre,
-                    LastName = entity.Apellidos,
-                    ProfileDescription = entity.DescripcionPerfil,
-                    Coins = entity.Monedas,
-                    HasProfilePhoto = entity.FotoPerfil != null && entity.FotoPerfil.Length > 0
-                };
+                // volvemos a leer la skin con JOIN para el dto de salida
+                var dto =
+                    (from u in db.Usuario.AsNoTracking()
+                     join a in db.AvatarDesbloqueado.AsNoTracking()
+                         on u.IdAvatarDesbloqueadoActual equals a.IdAvatarDesbloqueado
+                         into avatarGroup
+                     from a in avatarGroup.DefaultIfEmpty()
+                     where u.IdUsuario == request.UserId
+                     select new AccountDto
+                     {
+                         UserId = u.IdUsuario,
+                         Username = u.NombreUsuario,
+                         FirstName = u.Nombre,
+                         LastName = u.Apellidos,
+                         ProfileDescription = u.DescripcionPerfil,
+                         Coins = u.Monedas,
+                         HasProfilePhoto = u.FotoPerfil != null && u.FotoPerfil.Length > 0,
+                         ProfilePhotoId = (u.FotoPerfil ?? "DEF").Trim().ToUpper(),
+                         CurrentSkinUnlockedId = u.IdAvatarDesbloqueadoActual,
+                         CurrentSkinId = a.AvatarIdAvatar.ToString()
+                     })
+                    .Single();
+
+                return dto;
             }
         }
 
-        public String GetAvatarIdByUserId(int a)
+        public string GetAvatarIdByUserId(int userId)
         {
-            return ("a");
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            using (var db = new SnakeAndLaddersDBEntities1())
+            {
+                var result =
+                    (from u in db.Usuario.AsNoTracking()
+                     join a in db.AvatarDesbloqueado.AsNoTracking()
+                         on u.IdAvatarDesbloqueadoActual equals a.IdAvatarDesbloqueado
+                         into avatarGroup
+                     from a in avatarGroup.DefaultIfEmpty()
+                     where u.IdUsuario == userId
+                     select a.AvatarIdAvatar.ToString() ?? u.FotoPerfil ?? "DEF")
+                    .SingleOrDefault();
+
+                return result?.Trim().ToUpper();
+            }
         }
     }
 }
-

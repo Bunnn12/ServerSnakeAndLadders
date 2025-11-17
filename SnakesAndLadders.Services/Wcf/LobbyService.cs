@@ -47,7 +47,12 @@ namespace SnakesAndLadders.Services.Wcf
                 UserId = request.HostUserId,
                 UserName = lobby.HostUserName,
                 IsHost = true,
-                JoinedAtUtc = DateTime.UtcNow
+                JoinedAtUtc = DateTime.UtcNow,
+                AvatarId = request.HostAvatarId,
+
+                CurrentSkinUnlockedId = request.CurrentSkinUnlockedId,
+                CurrentSkinId = request.CurrentSkinId
+
             });
 
             _lobbies[partidaId] = lobby;
@@ -77,7 +82,10 @@ namespace SnakesAndLadders.Services.Wcf
                 UserId = request.UserId,
                 UserName = request.UserName,
                 IsHost = false,
-                JoinedAtUtc = DateTime.UtcNow
+                JoinedAtUtc = DateTime.UtcNow,
+                AvatarId = request.AvatarId,
+                CurrentSkinUnlockedId = request.CurrentSkinUnlockedId,
+                CurrentSkinId = request.CurrentSkinId
             });
 
             return new JoinLobbyResponse { Success = true, Lobby = lobby };
