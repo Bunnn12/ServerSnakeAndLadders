@@ -51,7 +51,9 @@
     <Compile Include="Logic\ChatAppService.cs" />
     <Compile Include="Logic\FriendsAppService.cs" />
     <Compile Include="Logic\GameBoardBuilder.cs" />
+    <Compile Include="Logic\GameplayLogic.cs" />
     <Compile Include="Logic\IAuthAppService.cs" />
+    <Compile Include="Logic\InMemoryGameSessionStore.cs" />
     <Compile Include="Logic\IUserAppService.cs" />
     <Compile Include="Logic\LobbyAppService.cs" />
     <Compile Include="Logic\PlayerReportAppService.cs" />
@@ -61,6 +63,7 @@
     <Compile Include="Wcf\ChatService.cs" />
     <Compile Include="Wcf\FriendsService.cs" />
     <Compile Include="Wcf\GameBoardService.cs" />
+    <Compile Include="Wcf\GameplayService.cs" />
     <Compile Include="Wcf\LobbyService.cs" />
     <Compile Include="Wcf\PlayerReportService.cs" />
     <Compile Include="Wcf\StatsService.cs" />

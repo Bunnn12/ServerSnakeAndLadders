@@ -1,4 +1,8 @@
-﻿using log4net;
+﻿using System;
+using System.Configuration;
+using System.IO;
+using System.ServiceModel;
+using log4net;
 using log4net.Config;
 using ServerSnakesAndLadders;
 using SnakeAndLadders.Contracts.Interfaces;
@@ -6,12 +10,9 @@ using SnakesAndLadders.Data;
 using SnakesAndLadders.Data.Repositories;
 using SnakesAndLadders.Host.Helpers;
 using SnakesAndLadders.Server.Helpers;
+using SnakesAndLadders.Services;
 using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Wcf;
-using System;
-using System.Configuration;
-using System.IO;
-using System.ServiceModel;
 
 internal static class ServerLogBootstrap
 {
@@ -19,11 +20,12 @@ internal static class ServerLogBootstrap
     {
         var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
         var logsDir = Path.Combine(baseDir, "SnakeAndLadders", "logs");
+
         Directory.CreateDirectory(logsDir);
-        log4net.GlobalContext.Properties["LogFileName"] = Path.Combine(logsDir, "server.log");
+
+        GlobalContext.Properties["LogFileName"] = Path.Combine(logsDir, "server.log");
     }
 }
-
 
 internal static class Program
 {
@@ -34,8 +36,8 @@ internal static class Program
         ServerLogBootstrap.Init();
         XmlConfigurator.Configure(LogManager.GetRepository());
 
-        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-            Log.Fatal("Excepción no controlada.", e.ExceptionObject as Exception);
+        AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+            Log.Fatal("Excepción no controlada.", args.ExceptionObject as Exception);
 
         ServiceHost authHost = null;
         ServiceHost userHost = null;
@@ -45,7 +47,7 @@ internal static class Program
         ServiceHost playerReportHost = null;
         ServiceHost statsHost = null;
         ServiceHost friendsHost = null;
-
+        ServiceHost gameplayHost = null;
 
         try
         {
@@ -83,19 +85,22 @@ internal static class Program
                 playerSessionManager);
 
             var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp);
-            Func<string, int> getUserId = t => authApp.GetUserIdFromToken(t);
+            Func<string, int> getUserId = token => authApp.GetUserIdFromToken(token);
             var userApp = new UserAppService(userRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
             IStatsAppService statsApp = new StatsAppService(statsRepo);
             var friendsApp = new FriendsAppService(friendsRepo, getUserId);
 
+            IGameSessionStore gameSessionStore = new InMemoryGameSessionStore();
+
             var authSvc = new AuthService(authApp);
             var userSvc = new UserService(userApp);
             var chatSvc = new ChatService(chatApp);
-            var gameBoardSvc = new GameBoardService();
+            var gameBoardSvc = new GameBoardService(gameSessionStore, appLogger);
             var playerReportSvc = new PlayerReportService(playerReportApp);
             var statsSvc = new StatsService(statsApp);
             var friendsSvc = new FriendsService(friendsApp);
+            var gameplaySvc = new GameplayService(gameSessionStore, appLogger);
 
             lobbyHost = new ServiceHost(lobbySvc);
             authHost = new ServiceHost(authSvc);
@@ -105,6 +110,7 @@ internal static class Program
             playerReportHost = new ServiceHost(playerReportSvc);
             statsHost = new ServiceHost(statsSvc);
             friendsHost = new ServiceHost(friendsSvc);
+            gameplayHost = new ServiceHost(gameplaySvc);
 
             authHost.Open();
             userHost.Open();
@@ -114,8 +120,10 @@ internal static class Program
             playerReportHost.Open();
             statsHost.Open();
             friendsHost.Open();
+            gameplayHost.Open();
 
             Log.Info("Servidor iniciado y servicios levantados.");
+
             Console.WriteLine("Servicios levantados:");
             Console.WriteLine(" - " + typeof(AuthService).FullName);
             Console.WriteLine(" - " + typeof(UserService).FullName);
@@ -125,6 +133,7 @@ internal static class Program
             Console.WriteLine(" - " + typeof(PlayerReportService).FullName);
             Console.WriteLine(" - " + typeof(StatsService).FullName);
             Console.WriteLine(" - " + typeof(FriendsService).FullName);
+            Console.WriteLine(" - " + typeof(GameplayService).FullName);
             Console.WriteLine("Presiona Enter para detener…");
             Console.ReadLine();
         }
@@ -174,6 +183,8 @@ internal static class Program
             CloseSafely(playerReportHost, "PlayerReportService");
             CloseSafely(statsHost, "StatsService");
             CloseSafely(friendsHost, "FriendsService");
+            CloseSafely(gameplayHost, "GameplayService");
+
             Log.Info("Servidor detenido.");
         }
     }

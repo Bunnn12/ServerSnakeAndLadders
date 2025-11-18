@@ -64,6 +64,14 @@
     <Compile Include="Dtos\Gameplay\BoardLinkDto.cs" />
     <Compile Include="Dtos\Gameplay\CreateBoardRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\CreateBoardResponseDto.cs" />
+    <Compile Include="Dtos\Gameplay\GameSession.cs" />
+    <Compile Include="Dtos\Gameplay\GetGameStateRequestDto.cs" />
+    <Compile Include="Dtos\Gameplay\GetGameStateResponseDto.cs" />
+    <Compile Include="Dtos\Gameplay\TokenStateDto.cs" />
+    <Compile Include="Enums\MoveEffectType.cs" />
+    <Compile Include="Dtos\Gameplay\PlayerMoveResultDto.cs" />
+    <Compile Include="Dtos\Gameplay\RollDiceRequestDto.cs" />
+    <Compile Include="Dtos\Gameplay\RollDiceResponseDto.cs" />
     <Compile Include="Dtos\GetLobbyInfoRequest.cs" />
     <Compile Include="Dtos\JoinLobbyRequest.cs" />
     <Compile Include="Dtos\JoinLobbyResponse.cs" />
@@ -96,6 +104,7 @@
     <Compile Include="Interfaces\IEmailSender.cs" />
     <Compile Include="Interfaces\IFriendsAppService.cs" />
     <Compile Include="Interfaces\IFriendsRepository.cs" />
+    <Compile Include="Interfaces\IGameSessionStore.cs" />
     <Compile Include="Interfaces\ILobbyAppService.cs" />
     <Compile Include="Interfaces\ILobbyRepository.cs" />
     <Compile Include="Interfaces\IPasswordHasher.cs" />
@@ -112,6 +121,7 @@
     <Compile Include="Services\IChatService.cs" />
     <Compile Include="Services\IFriendsService.cs" />
     <Compile Include="Services\IGameBoardService.cs" />
+    <Compile Include="Services\IGameplayService.cs" />
     <Compile Include="Services\ILobbyService.cs" />
     <Compile Include="Services\IPlayerReportService.cs" />
     <Compile Include="Services\IStatsService.cs" />

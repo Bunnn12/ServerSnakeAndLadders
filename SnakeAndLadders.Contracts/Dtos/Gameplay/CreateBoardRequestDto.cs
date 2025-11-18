@@ -23,5 +23,8 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
         [DataMember]
         public string Difficulty { get; set; }
 
+        [DataMember]
+        public int[] PlayerUserIds { get; set; }
+
     }
 }

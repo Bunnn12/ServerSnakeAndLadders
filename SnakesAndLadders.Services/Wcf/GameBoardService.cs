@@ -1,14 +1,13 @@
-﻿
+﻿// SnakesAndLadders.Services.Wcf/GameBoardService.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.ServiceModel;
+using log4net;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
 using SnakesAndLadders.Services.Logic;
-using System;
-using log4net;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.ServiceModel;
-using log4net.Repository.Hierarchy;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -17,50 +16,52 @@ namespace SnakesAndLadders.Services.Wcf
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(GameBoardService));
 
-        // Hacemos el Builder de solo lectura e inicializado directamente.
+        private const string ERROR_UNEXPECTED_CREATE = "An unexpected internal error occurred while creating the board.";
+        private const string ERROR_GAME_ID_INVALID = "GameId must be greater than zero.";
+
         private readonly GameBoardBuilder gameBoardBuilder = new GameBoardBuilder();
+        private readonly IGameSessionStore gameSessionStore;
+        private readonly IAppLogger appLogger;
 
-        // Hacemos el diccionario de solo lectura e inicializado directamente.
-        private readonly ConcurrentDictionary<int, BoardDefinitionDto> boardsByGameId =
-            new ConcurrentDictionary<int, BoardDefinitionDto>();
-
-
-        public GameBoardService()
+        public GameBoardService(IGameSessionStore gameSessionStore, IAppLogger appLogger)
         {
-            
+            this.gameSessionStore = gameSessionStore ?? throw new ArgumentNullException(nameof(gameSessionStore));
+            this.appLogger = appLogger ?? throw new ArgumentNullException(nameof(appLogger));
         }
 
         public CreateBoardResponseDto CreateBoard(CreateBoardRequestDto request)
         {
             if (request == null)
             {
-                const string message = "Request cannot be null.";
-                Logger.Warn(message);
-                throw new FaultException(message);
+                const string msg = "Request cannot be null.";
+                Logger.Warn(msg);
+                throw new FaultException(msg);
             }
 
             try
             {
                 Logger.InfoFormat(
-                    "Creating board. GameId={0}, BoardSize={1}, EnableBonusCells={2}, EnableTrapCells={3}, EnableTeleportCells={4}",
+                    "Creating board. GameId={0}, BoardSize={1}, EnableBonusCells={2}, EnableTrapCells={3}, EnableTeleportCells={4}, Difficulty={5}",
                     request.GameId,
                     request.BoardSize,
                     request.EnableBonusCells,
                     request.EnableTrapCells,
-                    request.EnableTeleportCells);
+                    request.EnableTeleportCells,
+                    request.Difficulty);
 
                 var board = gameBoardBuilder.BuildBoard(request);
 
-                if (board == null)
-                {
-                    const string message = "GameBoardBuilder returned a null board.";
-                    Logger.Error(message);
-                    throw new FaultException(message);
-                }
+                var players = (request.PlayerUserIds ?? Array.Empty<int>())
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
 
-                boardsByGameId.AddOrUpdate(request.GameId, board, (_, __) => board);
+                var session = gameSessionStore.CreateSession(request.GameId, board, players);
 
-                Logger.InfoFormat("Board created and stored for GameId={0}.", request.GameId);
+                Logger.InfoFormat(
+                    "Game session created. GameId={0}, Players={1}",
+                    session.GameId,
+                    string.Join(",", session.PlayerUserIds));
 
                 return new CreateBoardResponseDto
                 {
@@ -72,50 +73,44 @@ namespace SnakesAndLadders.Services.Wcf
                 Logger.Warn("Validation error while creating board.", ex);
                 throw new FaultException(ex.Message);
             }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Warn("Cannot create game session.", ex);
+                throw new FaultException(ex.Message);
+            }
             catch (FaultException)
             {
                 throw;
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected critical error while creating board.", ex);
-                throw new FaultException("An unexpected internal error occurred while creating the board.");
+                Logger.Error(ERROR_UNEXPECTED_CREATE, ex);
+                throw new FaultException(ERROR_UNEXPECTED_CREATE);
             }
         }
-
-
-
-        // EN GameBoardService.cs
 
         public BoardDefinitionDto GetBoard(int gameId)
         {
             if (gameId <= 0)
             {
-                // Esto puede seguir lanzando FaultException, lo cual es manejable.
-                const string message = "GameId must be greater than zero.";
-                throw new FaultException(message);
+                throw new FaultException(ERROR_GAME_ID_INVALID);
             }
 
             try
             {
-                if (!boardsByGameId.TryGetValue(gameId, out BoardDefinitionDto board))
+                if (!gameSessionStore.TryGetSession(gameId, out GameSession session))
                 {
-                    // 🛑 CORRECCIÓN: Devolvemos null en lugar de lanzar FaultException.
-                    Logger.Warn($"Board not found for GameId {gameId}. Returning null to client.");
+                    Logger.WarnFormat("GetBoard: no session found for GameId {0}.", gameId);
                     return null;
                 }
 
-                // Logger.Info("Board retrieved...");
-                return board;
+                return session.Board;
             }
             catch (Exception ex)
             {
-                // Para cualquier error inesperado, logueamos y devolvemos null o FaultException genérico.
                 Logger.Error("Unexpected error while retrieving board.", ex);
                 throw new FaultException("An unexpected error occurred while retrieving the board.");
             }
         }
-
-
     }
 }
