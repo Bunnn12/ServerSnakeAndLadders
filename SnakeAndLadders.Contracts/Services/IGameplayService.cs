@@ -1,10 +1,5 @@
 ﻿using SnakeAndLadders.Contracts.Dtos.Gameplay;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.ServiceModel;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SnakeAndLadders.Contracts.Services
 {
@@ -13,6 +8,9 @@ namespace SnakeAndLadders.Contracts.Services
     {
         [OperationContract]
         RollDiceResponseDto RollDice(RollDiceRequestDto request);
-    }
 
+        
+        [OperationContract]
+        GetGameStateResponseDto GetGameState(GetGameStateRequestDto request);
+    }
 }
