@@ -21,12 +21,10 @@ namespace SnakesAndLadders.Services.Wcf
 
         private readonly GameBoardBuilder gameBoardBuilder = new GameBoardBuilder();
         private readonly IGameSessionStore gameSessionStore;
-        private readonly IAppLogger appLogger;
 
         public GameBoardService(IGameSessionStore gameSessionStore, IAppLogger appLogger)
         {
             this.gameSessionStore = gameSessionStore ?? throw new ArgumentNullException(nameof(gameSessionStore));
-            this.appLogger = appLogger ?? throw new ArgumentNullException(nameof(appLogger));
         }
 
         public CreateBoardResponseDto CreateBoard(CreateBoardRequestDto request)
