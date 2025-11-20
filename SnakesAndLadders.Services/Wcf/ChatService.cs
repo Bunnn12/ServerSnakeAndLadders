@@ -98,18 +98,18 @@ namespace SnakesAndLadders.Services.Wcf
                 catch (CommunicationException ex)
                 {
                     Logger.WarnFormat(
-                        "Communication error sending chat message to user {0} in lobby {1}.",
+                        "Communication error sending chat message to user {0} in lobby {1}. Exception: {2}",
                         subscriber.Key,
-                        lobbyId);
-                    Logger.Warn("Communication exception details while sending chat message.", ex);
+                        lobbyId,
+                        ex);
                 }
                 catch (TimeoutException ex)
                 {
                     Logger.WarnFormat(
-                        "Timeout sending chat message to user {0} in lobby {1}.",
+                        "Timeout sending chat message to user {0} in lobby {1}. Exception: {2}",
                         subscriber.Key,
-                        lobbyId);
-                    Logger.Warn("Timeout exception details while sending chat message.", ex);
+                        lobbyId,
+                        ex);
                 }
             }
         }
