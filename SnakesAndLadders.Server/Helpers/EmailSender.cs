@@ -3,7 +3,6 @@ using System.Configuration;
 using System.IO;
 using System.Net;
 using System.Net.Mail;
-using System.Security;
 using System.Text;
 using log4net;
 using SnakeAndLadders.Contracts.Interfaces;
@@ -85,7 +84,7 @@ namespace SnakesAndLadders.Host.Helpers
                 using (var smtpClient = new SmtpClient(host, port))
                 {
                     smtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
-                    smtpClient.EnableSsl = true;
+                    smtpClient.EnableSsl = enableSsl;
                     smtpClient.UseDefaultCredentials = false;
 
                     if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
@@ -112,7 +111,10 @@ namespace SnakesAndLadders.Host.Helpers
                     catch (SmtpException ex)
                     {
                         Logger.Error("SMTP error while sending verification email.", ex);
-                        throw;
+
+                        throw new InvalidOperationException(
+                            "SMTP error while sending verification email.",
+                            ex);
                     }
                     catch (Exception ex)
                     {

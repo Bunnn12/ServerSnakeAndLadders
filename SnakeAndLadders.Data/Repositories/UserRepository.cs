@@ -39,8 +39,6 @@ namespace SnakesAndLadders.Data.Repositories
                          Coins = u.Monedas,
                          HasProfilePhoto = u.FotoPerfil != null && u.FotoPerfil.Length > 0,
                          ProfilePhotoId = (u.FotoPerfil ?? "DEF").Trim().ToUpper(),
-
-                         // SKIN actual leído desde las columnas de tu captura
                          CurrentSkinUnlockedId = u.IdAvatarDesbloqueadoActual,
                          CurrentSkinId = a.AvatarIdAvatar.ToString()
                      })
@@ -82,22 +80,30 @@ namespace SnakesAndLadders.Data.Repositories
 
             if (request.UserId <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(request.UserId), "UserId must be positive.");
+                throw new ArgumentOutOfRangeException(
+                    nameof(request),
+                    "UserId must be positive.");
             }
 
             if (!string.IsNullOrWhiteSpace(request.FirstName) && request.FirstName.Length > MAX_FIRST_NAME)
             {
-                throw new ArgumentException($"FirstName exceeds {MAX_FIRST_NAME} characters.", nameof(request.FirstName));
+                throw new ArgumentException(
+                    $"FirstName exceeds {MAX_FIRST_NAME} characters.",
+                    nameof(request));
             }
 
             if (!string.IsNullOrWhiteSpace(request.LastName) && request.LastName.Length > MAX_LAST_NAME)
             {
-                throw new ArgumentException($"LastName exceeds {MAX_LAST_NAME} characters.", nameof(request.LastName));
+                throw new ArgumentException(
+                    $"LastName exceeds {MAX_LAST_NAME} characters.",
+                    nameof(request));
             }
 
             if (request.ProfileDescription != null && request.ProfileDescription.Length > MAX_DESCRIPTION)
             {
-                throw new ArgumentException($"ProfileDescription exceeds {MAX_DESCRIPTION} characters.", nameof(request.ProfileDescription));
+                throw new ArgumentException(
+                    $"ProfileDescription exceeds {MAX_DESCRIPTION} characters.",
+                    nameof(request));
             }
 
             using (var db = new SnakeAndLaddersDBEntities1())
@@ -132,7 +138,6 @@ namespace SnakesAndLadders.Data.Repositories
 
                 db.SaveChanges();
 
-                // volvemos a leer la skin con JOIN para el dto de salida
                 var dto =
                     (from u in db.Usuario.AsNoTracking()
                      join a in db.AvatarDesbloqueado.AsNoTracking()
@@ -159,7 +164,7 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        public string GetAvatarIdByUserId(int userId)
+        public static string GetAvatarIdByUserId(int userId) 
         {
             if (userId <= 0)
             {
