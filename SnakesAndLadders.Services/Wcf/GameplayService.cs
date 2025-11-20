@@ -1,13 +1,13 @@
-﻿using log4net;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.ServiceModel;
+using log4net;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
 using SnakesAndLadders.Services.Logic;
-using System;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.ServiceModel;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -175,7 +175,7 @@ namespace SnakesAndLadders.Services.Wcf
         {
             return gameplayByGameId.GetOrAdd(
                 session.GameId,
-                _ => new GameplayLogic(session.Board, session.PlayerUserIds));
+                gameSessionId => new GameplayLogic(session.Board, session.PlayerUserIds));
         }
 
         private static void ValidateRollDiceRequest(RollDiceRequestDto request)
@@ -315,10 +315,8 @@ namespace SnakesAndLadders.Services.Wcf
                 return MoveEffectType.Snake;
             }
 
-          
             return MoveEffectType.None;
         }
-
 
         private GameStateSnapshot GetCurrentStateSafe(GameSession session)
         {
@@ -342,13 +340,13 @@ namespace SnakesAndLadders.Services.Wcf
         {
             var callbacksForGame = callbacksByGameId.GetOrAdd(
                 gameId,
-                _ => new ConcurrentDictionary<int, IGameplayCallback>());
+                callbacksDictionaryGameId => new ConcurrentDictionary<int, IGameplayCallback>());
 
             callbacksForGame[userId] = callbackChannel;
 
             var userNamesForGame = userNamesByGameId.GetOrAdd(
                 gameId,
-                _ => new ConcurrentDictionary<int, string>());
+                userNamesDictionaryGameId => new ConcurrentDictionary<int, string>());
 
             string effectiveUserName = string.IsNullOrWhiteSpace(userName)
                 ? $"User {userId}"
@@ -439,7 +437,7 @@ namespace SnakesAndLadders.Services.Wcf
             int index = orderedPlayers.IndexOf(leavingUserId);
             if (index < 0)
             {
-                return orderedPlayers.First();
+                return orderedPlayers[0];
             }
 
             int nextIndex = (index + 1) % orderedPlayers.Count;
@@ -526,10 +524,10 @@ namespace SnakesAndLadders.Services.Wcf
         }
 
         private void InvokeCallbackSafely(
-        int gameId,
-        int userId,
-        IGameplayCallback callback,
-        Action<IGameplayCallback> callbackInvoker)
+            int gameId,
+            int userId,
+            IGameplayCallback callback,
+            Action<IGameplayCallback> callbackInvoker)
         {
             try
             {
@@ -537,16 +535,14 @@ namespace SnakesAndLadders.Services.Wcf
             }
             catch (Exception ex)
             {
-                string warningMessage = string.Format(
-                    "Callback invocation failed. GameId={0}, UserId={1}. Removing callback.",
+                Logger.WarnFormat(
+                    "Callback invocation failed. GameId={0}, UserId={1}. Removing callback. Exception={2}",
                     gameId,
-                    userId);
-
-                Logger.Warn(warningMessage, ex);
+                    userId,
+                    ex);
 
                 RemoveCallback(gameId, userId, LEAVE_REASON_DISCONNECTED);
             }
         }
-
     }
 }
