@@ -7,7 +7,7 @@ namespace SnakeAndLadders.Contracts.Services
     public interface IAuthService
     {
         [OperationContract]
-        AuthResult Register(RegistrationDto request);
+        AuthResult Register(RegistrationDto registration);
 
         [OperationContract]
         AuthResult Login(LoginDto request);
