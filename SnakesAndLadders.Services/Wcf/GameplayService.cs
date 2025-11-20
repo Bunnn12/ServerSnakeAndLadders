@@ -526,10 +526,10 @@ namespace SnakesAndLadders.Services.Wcf
         }
 
         private void InvokeCallbackSafely(
-            int gameId,
-            int userId,
-            IGameplayCallback callback,
-            Action<IGameplayCallback> callbackInvoker)
+        int gameId,
+        int userId,
+        IGameplayCallback callback,
+        Action<IGameplayCallback> callbackInvoker)
         {
             try
             {
@@ -537,15 +537,16 @@ namespace SnakesAndLadders.Services.Wcf
             }
             catch (Exception ex)
             {
-                Logger.WarnFormat(
+                string warningMessage = string.Format(
                     "Callback invocation failed. GameId={0}, UserId={1}. Removing callback.",
                     gameId,
                     userId);
 
-                Logger.Warn("Callback invocation exception detail.", ex);
+                Logger.Warn(warningMessage, ex);
 
                 RemoveCallback(gameId, userId, LEAVE_REASON_DISCONNECTED);
             }
         }
+
     }
 }
