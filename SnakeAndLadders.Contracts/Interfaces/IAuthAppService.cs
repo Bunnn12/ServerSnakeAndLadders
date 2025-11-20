@@ -9,7 +9,7 @@ namespace SnakeAndLadders.Contracts.Interfaces
 {
     public interface IAuthAppService
     {
-        AuthResult RegisterUser(RegistrationDto request);
+        AuthResult RegisterUser(RegistrationDto registration);
         AuthResult Login(LoginDto request);
         AuthResult RequestEmailVerification(string email);
         AuthResult ConfirmEmailVerification(string email, string code);

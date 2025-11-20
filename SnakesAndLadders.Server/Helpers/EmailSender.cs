@@ -116,8 +116,9 @@ namespace SnakesAndLadders.Host.Helpers
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error("Unexpected error while sending verification email.", ex);
-                        throw;
+                        throw new InvalidOperationException(
+                            "Unexpected error while sending verification email.",
+                            ex);
                     }
                 }
             }

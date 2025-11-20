@@ -203,7 +203,7 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
-        private void ValidateReport(ReportDto report)
+        private static void ValidateReport(ReportDto report)
         {
             if (report.ReporterUserId < MIN_VALID_USER_ID ||
                 report.ReportedUserId < MIN_VALID_USER_ID)
@@ -279,13 +279,12 @@ namespace SnakesAndLadders.Services.Logic
                 return;
             }
 
-            if (string.Equals(lastSanction.SanctionType, SANCTION_TYPE_S3, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(lastSanction.SanctionType, SANCTION_TYPE_S3, StringComparison.OrdinalIgnoreCase)
+                && activeReports >= THRESHOLD_S4)
             {
-                if (activeReports >= THRESHOLD_S4)
-                {
-                    ApplySanction(reportedUserId, SANCTION_TYPE_S4);
-                }
+                ApplySanction(reportedUserId, SANCTION_TYPE_S4);
             }
+
         }
 
         private void ApplySanction(int userId, string sanctionType)
@@ -371,10 +370,10 @@ namespace SnakesAndLadders.Services.Logic
             catch (Exception ex)
             {
                 Logger.ErrorFormat(
-                    "Error while kicking user {0} from sessions after sanction {1}.",
+                    "Error while kicking user {0} from sessions after sanction {1}. Exception: {2}",
                     userId,
-                    sanctionType);
-                Logger.Error("Exception details while kicking user from sessions.", ex);
+                    sanctionType,
+                    ex);
             }
         }
 
@@ -391,12 +390,11 @@ namespace SnakesAndLadders.Services.Logic
             catch (Exception ex)
             {
                 Logger.ErrorFormat(
-                    "Error applying permanent deactivation for user {0}.",
-                    userId);
-                Logger.Error("Exception details while deactivating account.", ex);
+                    "Error applying permanent deactivation for user {0}. Exception: {1}",
+                    userId,
+                    ex);
             }
         }
-
         private BanInfoDto BuildBanInfo(SanctionDto sanction)
         {
             var info = new BanInfoDto
