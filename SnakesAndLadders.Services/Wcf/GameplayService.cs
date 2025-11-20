@@ -37,7 +37,6 @@ namespace SnakesAndLadders.Services.Wcf
         private const string EFFECT_TOKEN_SNAKE = "SNAKE";
 
         private readonly IGameSessionStore gameSessionStore;
-        private readonly IAppLogger appLogger;
 
         private readonly ConcurrentDictionary<int, GameplayLogic> gameplayByGameId =
             new ConcurrentDictionary<int, GameplayLogic>();
@@ -51,7 +50,6 @@ namespace SnakesAndLadders.Services.Wcf
         public GameplayService(IGameSessionStore gameSessionStore, IAppLogger appLogger)
         {
             this.gameSessionStore = gameSessionStore ?? throw new ArgumentNullException(nameof(gameSessionStore));
-            this.appLogger = appLogger ?? throw new ArgumentNullException(nameof(appLogger));
         }
 
         public RollDiceResponseDto RollDice(RollDiceRequestDto request)
