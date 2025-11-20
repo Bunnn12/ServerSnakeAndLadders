@@ -9,6 +9,9 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Logic
 {
+    /// <summary>
+    /// Application service that manages friend requests, links and search operations.
+    /// </summary>
     public sealed class FriendsAppService : IFriendsAppService
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(FriendsAppService));
@@ -23,158 +26,208 @@ namespace SnakesAndLadders.Services.Logic
         private const byte STATUS_ACCEPTED = 0x02;
         private const byte STATUS_REJECTED = 0x03;
 
-        private readonly IFriendsRepository repository;
-        private readonly Func<string, int> getUserIdFromToken;
+        private readonly IFriendsRepository _friendsRepository;
+        private readonly Func<string, int> _getUserIdFromToken;
 
         public FriendsAppService(
-            IFriendsRepository repository,
+            IFriendsRepository friendsRepository,
             Func<string, int> getUserIdFromToken)
         {
-            this.repository = repository ?? throw new ArgumentNullException(nameof(repository));
-            this.getUserIdFromToken = getUserIdFromToken ?? throw new ArgumentNullException(nameof(getUserIdFromToken));
+            _friendsRepository = friendsRepository ?? throw new ArgumentNullException(nameof(friendsRepository));
+            _getUserIdFromToken = getUserIdFromToken ?? throw new ArgumentNullException(nameof(getUserIdFromToken));
         }
 
+        /// <summary>
+        /// Sends a friend request from the current user (token) to the target user.
+        /// May auto-accept if a reverse pending request exists.
+        /// </summary>
         public FriendLinkDto SendFriendRequest(string token, int targetUserId)
         {
-            var current = EnsureUser(token);
-            if (current == targetUserId) throw Faults.Create(CODE_SAME_USER, string.Empty);
+            int currentUserId = EnsureUser(token);
+
+            if (currentUserId == targetUserId)
+            {
+                throw Faults.Create(CODE_SAME_USER, string.Empty);
+            }
 
             try
             {
-                var link = repository.CreatePending(current, targetUserId);
+                FriendLinkDto link = _friendsRepository.CreatePending(currentUserId, targetUserId);
 
                 if (link.Status == FriendRequestStatus.Accepted)
                 {
                     Logger.InfoFormat(
                         "Friend auto-accepted due to cross-request. users {0} <-> {1}",
-                        current, targetUserId);
+                        currentUserId,
+                        targetUserId);
                 }
                 else
                 {
-                    Logger.InfoFormat("Friend request created/reopened. users {0} -> {1}", current, targetUserId);
+                    Logger.InfoFormat(
+                        "Friend request created/reopened. users {0} -> {1}",
+                        currentUserId,
+                        targetUserId);
                 }
 
                 return link;
             }
             catch (InvalidOperationException ex)
             {
-                var msg = ex.Message ?? string.Empty;
-                if (msg.Contains("Pending already exists"))
+                string message = ex.Message ?? string.Empty;
+
+                if (message.Contains("Pending already exists"))
+                {
                     throw Faults.Create(CODE_LINK_EXISTS, "There is already a pending request.");
-                if (msg.Contains("Already friends"))
+                }
+
+                if (message.Contains("Already friends"))
+                {
                     throw Faults.Create(CODE_LINK_EXISTS, "You are already friends.");
+                }
 
                 throw;
             }
         }
 
-
         public void AcceptFriendRequest(string token, int friendLinkId)
         {
-            var current = EnsureUser(token);
-            var link = RequireLink(friendLinkId);
-            if (!InvolvesUser(link, current)) throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
+            int currentUserId = EnsureUser(token);
+            FriendLinkDto link = RequireLink(friendLinkId);
 
-            repository.UpdateStatus(friendLinkId, STATUS_ACCEPTED);
+            if (!InvolvesUser(link, currentUserId))
+            {
+                throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
+            }
+
+            _friendsRepository.UpdateStatus(friendLinkId, STATUS_ACCEPTED);
             Logger.InfoFormat("Friend request accepted. linkId {0}", friendLinkId);
         }
 
         public void RejectFriendRequest(string token, int friendLinkId)
         {
-            var current = EnsureUser(token);
-            var link = RequireLink(friendLinkId);
-            if (!InvolvesUser(link, current)) throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
+            int currentUserId = EnsureUser(token);
+            FriendLinkDto link = RequireLink(friendLinkId);
 
-            repository.UpdateStatus(friendLinkId, STATUS_REJECTED);
+            if (!InvolvesUser(link, currentUserId))
+            {
+                throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
+            }
+
+            _friendsRepository.UpdateStatus(friendLinkId, STATUS_REJECTED);
             Logger.InfoFormat("Friend request rejected. linkId {0}", friendLinkId);
         }
 
         public void CancelFriendRequest(string token, int friendLinkId)
         {
-            var current = EnsureUser(token);
-            var link = RequireLink(friendLinkId);
-            if (!InvolvesUser(link, current)) throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
+            int currentUserId = EnsureUser(token);
+            FriendLinkDto link = RequireLink(friendLinkId);
 
-            repository.DeleteLink(friendLinkId);
+            if (!InvolvesUser(link, currentUserId))
+            {
+                throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
+            }
+
+            _friendsRepository.DeleteLink(friendLinkId);
             Logger.InfoFormat("Friend request canceled. linkId {0}", friendLinkId);
         }
 
         public void RemoveFriend(string token, int friendLinkId)
         {
-            var current = EnsureUser(token);
-            var link = RequireLink(friendLinkId);
-            if (!InvolvesUser(link, current)) throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
+            int currentUserId = EnsureUser(token);
+            FriendLinkDto link = RequireLink(friendLinkId);
 
-            repository.DeleteLink(friendLinkId);
+            if (!InvolvesUser(link, currentUserId))
+            {
+                throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
+            }
+
+            _friendsRepository.DeleteLink(friendLinkId);
             Logger.InfoFormat("Friend removed. linkId {0}", friendLinkId);
         }
 
         public FriendLinkDto GetStatus(string token, int otherUserId)
         {
-            var current = EnsureUser(token);
-            return repository.GetNormalized(current, otherUserId);
+            int currentUserId = EnsureUser(token);
+            return _friendsRepository.GetNormalized(currentUserId, otherUserId);
         }
 
         public IReadOnlyList<int> GetFriendsIds(string token)
         {
-            var current = EnsureUser(token);
-            return repository.GetAcceptedFriendsIds(current);
+            int currentUserId = EnsureUser(token);
+            return _friendsRepository.GetAcceptedFriendsIds(currentUserId);
         }
 
         public IReadOnlyList<FriendListItemDto> GetFriends(string token)
         {
-            var current = EnsureUser(token);
-            return repository.GetAcceptedFriendsDetailed(current);
+            int currentUserId = EnsureUser(token);
+            return _friendsRepository.GetAcceptedFriendsDetailed(currentUserId);
         }
 
         public IReadOnlyList<FriendRequestItemDto> GetIncomingRequests(string token)
         {
-            var current = EnsureUser(token);
-            return repository.GetIncomingPendingDetailed(current);
+            int currentUserId = EnsureUser(token);
+            return _friendsRepository.GetIncomingPendingDetailed(currentUserId);
         }
 
         public IReadOnlyList<FriendRequestItemDto> GetOutgoingRequests(string token)
         {
-            var current = EnsureUser(token);
-            return repository.GetOutgoingPendingDetailed(current);
+            int currentUserId = EnsureUser(token);
+            return _friendsRepository.GetOutgoingPendingDetailed(currentUserId);
         }
 
         public IReadOnlyList<UserBriefDto> SearchUsers(string token, string query, int maxResults)
         {
-            var current = EnsureUser(token);
-            return repository.SearchUsers(query, maxResults, current);
+            int currentUserId = EnsureUser(token);
+            return _friendsRepository.SearchUsers(query, maxResults, currentUserId);
         }
 
         public IReadOnlyList<FriendLinkDto> GetIncomingPending(string token)
         {
-            var current = EnsureUser(token);
-            return repository.GetPendingRelated(current)
-                             .Where(x => x.UserId2 == current) 
-                             .ToList();
+            int currentUserId = EnsureUser(token);
+
+            return _friendsRepository
+                .GetPendingRelated(currentUserId)
+                .Where(link => link.UserId2 == currentUserId)
+                .ToList();
         }
 
         public IReadOnlyList<FriendLinkDto> GetOutgoingPending(string token)
         {
-            var current = EnsureUser(token);
-            return repository.GetPendingRelated(current)
-                             .Where(x => x.UserId1 == current) 
-                             .ToList();
+            int currentUserId = EnsureUser(token);
+
+            return _friendsRepository
+                .GetPendingRelated(currentUserId)
+                .Where(link => link.UserId1 == currentUserId)
+                .ToList();
         }
+
         private int EnsureUser(string token)
         {
-            var userId = getUserIdFromToken(token);
-            if (userId <= 0) throw Faults.Create(CODE_INVALID_SESSION, string.Empty);
+            int userId = _getUserIdFromToken(token);
+
+            if (userId <= 0)
+            {
+                throw Faults.Create(CODE_INVALID_SESSION, string.Empty);
+            }
+
             return userId;
         }
 
         private FriendLinkDto RequireLink(int friendLinkId)
         {
-            var link = repository.GetById(friendLinkId);
-            if (link == null) throw Faults.Create(CODE_LINK_NOT_FOUND, string.Empty);
+            FriendLinkDto link = _friendsRepository.GetById(friendLinkId);
+
+            if (link == null)
+            {
+                throw Faults.Create(CODE_LINK_NOT_FOUND, string.Empty);
+            }
+
             return link;
         }
 
         private static bool InvolvesUser(FriendLinkDto link, int userId)
-            => link != null && (link.UserId1 == userId || link.UserId2 == userId);
+        {
+            return link != null && (link.UserId1 == userId || link.UserId2 == userId);
+        }
     }
 }

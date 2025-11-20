@@ -9,6 +9,9 @@ using SnakeAndLadders.Contracts.Services;
 
 namespace SnakesAndLadders.Services.Logic
 {
+    /// <summary>
+    /// Application service that manages player reports, sanctions and ban state.
+    /// </summary>
     public sealed class PlayerReportAppService : IPlayerReportAppService
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(PlayerReportAppService));
@@ -40,11 +43,12 @@ namespace SnakesAndLadders.Services.Logic
             "Automatic sanction {0} applied due to accumulated player reports.";
 
         private const string QUICK_KICK_DEFAULT_REASON = "Quick kick by host.";
+        private const int MAX_REPORT_REASON_LENGTH = 100;
 
-        private readonly IReportRepository reportRepository;
-        private readonly ISanctionRepository sanctionRepository;
-        private readonly IAccountStatusRepository accountStatusRepository;
-        private readonly IPlayerSessionManager playerSessionManager;
+        private readonly IReportRepository _reportRepository;
+        private readonly ISanctionRepository _sanctionRepository;
+        private readonly IAccountStatusRepository _accountStatusRepository;
+        private readonly IPlayerSessionManager _playerSessionManager;
 
         public PlayerReportAppService(
             IReportRepository reportRepositoryValue,
@@ -52,19 +56,22 @@ namespace SnakesAndLadders.Services.Logic
             IAccountStatusRepository accountStatusRepositoryValue,
             IPlayerSessionManager playerSessionManagerValue)
         {
-            reportRepository = reportRepositoryValue
+            _reportRepository = reportRepositoryValue
                 ?? throw new ArgumentNullException(nameof(reportRepositoryValue));
 
-            sanctionRepository = sanctionRepositoryValue
+            _sanctionRepository = sanctionRepositoryValue
                 ?? throw new ArgumentNullException(nameof(sanctionRepositoryValue));
 
-            accountStatusRepository = accountStatusRepositoryValue
+            _accountStatusRepository = accountStatusRepositoryValue
                 ?? throw new ArgumentNullException(nameof(accountStatusRepositoryValue));
 
-            playerSessionManager = playerSessionManagerValue
+            _playerSessionManager = playerSessionManagerValue
                 ?? throw new ArgumentNullException(nameof(playerSessionManagerValue));
         }
 
+        /// <summary>
+        /// Creates a player report and evaluates automatic sanctions if needed.
+        /// </summary>
         public void CreateReport(ReportDto report)
         {
             if (report == null)
@@ -77,7 +84,7 @@ namespace SnakesAndLadders.Services.Logic
             {
                 ValidateReport(report);
 
-                var lastSanction = sanctionRepository.GetLastSanctionForUser(report.ReportedUserId);
+                SanctionDto lastSanction = _sanctionRepository.GetLastSanctionForUser(report.ReportedUserId);
                 DateTime? lastSanctionDateUtc = lastSanction?.SanctionDateUtc;
 
                 var reportCriteria = new ActiveReportSearchCriteriaDto
@@ -87,7 +94,7 @@ namespace SnakesAndLadders.Services.Logic
                     LastSanctionDateUtc = lastSanctionDateUtc
                 };
 
-                bool hasActiveReport = reportRepository.ReporterHasActiveReport(reportCriteria);
+                bool hasActiveReport = _reportRepository.ReporterHasActiveReport(reportCriteria);
                 if (hasActiveReport)
                 {
                     Logger.WarnFormat(
@@ -98,7 +105,7 @@ namespace SnakesAndLadders.Services.Logic
                     throw CreateFault(ERROR_REPORT_DUPLICATE);
                 }
 
-                reportRepository.InsertReport(report);
+                _reportRepository.InsertReport(report);
 
                 EvaluateSanctions(report.ReportedUserId, lastSanction);
             }
@@ -123,7 +130,7 @@ namespace SnakesAndLadders.Services.Logic
 
             try
             {
-                var lastSanction = sanctionRepository.GetLastSanctionForUser(userId);
+                SanctionDto lastSanction = _sanctionRepository.GetLastSanctionForUser(userId);
                 if (lastSanction == null)
                 {
                     return new BanInfoDto { IsBanned = false };
@@ -148,7 +155,7 @@ namespace SnakesAndLadders.Services.Logic
 
             try
             {
-                return sanctionRepository.GetSanctionsHistory(userId);
+                return _sanctionRepository.GetSanctionsHistory(userId);
             }
             catch (Exception ex)
             {
@@ -225,11 +232,10 @@ namespace SnakesAndLadders.Services.Logic
             }
 
             string trimmedReason = report.ReportReason.Trim();
-            const int MAX_REASON_LENGTH = 100;
 
-            if (trimmedReason.Length > MAX_REASON_LENGTH)
+            if (trimmedReason.Length > MAX_REPORT_REASON_LENGTH)
             {
-                trimmedReason = trimmedReason.Substring(0, MAX_REASON_LENGTH);
+                trimmedReason = trimmedReason.Substring(0, MAX_REPORT_REASON_LENGTH);
             }
 
             report.ReportReason = trimmedReason;
@@ -239,7 +245,7 @@ namespace SnakesAndLadders.Services.Logic
         {
             DateTime? lastSanctionDateUtc = lastSanction?.SanctionDateUtc;
 
-            int activeReports = reportRepository.CountActiveReportsAgainstUser(
+            int activeReports = _reportRepository.CountActiveReportsAgainstUser(
                 reportedUserId,
                 lastSanctionDateUtc);
 
@@ -308,7 +314,7 @@ namespace SnakesAndLadders.Services.Logic
             string sanctionType,
             bool deactivateAccount)
         {
-            var nowUtc = DateTime.UtcNow;
+            DateTime nowUtc = DateTime.UtcNow;
 
             var sanction = new SanctionDto
             {
@@ -319,9 +325,9 @@ namespace SnakesAndLadders.Services.Logic
                 ReportReason = reason
             };
 
-            sanctionRepository.InsertSanction(sanction);
+            _sanctionRepository.InsertSanction(sanction);
 
-            var banInfo = BuildBanInfo(sanction);
+            BanInfoDto banInfo = BuildBanInfo(sanction);
 
             Logger.InfoFormat(
                 "Applied sanction {0} to user {1}. Host={2}. IsBanned={3}, BanEndsAtUtc={4}",
@@ -355,7 +361,7 @@ namespace SnakesAndLadders.Services.Logic
                     ? string.Format(AUTO_SANCTION_REASON_FORMAT, sanctionType)
                     : reason.Trim();
 
-                playerSessionManager.KickUserFromAllSessions(userId, formattedReason);
+                _playerSessionManager.KickUserFromAllSessions(userId, formattedReason);
 
                 Logger.InfoFormat(
                     "KickUserFromAllSessions invoked for user {0} after sanction {1}.",
@@ -364,12 +370,11 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (Exception ex)
             {
-                Logger.Error(
-                    string.Format(
-                        "Error while kicking user {0} from sessions after sanction {1}.",
-                        userId,
-                        sanctionType),
-                    ex);
+                Logger.ErrorFormat(
+                    "Error while kicking user {0} from sessions after sanction {1}.",
+                    userId,
+                    sanctionType);
+                Logger.Error("Exception details while kicking user from sessions.", ex);
             }
         }
 
@@ -377,7 +382,7 @@ namespace SnakesAndLadders.Services.Logic
         {
             try
             {
-                accountStatusRepository.SetUserAndAccountActiveState(userId, false);
+                _accountStatusRepository.SetUserAndAccountActiveState(userId, false);
 
                 Logger.InfoFormat(
                     "User {0} permanently banned. User, account and passwords set to inactive.",
@@ -385,11 +390,10 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (Exception ex)
             {
-                Logger.Error(
-                    string.Format(
-                        "Error applying permanent deactivation for user {0}.",
-                        userId),
-                    ex);
+                Logger.ErrorFormat(
+                    "Error applying permanent deactivation for user {0}.",
+                    userId);
+                Logger.Error("Exception details while deactivating account.", ex);
             }
         }
 

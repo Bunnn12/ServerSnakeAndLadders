@@ -1,6 +1,11 @@
-﻿using SnakeAndLadders.Contracts.Dtos;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using SnakeAndLadders.Contracts.Dtos;
 
-namespace SnakesAndLadders.Services.Logic
+namespace SnakeAndLadders.Contracts.Interfaces
 {
     public interface IAuthAppService
     {

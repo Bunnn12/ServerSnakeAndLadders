@@ -4,9 +4,9 @@ namespace SnakeAndLadders.Contracts.Interfaces
 {
     public interface IAccountsRepository
     {
-        bool EmailExists(string email);
-        bool UserNameExists(string userName);
+        bool IsEmailRegistered(string email);
+        bool IsUserNameTaken(string userName);
         int CreateUserWithAccountAndPassword(CreateAccountRequestDto createAccountRequest);
-        (int userId, string passwordHash, string displayName, string profilePhotoId)? GetAuthByIdentifier(string identifier);
+        AuthCredentialsDto GetAuthByIdentifier(string identifier);
     }
 }

@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.ServiceModel;
-using System.Text;
-using System.Threading.Tasks;
-using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
@@ -14,35 +10,76 @@ namespace SnakesAndLadders.Services.Wcf
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single)]
     public sealed class FriendsService : IFriendsService
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(FriendsService));
-        private readonly IFriendsAppService app;
+        private readonly IFriendsAppService _friendsAppService;
 
-        public FriendsService(IFriendsAppService app)
+        public FriendsService(IFriendsAppService friendsAppService)
         {
-            this.app = app ?? throw new ArgumentNullException(nameof(app));
+            _friendsAppService = friendsAppService ?? throw new ArgumentNullException(nameof(friendsAppService));
         }
 
-        public FriendLinkDto SendFriendRequest(string token, int targetUserId) => app.SendFriendRequest(token, targetUserId);
-        public void AcceptFriendRequest(string token, int friendLinkId) => app.AcceptFriendRequest(token, friendLinkId);
-        public void RejectFriendRequest(string token, int friendLinkId) => app.RejectFriendRequest(token, friendLinkId);
-        public void CancelFriendRequest(string token, int friendLinkId) => app.CancelFriendRequest(token, friendLinkId);
-        public void RemoveFriend(string token, int friendLinkId) => app.RemoveFriend(token, friendLinkId);
-        public FriendLinkDto GetStatus(string token, int otherUserId) => app.GetStatus(token, otherUserId);
+        public FriendLinkDto SendFriendRequest(string token, int targetUserId)
+        {
+            return _friendsAppService.SendFriendRequest(token, targetUserId);
+        }
 
-        public List<int> GetFriendsIds(string token) => new List<int>(app.GetFriendsIds(token));
-        public List<FriendLinkDto> GetIncomingPending(string token) => new List<FriendLinkDto>(app.GetIncomingPending(token));
-        public List<FriendLinkDto> GetOutgoingPending(string token) => new List<FriendLinkDto>(app.GetOutgoingPending(token));
+        public void AcceptFriendRequest(string token, int friendLinkId)
+        {
+            _friendsAppService.AcceptFriendRequest(token, friendLinkId);
+        }
+
+        public void RejectFriendRequest(string token, int friendLinkId)
+        {
+            _friendsAppService.RejectFriendRequest(token, friendLinkId);
+        }
+
+        public void CancelFriendRequest(string token, int friendLinkId)
+        {
+            _friendsAppService.CancelFriendRequest(token, friendLinkId);
+        }
+
+        public void RemoveFriend(string token, int friendLinkId)
+        {
+            _friendsAppService.RemoveFriend(token, friendLinkId);
+        }
+
+        public FriendLinkDto GetStatus(string token, int otherUserId)
+        {
+            return _friendsAppService.GetStatus(token, otherUserId);
+        }
+
+        public List<int> GetFriendsIds(string token)
+        {
+            return new List<int>(_friendsAppService.GetFriendsIds(token));
+        }
+
+        public List<FriendLinkDto> GetIncomingPending(string token)
+        {
+            return new List<FriendLinkDto>(_friendsAppService.GetIncomingPending(token));
+        }
+
+        public List<FriendLinkDto> GetOutgoingPending(string token)
+        {
+            return new List<FriendLinkDto>(_friendsAppService.GetOutgoingPending(token));
+        }
+
         public List<FriendListItemDto> GetFriends(string token)
-            => new List<FriendListItemDto>(app.GetFriends(token));
+        {
+            return new List<FriendListItemDto>(_friendsAppService.GetFriends(token));
+        }
 
         public List<FriendRequestItemDto> GetIncomingRequests(string token)
-            => new List<FriendRequestItemDto>(app.GetIncomingRequests(token));
+        {
+            return new List<FriendRequestItemDto>(_friendsAppService.GetIncomingRequests(token));
+        }
 
         public List<FriendRequestItemDto> GetOutgoingRequests(string token)
-            => new List<FriendRequestItemDto>(app.GetOutgoingRequests(token));
+        {
+            return new List<FriendRequestItemDto>(_friendsAppService.GetOutgoingRequests(token));
+        }
 
         public List<UserBriefDto> SearchUsers(string token, string query, int maxResults)
-            => new List<UserBriefDto>(app.SearchUsers(token, query, maxResults));
-
+        {
+            return new List<UserBriefDto>(_friendsAppService.SearchUsers(token, query, maxResults));
+        }
     }
 }

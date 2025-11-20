@@ -3,14 +3,16 @@ using System.Configuration;
 using System.IO;
 using System.Net;
 using System.Net.Mail;
-using System.Net.Security;
-using System.Security.Authentication;
+using System.Security;
 using System.Text;
 using log4net;
 using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Host.Helpers
 {
+    /// <summary>
+    /// SMTP-based implementation of IEmailSender for sending verification emails.
+    /// </summary>
     public sealed class SmtpEmailSender : IEmailSender
     {
         private const string SMTP_HOST_KEY = "Smtp:Host";
@@ -45,16 +47,16 @@ namespace SnakesAndLadders.Host.Helpers
                 throw new ArgumentException("Verification code is required.", nameof(code));
             }
 
-            var host = GetAppSetting(SMTP_HOST_KEY, string.Empty);
-            var portText = GetAppSetting(SMTP_PORT_KEY, DEFAULT_SMTP_PORT.ToString());
-            var enableSslText = GetAppSetting(
+            string host = GetAppSetting(SMTP_HOST_KEY, string.Empty);
+            string portText = GetAppSetting(SMTP_PORT_KEY, DEFAULT_SMTP_PORT.ToString());
+            string enableSslText = GetAppSetting(
                 SMTP_ENABLE_SSL_KEY,
                 DEFAULT_ENABLE_SSL.ToString());
 
-            var user = GetAppSetting(SMTP_USER_KEY, string.Empty);
-            var pass = GetAppSetting(SMTP_PASS_KEY, string.Empty);
-            var from = GetAppSetting(SMTP_FROM_KEY, user);
-            var fromName = GetAppSetting(SMTP_FROM_NAME_KEY, DEFAULT_FROM_NAME);
+            string user = GetAppSetting(SMTP_USER_KEY, string.Empty);
+            string pass = GetAppSetting(SMTP_PASS_KEY, string.Empty);
+            string from = GetAppSetting(SMTP_FROM_KEY, user);
+            string fromName = GetAppSetting(SMTP_FROM_NAME_KEY, DEFAULT_FROM_NAME);
 
             if (string.IsNullOrWhiteSpace(host))
             {
@@ -62,12 +64,12 @@ namespace SnakesAndLadders.Host.Helpers
                 throw new InvalidOperationException("SMTP host is not configured.");
             }
 
-            if (!int.TryParse(portText, out var port))
+            if (!int.TryParse(portText, out int port))
             {
                 port = DEFAULT_SMTP_PORT;
             }
 
-            if (!bool.TryParse(enableSslText, out var enableSsl))
+            if (!bool.TryParse(enableSslText, out bool enableSsl))
             {
                 enableSsl = DEFAULT_ENABLE_SSL;
             }
@@ -80,11 +82,10 @@ namespace SnakesAndLadders.Host.Helpers
                 message.Body = BuildBody(code);
                 message.IsBodyHtml = false;
 
-                // 🔽 AQUÍ VA EL BLOQUE QUE TE DECÍA
                 using (var smtpClient = new SmtpClient(host, port))
                 {
                     smtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
-                    smtpClient.EnableSsl = true; // Gmail requiere SSL/TLS siempre
+                    smtpClient.EnableSsl = true;
                     smtpClient.UseDefaultCredentials = false;
 
                     if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
@@ -97,8 +98,12 @@ namespace SnakesAndLadders.Host.Helpers
 
                     ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
-                    Logger.Info(
-                        $"SMTP config: host={host}, port={port}, enableSsl={smtpClient.EnableSsl}, user={user}");
+                    Logger.InfoFormat(
+                        "SMTP config: host={0}, port={1}, enableSsl={2}, user={3}",
+                        host,
+                        port,
+                        smtpClient.EnableSsl,
+                        user);
 
                     try
                     {
@@ -132,13 +137,13 @@ namespace SnakesAndLadders.Host.Helpers
 
         private static string GetAppSetting(string key, string fallback)
         {
-            var secretValue = GetSecretAppSetting(key);
+            string secretValue = GetSecretAppSetting(key);
             if (!string.IsNullOrWhiteSpace(secretValue))
             {
                 return secretValue;
             }
 
-            var value = ConfigurationManager.AppSettings[key];
+            string value = ConfigurationManager.AppSettings[key];
             return string.IsNullOrWhiteSpace(value) ? fallback : value;
         }
 
@@ -146,10 +151,10 @@ namespace SnakesAndLadders.Host.Helpers
         {
             try
             {
-                var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                var secretsPath = Path.Combine(baseDirectory, SECRET_FILE_NAME);
+                string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                string secretsPath = Path.Combine(baseDirectory, SECRET_FILE_NAME);
 
-                Logger.Info("SMTP secrets path: " + secretsPath);
+                Logger.InfoFormat("SMTP secrets path: {0}", secretsPath);
 
                 if (!File.Exists(secretsPath))
                 {
@@ -162,7 +167,7 @@ namespace SnakesAndLadders.Host.Helpers
                     ExeConfigFilename = secretsPath
                 };
 
-                var config = ConfigurationManager.OpenMappedExeConfiguration(
+                Configuration config = ConfigurationManager.OpenMappedExeConfiguration(
                     fileMap,
                     ConfigurationUserLevel.None);
 

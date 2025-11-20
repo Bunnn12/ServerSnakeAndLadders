@@ -1,23 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Data;
 
 namespace SnakesAndLadders.Data.Repositories
 {
+    /// <summary>
+    /// Repository that handles persistence and queries for user sanctions.
+    /// </summary>
     public sealed class SanctionRepository : ISanctionRepository
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(SanctionRepository));
+
+        private const int COMMAND_TIMEOUT_SECONDS = 30;
 
         public SanctionRepository()
         {
         }
 
+        /// <summary>
+        /// Inserts a new sanction and updates the DTO with the generated identifier.
+        /// </summary>
         public void InsertSanction(SanctionDto dto)
         {
             if (dto == null)
@@ -27,8 +35,10 @@ namespace SnakesAndLadders.Data.Repositories
 
             try
             {
-                using (var context = new SnakeAndLaddersDBEntities1())
+                using (var dbContext = new SnakeAndLaddersDBEntities1())
                 {
+                    ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+
                     var entity = new Sancion
                     {
                         FechaSancion = dto.SanctionDateUtc,
@@ -36,8 +46,8 @@ namespace SnakesAndLadders.Data.Repositories
                         UsuarioIdUsuario = dto.UserId
                     };
 
-                    context.Sancion.Add(entity);
-                    context.SaveChanges();
+                    dbContext.Sancion.Add(entity);
+                    dbContext.SaveChanges();
 
                     dto.SanctionId = entity.IdSancion;
                 }
@@ -49,15 +59,21 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
+        /// <summary>
+        /// Gets the last sanction applied to a user, or null if none exists.
+        /// </summary>
         public SanctionDto GetLastSanctionForUser(int userId)
         {
             try
             {
-                using (var context = new SnakeAndLaddersDBEntities1())
+                using (var dbContext = new SnakeAndLaddersDBEntities1())
                 {
-                    var entity = context.Sancion.AsNoTracking()
-                        .Where(s => s.UsuarioIdUsuario == userId)
-                        .OrderByDescending(s => s.FechaSancion)
+                    ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+
+                    var entity = dbContext.Sancion
+                        .AsNoTracking()
+                        .Where(sanction => sanction.UsuarioIdUsuario == userId)
+                        .OrderByDescending(sanction => sanction.FechaSancion)
                         .FirstOrDefault();
 
                     if (entity == null)
@@ -81,21 +97,27 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
+        /// <summary>
+        /// Gets the full sanctions history for a user, ordered from newest to oldest.
+        /// </summary>
         public IList<SanctionDto> GetSanctionsHistory(int userId)
         {
             try
             {
-                using (var context = new SnakeAndLaddersDBEntities1())
+                using (var dbContext = new SnakeAndLaddersDBEntities1())
                 {
-                    return context.Sancion.AsNoTracking()
-                        .Where(s => s.UsuarioIdUsuario == userId)
-                        .OrderByDescending(s => s.FechaSancion)
-                        .Select(s => new SanctionDto
+                    ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+
+                    return dbContext.Sancion
+                        .AsNoTracking()
+                        .Where(sanction => sanction.UsuarioIdUsuario == userId)
+                        .OrderByDescending(sanction => sanction.FechaSancion)
+                        .Select(sanction => new SanctionDto
                         {
-                            SanctionId = s.IdSancion,
-                            SanctionDateUtc = s.FechaSancion,
-                            SanctionType = s.TipoSancion,
-                            UserId = s.UsuarioIdUsuario
+                            SanctionId = sanction.IdSancion,
+                            SanctionDateUtc = sanction.FechaSancion,
+                            SanctionType = sanction.TipoSancion,
+                            UserId = sanction.UsuarioIdUsuario
                         })
                         .ToList();
                 }

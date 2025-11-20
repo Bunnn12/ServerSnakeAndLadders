@@ -1,10 +1,16 @@
 ﻿using System;
+using System.Data.Entity.Infrastructure;
 using System.Linq;
 using log4net;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Data;
 
 namespace SnakesAndLadders.Data.Repositories
 {
+    /// <summary>
+    /// Handles activation and deactivation of user-related records
+    /// (user, accounts and passwords) in the database.
+    /// </summary>
     public sealed class AccountStatusRepository : IAccountStatusRepository
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(AccountStatusRepository));
@@ -12,6 +18,13 @@ namespace SnakesAndLadders.Data.Repositories
         private const byte STATUS_ACTIVE_VALUE = 0x01;
         private const byte STATUS_INACTIVE_VALUE = 0x00;
 
+        private const int COMMAND_TIMEOUT_SECONDS = 30;
+
+        /// <summary>
+        /// Sets the active state for the user, all related accounts and passwords.
+        /// </summary>
+        /// <param name="userId">Target user identifier.</param>
+        /// <param name="isActive">True to activate, false to deactivate.</param>
         public void SetUserAndAccountActiveState(int userId, bool isActive)
         {
             if (userId < 1)
@@ -23,6 +36,8 @@ namespace SnakesAndLadders.Data.Repositories
             {
                 using (var context = new SnakeAndLaddersDBEntities1())
                 {
+                    ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+
                     byte[] dbStatus = new[] { isActive ? STATUS_ACTIVE_VALUE : STATUS_INACTIVE_VALUE };
 
                     var user = context.Usuario.SingleOrDefault(u => u.IdUsuario == userId);
@@ -32,7 +47,7 @@ namespace SnakesAndLadders.Data.Repositories
                     }
 
                     var accounts = context.Cuenta
-                        .Where(c => c.UsuarioIdUsuario == userId)
+                        .Where(account => account.UsuarioIdUsuario == userId)
                         .ToList();
 
                     foreach (var account in accounts)
@@ -41,7 +56,7 @@ namespace SnakesAndLadders.Data.Repositories
                     }
 
                     var passwords = context.Contrasenia
-                        .Where(p => p.UsuarioIdUsuario == userId)
+                        .Where(password => password.UsuarioIdUsuario == userId)
                         .ToList();
 
                     foreach (var password in passwords)
@@ -54,10 +69,12 @@ namespace SnakesAndLadders.Data.Repositories
             }
             catch (Exception ex)
             {
-                Logger.Error(
-                    $"Error updating active state for user {userId}. IsActive={isActive}",
-                    ex);
+                string message = string.Format(
+                    "Error updating active state for user. UserId={0}; IsActive={1}",
+                    userId,
+                    isActive);
 
+                Logger.Error(message, ex);
                 throw;
             }
         }

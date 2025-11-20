@@ -1,22 +1,40 @@
-﻿using SnakeAndLadders.Contracts.Dtos;
+﻿using System.ServiceModel;
+using SnakeAndLadders.Contracts.Dtos;
+using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
-using SnakesAndLadders.Services.Logic;
-using System.ServiceModel;
 
 namespace SnakesAndLadders.Services.Wcf
 {
     [ServiceBehavior(
         InstanceContextMode = InstanceContextMode.Single,
-        IncludeExceptionDetailInFaults = false
-    )]
+        IncludeExceptionDetailInFaults = false)]
     public sealed class AuthService : IAuthService
     {
-        private readonly IAuthAppService _app;
-        public AuthService(IAuthAppService app) { _app = app; }
+        private readonly IAuthAppService _authAppService;
 
-        public AuthResult Register(RegistrationDto r) => _app.RegisterUser(r);
-        public AuthResult Login(LoginDto r) => _app.Login(r);
-        public AuthResult RequestEmailVerification(string email) => _app.RequestEmailVerification(email);
-        public AuthResult ConfirmEmailVerification(string email, string code) => _app.ConfirmEmailVerification(email, code);
+        public AuthService(IAuthAppService authAppService)
+        {
+            _authAppService = authAppService ?? throw new System.ArgumentNullException(nameof(authAppService));
+        }
+
+        public AuthResult Register(RegistrationDto registration)
+        {
+            return _authAppService.RegisterUser(registration);
+        }
+
+        public AuthResult Login(LoginDto request)
+        {
+            return _authAppService.Login(request);
+        }
+
+        public AuthResult RequestEmailVerification(string email)
+        {
+            return _authAppService.RequestEmailVerification(email);
+        }
+
+        public AuthResult ConfirmEmailVerification(string email, string code)
+        {
+            return _authAppService.ConfirmEmailVerification(email, code);
+        }
     }
 }

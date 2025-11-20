@@ -52,7 +52,6 @@
     <Compile Include="Logic\FriendsAppService.cs" />
     <Compile Include="Logic\GameBoardBuilder.cs" />
     <Compile Include="Logic\GameplayLogic.cs" />
-    <Compile Include="Logic\IAuthAppService.cs" />
     <Compile Include="Logic\InMemoryGameSessionStore.cs" />
     <Compile Include="Logic\IUserAppService.cs" />
     <Compile Include="Logic\LobbyAppService.cs" />

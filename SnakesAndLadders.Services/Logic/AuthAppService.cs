@@ -1,111 +1,154 @@
-﻿using SnakeAndLadders.Contracts.Dtos;
-using SnakeAndLadders.Contracts.Interfaces;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data.SqlClient;
 using System.Security.Cryptography;
-using System.Configuration;
 using System.Text;
+using log4net;
+using SnakeAndLadders.Contracts.Dtos;
+using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Logic
 {
+    /// <summary>
+    /// Application service for authentication, token issuing and email verification.
+    /// </summary>
     public sealed class AuthAppService : IAuthAppService
     {
-        private readonly IAccountsRepository _repo;
-        private readonly IPasswordHasher _hasher;
-        private readonly IEmailSender _email;
-        private readonly IPlayerReportAppService _playerReportApp;
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(AuthAppService));
 
+        private readonly IAccountsRepository _accountsRepository;
+        private readonly IPasswordHasher _passwordHasher;
+        private readonly IEmailSender _emailSender;
+        private readonly IPlayerReportAppService _playerReportAppService;
 
-        private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpiresUtc, DateTime LastSentUtc)> _codes
-            = new ConcurrentDictionary<string, (string, DateTime, DateTime)>(StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpiresUtc, DateTime LastSentUtc)> _verificationCodesCache =
+            new ConcurrentDictionary<string, (string, DateTime, DateTime)>(StringComparer.OrdinalIgnoreCase);
 
-        private const int VerificationCodeDigits = 6;
-        private static readonly TimeSpan VerificationTtl = TimeSpan.FromMinutes(10);
-        private static readonly TimeSpan ResendWindow = TimeSpan.FromSeconds(45);
+        private const int VERIFICATION_CODE_DIGITS = 6;
+        private const int RANDOM_BYTES_LENGTH = 4;
 
+        private static readonly TimeSpan VERIFICATION_TTL = TimeSpan.FromMinutes(10);
+        private static readonly TimeSpan RESEND_WINDOW = TimeSpan.FromSeconds(45);
+
+        private const string AUTH_CODE_OK = "Auth.Ok";
         private const string AUTH_CODE_BANNED = "Auth.Banned";
+        private const string AUTH_CODE_INVALID_REQUEST = "Auth.InvalidRequest";
+        private const string AUTH_CODE_EMAIL_ALREADY_EXISTS = "Auth.EmailAlreadyExists";
+        private const string AUTH_CODE_SERVER_ERROR = "Auth.ServerError";
+        private const string AUTH_CODE_INVALID_CREDENTIALS = "Auth.InvalidCredentials";
+        private const string AUTH_CODE_EMAIL_REQUIRED = "Auth.EmailRequired";
+        private const string AUTH_CODE_THROTTLE_WAIT = "Auth.ThrottleWait";
+        private const string AUTH_CODE_EMAIL_SEND_FAILED = "Auth.EmailSendFailed";
+        private const string AUTH_CODE_CODE_NOT_REQUESTED = "Auth.CodeNotRequested";
+        private const string AUTH_CODE_CODE_EXPIRED = "Auth.CodeExpired";
+        private const string AUTH_CODE_CODE_INVALID = "Auth.CodeInvalid";
+
         private const string META_KEY_SANCTION_TYPE = "sanctionType";
         private const string META_KEY_BAN_ENDS_AT_UTC = "banEndsAtUtc";
-        private const int DEFAULT_TOKEN_MINUTES = 10080; 
+        private const string META_KEY_SECONDS = "seconds";
+        private const string META_KEY_REASON = "reason";
+
+        private const int DEFAULT_TOKEN_MINUTES = 10080;
         private const string APP_KEY_SECRET = "Auth:Secret";
         private const string APP_KEY_TOKEN_MINUTES = "Auth:TokenMinutes";
 
-
         public AuthAppService(
-            IAccountsRepository repo,
-            IPasswordHasher hasher,
-            IEmailSender email,
-            IPlayerReportAppService playerReportApp)
+            IAccountsRepository accountsRepository,
+            IPasswordHasher passwordHasher,
+            IEmailSender emailSender,
+            IPlayerReportAppService playerReportAppService)
         {
-            _repo = repo ?? throw new ArgumentNullException(nameof(repo));
-            _hasher = hasher ?? throw new ArgumentNullException(nameof(hasher));
-            _email = email ?? throw new ArgumentNullException(nameof(email));
-            _playerReportApp = playerReportApp ?? throw new ArgumentNullException(nameof(playerReportApp));
+            _accountsRepository = accountsRepository ?? throw new ArgumentNullException(nameof(accountsRepository));
+            _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
+            _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
+            _playerReportAppService = playerReportAppService ?? throw new ArgumentNullException(nameof(playerReportAppService));
         }
 
-
+        /// <summary>
+        /// Registers a new user and returns an AuthResult with the created user id.
+        /// </summary>
         public AuthResult RegisterUser(RegistrationDto registration)
         {
-            if (registration == null || string.IsNullOrWhiteSpace(registration.Email) ||
-                string.IsNullOrWhiteSpace(registration.Password) || string.IsNullOrWhiteSpace(registration.UserName))
-                return Fail("Auth.InvalidRequest");
+            if (registration == null
+                || string.IsNullOrWhiteSpace(registration.Email)
+                || string.IsNullOrWhiteSpace(registration.Password)
+                || string.IsNullOrWhiteSpace(registration.UserName))
+            {
+                return Fail(AUTH_CODE_INVALID_REQUEST);
+            }
 
-            if (_repo.EmailExists(registration.Email)) return Fail("Auth.EmailAlreadyExists");
-            if (_repo.UserNameExists(registration.UserName)) return Fail("Auth.UserNameAlreadyExists");
+            if (_accountsRepository.IsEmailRegistered(registration.Email))
+            {
+                return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS);
+            }
+
+            if (_accountsRepository.IsUserNameTaken(registration.UserName))
+            {
+                return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS.Replace("Email", "UserName"));
+            }
 
             try
             {
-                var passwordHash = _hasher.Hash(registration.Password);
+                string passwordHash = _passwordHasher.Hash(registration.Password);
+
                 var requestDto = new CreateAccountRequestDto
                 {
                     Username = registration.UserName,
-                    FirstName = registration.FirstName,          
-                    LastName = registration.LastName,           
+                    FirstName = registration.FirstName,
+                    LastName = registration.LastName,
                     Email = registration.Email,
                     PasswordHash = passwordHash
                 };
 
-                var newUserId = _repo.CreateUserWithAccountAndPassword(requestDto);
+                int newUserId = _accountsRepository.CreateUserWithAccountAndPassword(requestDto);
 
                 return Ok(userId: newUserId, displayName: registration.UserName);
             }
             catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
             {
-                return Fail("Auth.EmailAlreadyExists");
+                Logger.Warn("SQL duplicate key error while registering user.", ex);
+                return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS);
             }
             catch (Exception ex)
             {
-                return Fail("Auth.ServerError");
+                Logger.Error("Unexpected error while registering user.", ex);
+                return Fail(AUTH_CODE_SERVER_ERROR);
             }
         }
 
+        /// <summary>
+        /// Authenticates a user and issues a token if credentials are valid and the user is not banned.
+        /// </summary>
         public AuthResult Login(LoginDto request)
         {
-            if (request == null ||
-                string.IsNullOrWhiteSpace(request.Password) ||
-                string.IsNullOrWhiteSpace(request.Email))
+            if (request == null
+                || string.IsNullOrWhiteSpace(request.Password)
+                || string.IsNullOrWhiteSpace(request.Email))
             {
-                return Fail("Auth.InvalidRequest");
+                return Fail(AUTH_CODE_INVALID_REQUEST);
             }
 
-            var auth = _repo.GetAuthByIdentifier(request.Email);
+            AuthCredentialsDto auth = _accountsRepository.GetAuthByIdentifier(request.Email);
             if (auth == null)
             {
-                return Fail("Auth.InvalidCredentials");
+                return Fail(AUTH_CODE_INVALID_CREDENTIALS);
             }
 
-            var (userId, hash, display, photoId) = auth.Value;
+            int userId = auth.UserId;
+            string passwordHash = auth.PasswordHash;
+            string displayName = auth.DisplayName;
+            string profilePhotoId = auth.ProfilePhotoId;
 
-            if (!_hasher.Verify(request.Password, hash))
+            if (!_passwordHasher.Verify(request.Password, passwordHash))
             {
-                return Fail("Auth.InvalidCredentials");
+                return Fail(AUTH_CODE_INVALID_CREDENTIALS);
             }
 
             try
             {
-                var banInfo = _playerReportApp.GetCurrentBan(userId);
+                var banInfo = _playerReportAppService.GetCurrentBan(userId);
 
                 if (banInfo != null && banInfo.IsBanned)
                 {
@@ -124,96 +167,133 @@ namespace SnakesAndLadders.Services.Logic
                     return Fail(AUTH_CODE_BANNED, meta);
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return Fail("Auth.ServerError");
+                Logger.Error("Error while checking ban state for login.", ex);
+                return Fail(AUTH_CODE_SERVER_ERROR);
             }
 
+            string ttlText = ConfigurationManager.AppSettings[APP_KEY_TOKEN_MINUTES];
             int ttlMinutes;
-            var ttlStr = ConfigurationManager.AppSettings[APP_KEY_TOKEN_MINUTES];
-            if (!int.TryParse(ttlStr, out ttlMinutes) || ttlMinutes <= 0)
+            if (!int.TryParse(ttlText, out ttlMinutes) || ttlMinutes <= 0)
             {
-                ttlMinutes = DEFAULT_TOKEN_MINUTES; 
+                ttlMinutes = DEFAULT_TOKEN_MINUTES;
             }
 
-            var expires = DateTime.UtcNow.AddMinutes(ttlMinutes);
-            var token = IssueToken(userId, expires);
+            DateTime expiresAtUtc = DateTime.UtcNow.AddMinutes(ttlMinutes);
+            string token = IssueToken(userId, expiresAtUtc);
 
             var result = Ok(
                 userId: userId,
-                displayName: display,
-                profilePhotoId: photoId
-            );
+                displayName: displayName,
+                profilePhotoId: profilePhotoId);
 
             result.Token = token;
-            result.ExpiresAtUtc = expires;
-            return result;
+            result.ExpiresAtUtc = expiresAtUtc;
 
+            return result;
         }
 
+        /// <summary>
+        /// Requests an email verification code for the given email.
+        /// </summary>
         public AuthResult RequestEmailVerification(string email)
         {
             email = (email ?? string.Empty).Trim().ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(email)) return Fail("Auth.EmailRequired");
-            if (_repo.EmailExists(email)) return Fail("Auth.EmailAlreadyExists");
 
-            if (_codes.TryGetValue(email, out var entry))
+            if (string.IsNullOrWhiteSpace(email))
             {
-                var elapsed = DateTime.UtcNow - entry.LastSentUtc;
-                if (elapsed < ResendWindow)
+                return Fail(AUTH_CODE_EMAIL_REQUIRED);
+            }
+
+            if (_accountsRepository.IsEmailRegistered(email))
+            {
+                return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS);
+            }
+
+            if (_verificationCodesCache.TryGetValue(email, out var entry))
+            {
+                TimeSpan elapsed = DateTime.UtcNow - entry.LastSentUtc;
+                if (elapsed < RESEND_WINDOW)
                 {
-                    int wait = (int)(ResendWindow - elapsed).TotalSeconds;
-                    return Fail("Auth.ThrottleWait", new Dictionary<string, string> { ["seconds"] = wait.ToString() });
+                    int secondsToWait = (int)(RESEND_WINDOW - elapsed).TotalSeconds;
+                    return Fail(
+                        AUTH_CODE_THROTTLE_WAIT,
+                        new Dictionary<string, string> { [META_KEY_SECONDS] = secondsToWait.ToString() });
                 }
             }
 
-            string code = GenerateCode(VerificationCodeDigits);
-            var now = DateTime.UtcNow;
-            _codes[email] = (code, now.Add(VerificationTtl), now);
+            string code = GenerateCode(VERIFICATION_CODE_DIGITS);
+            DateTime nowUtc = DateTime.UtcNow;
 
-            try { _email.SendVerificationCode(email, code); return Ok(); }
+            _verificationCodesCache[email] = (code, nowUtc.Add(VERIFICATION_TTL), nowUtc);
+
+            try
+            {
+                _emailSender.SendVerificationCode(email, code);
+                return Ok();
+            }
             catch (Exception ex)
             {
-                _codes.TryRemove(email, out _);
-                return Fail("Auth.EmailSendFailed", new Dictionary<string, string> { ["reason"] = ex.GetType().Name });
+                Logger.Error("Error while sending email verification code.", ex);
+                _verificationCodesCache.TryRemove(email, out _);
+                return Fail(
+                    AUTH_CODE_EMAIL_SEND_FAILED,
+                    new Dictionary<string, string> { [META_KEY_REASON] = ex.GetType().Name });
             }
         }
 
+        /// <summary>
+        /// Confirms an email verification code previously requested.
+        /// </summary>
         public AuthResult ConfirmEmailVerification(string email, string code)
         {
             email = (email ?? string.Empty).Trim().ToLowerInvariant();
             code = (code ?? string.Empty).Trim();
 
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
-                return Fail("Auth.InvalidRequest");
+            {
+                return Fail(AUTH_CODE_INVALID_REQUEST);
+            }
 
-            if (!_codes.TryGetValue(email, out var entry)) return Fail("Auth.CodeNotRequested");
+            if (!_verificationCodesCache.TryGetValue(email, out var entry))
+            {
+                return Fail(AUTH_CODE_CODE_NOT_REQUESTED);
+            }
 
             if (DateTime.UtcNow > entry.ExpiresUtc)
             {
-                _codes.TryRemove(email, out _);
-                return Fail("Auth.CodeExpired");
+                _verificationCodesCache.TryRemove(email, out _);
+                return Fail(AUTH_CODE_CODE_EXPIRED);
             }
 
             if (!string.Equals(code, entry.Code, StringComparison.Ordinal))
-                return Fail("Auth.CodeInvalid");
+            {
+                return Fail(AUTH_CODE_CODE_INVALID);
+            }
 
-            _codes.TryRemove(email, out _);
+            _verificationCodesCache.TryRemove(email, out _);
             return Ok();
         }
 
         private static string GenerateCode(int digits)
         {
-            var bytes = new byte[4];
-            using (var rng = RandomNumberGenerator.Create()) { rng.GetBytes(bytes); }
+            var bytes = new byte[RANDOM_BYTES_LENGTH];
+
+            using (var randomNumberGenerator = RandomNumberGenerator.Create())
+            {
+                randomNumberGenerator.GetBytes(bytes);
+            }
+
             uint value = BitConverter.ToUInt32(bytes, 0);
             uint mod = (uint)Math.Pow(10, digits);
-            uint num = value % mod;
-            return num.ToString(new string('0', digits));
+            uint number = value % mod;
+
+            return number.ToString(new string('0', digits));
         }
 
         private static AuthResult Ok(
-            string code = "Auth.Ok",
+            string code = AUTH_CODE_OK,
             Dictionary<string, string> meta = null,
             int? userId = null,
             string displayName = null,
@@ -230,61 +310,107 @@ namespace SnakesAndLadders.Services.Logic
             };
         }
 
-
         private static AuthResult Fail(string code, Dictionary<string, string> meta = null)
-            => new AuthResult { Success = false, Code = code, Meta = meta };
+        {
+            return new AuthResult
+            {
+                Success = false,
+                Code = code,
+                Meta = meta
+            };
+        }
 
         private static string ComputeHmacHex(string secret, string data)
         {
-            using (var h = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+            using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
             {
-                var bytes = h.ComputeHash(Encoding.UTF8.GetBytes(data));
-                var sb = new StringBuilder(bytes.Length * 2);
-                for (int i = 0; i < bytes.Length; i++) sb.Append(bytes[i].ToString("x2"));
-                return sb.ToString();
+                byte[] bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+                var stringBuilder = new StringBuilder(bytes.Length * 2);
+
+                for (int index = 0; index < bytes.Length; index++)
+                {
+                    stringBuilder.Append(bytes[index].ToString("x2"));
+                }
+
+                return stringBuilder.ToString();
             }
         }
 
         private static string IssueToken(int userId, DateTime expiresAtUtc)
         {
-            var secret = ConfigurationManager.AppSettings[APP_KEY_SECRET] ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(secret)) return null;
+            string secret = ConfigurationManager.AppSettings[APP_KEY_SECRET] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(secret))
+            {
+                return null;
+            }
 
-            var expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
-            var payload = $"{userId}|{expUnix}";
-            var sigHex = ComputeHmacHex(secret, payload);
-            var raw = $"{payload}|{sigHex}";
+            long expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
+            string payload = $"{userId}|{expUnix}";
+            string signatureHex = ComputeHmacHex(secret, payload);
+            string raw = $"{payload}|{signatureHex}";
+
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
         }
 
+        /// <summary>
+        /// Gets the user id from a token issued by this service.
+        /// Returns 0 when the token is invalid or expired.
+        /// </summary>
         public int GetUserIdFromToken(string token)
         {
-            if (string.IsNullOrWhiteSpace(token)) return 0;
-            if (int.TryParse(token, out var uidCompat)) return uidCompat > 0 ? uidCompat : 0;
-
-            try
-            {
-                var raw = Encoding.UTF8.GetString(Convert.FromBase64String(token));
-                var parts = raw.Split('|');
-                if (parts.Length != 3) return 0;
-
-                if (!int.TryParse(parts[0], out var uid) || uid <= 0) return 0;
-                if (!long.TryParse(parts[1], out var expUnix) || expUnix <= 0) return 0;
-
-                var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                if (nowUnix > expUnix) return 0; // expirado
-
-                var secret = ConfigurationManager.AppSettings[APP_KEY_SECRET] ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(secret)) return 0;
-
-                var expected = ComputeHmacHex(secret, $"{uid}|{expUnix}");
-                return string.Equals(expected, parts[2], System.StringComparison.OrdinalIgnoreCase) ? uid : 0;
-            }
-            catch
+            if (string.IsNullOrWhiteSpace(token))
             {
                 return 0;
             }
-        }
 
+            if (int.TryParse(token, out int userIdCompat))
+            {
+                return userIdCompat > 0 ? userIdCompat : 0;
+            }
+
+            try
+            {
+                string raw = Encoding.UTF8.GetString(Convert.FromBase64String(token));
+                string[] parts = raw.Split('|');
+
+                if (parts.Length != 3)
+                {
+                    return 0;
+                }
+
+                if (!int.TryParse(parts[0], out int userId) || userId <= 0)
+                {
+                    return 0;
+                }
+
+                if (!long.TryParse(parts[1], out long expUnix) || expUnix <= 0)
+                {
+                    return 0;
+                }
+
+                long nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                if (nowUnix > expUnix)
+                {
+                    return 0;
+                }
+
+                string secret = ConfigurationManager.AppSettings[APP_KEY_SECRET] ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(secret))
+                {
+                    return 0;
+                }
+
+                string expected = ComputeHmacHex(secret, $"{userId}|{expUnix}");
+
+                return string.Equals(expected, parts[2], StringComparison.OrdinalIgnoreCase)
+                    ? userId
+                    : 0;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error while validating auth token.", ex);
+                return 0;
+            }
+        }
     }
 }

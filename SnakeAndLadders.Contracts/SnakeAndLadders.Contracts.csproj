@@ -50,6 +50,7 @@
   <ItemGroup>
     <Compile Include="Dtos\AccountDto.cs" />
     <Compile Include="Dtos\ActiveReportSearchCriteriaDto.cs" />
+    <Compile Include="Dtos\AuthCredentialsDto.cs" />
     <Compile Include="Dtos\AuthResult.cs" />
     <Compile Include="Dtos\BanInfoDto.cs" />
     <Compile Include="Dtos\ChatMessageDto.cs" />
@@ -99,6 +100,7 @@
     <Compile Include="Interfaces\IAccountsRepository.cs" />
     <Compile Include="Interfaces\IAccountStatusRepository.cs" />
     <Compile Include="Interfaces\IAppLogger.cs" />
+    <Compile Include="Interfaces\IAuthAppService.cs" />
     <Compile Include="Interfaces\IChatClient.cs" />
     <Compile Include="Interfaces\IChatRepository.cs" />
     <Compile Include="Interfaces\IEmailSender.cs" />

@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.ServiceModel;
-using System.Text;
-using System.Threading.Tasks;
 using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
@@ -22,18 +19,18 @@ namespace SnakesAndLadders.Services.Wcf
 
         private static readonly ILog Logger = LogManager.GetLogger(typeof(StatsService));
 
-        private readonly IStatsAppService app;
+        private readonly IStatsAppService _statsAppService;
 
-        public StatsService(IStatsAppService app)
+        public StatsService(IStatsAppService statsAppService)
         {
-            this.app = app ?? throw new ArgumentNullException(nameof(app));
+            _statsAppService = statsAppService ?? throw new ArgumentNullException(nameof(statsAppService));
         }
 
         public IList<PlayerRankingItemDto> GetTopPlayersByCoins(int maxResults)
         {
             try
             {
-                return app.GetTopPlayersByCoins(maxResults);
+                return _statsAppService.GetTopPlayersByCoins(maxResults);
             }
             catch (ArgumentOutOfRangeException ex)
             {
