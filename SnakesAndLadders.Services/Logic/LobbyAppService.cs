@@ -20,10 +20,24 @@ namespace SnakesAndLadders.Services.Logic
 
         public CreateGameResponse CreateGame(CreateGameRequest request)
         {
-            
-            if (request == null) throw new ArgumentNullException(nameof(request));
-            if (request.HostUserId <= 0) throw new ArgumentException("HostUserId must be a positive number.", nameof(request.HostUserId));
-            if (request.MaxPlayers < 2 || request.MaxPlayers > 4) throw new ArgumentException("MaxPlayers must be between 2 and 4.", nameof(request.MaxPlayers));
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (request.HostUserId <= 0)
+            {
+                throw new ArgumentException(
+                    "HostUserId must be a positive number.",
+                    nameof(request));
+            }
+
+            if (request.MaxPlayers < 2 || request.MaxPlayers > 4)
+            {
+                throw new ArgumentException(
+                    "MaxPlayers must be between 2 and 4.",
+                    nameof(request));
+            }
 
             var ttl = TimeSpan.FromMinutes(request.TtlMinutes <= 0 ? 30 : request.TtlMinutes);
             var expiresAt = DateTime.UtcNow.Add(ttl);
@@ -38,11 +52,11 @@ namespace SnakesAndLadders.Services.Logic
                 return new CreateGameResponse
                 {
                     PartidaId = created.PartidaId,
-                    CodigoPartida = created.Code,  //cambiar
+                    CodigoPartida = created.Code,
                     ExpiresAtUtc = created.ExpiresAtUtc
                 };
             }
-            catch (InvalidOperationException ex) 
+            catch (InvalidOperationException ex)
             {
                 log.Error("DbUpdateException while creating game.", ex);
                 throw new InvalidOperationException("A conflict occurred while creating the game. Please try again.", ex);
@@ -50,7 +64,7 @@ namespace SnakesAndLadders.Services.Logic
             catch (Exception ex)
             {
                 log.Error("Unexpected error while creating game.", ex);
-                throw; 
+                throw;
             }
         }
 
