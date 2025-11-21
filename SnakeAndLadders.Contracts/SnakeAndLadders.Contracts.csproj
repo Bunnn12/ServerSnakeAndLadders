@@ -71,6 +71,7 @@
     <Compile Include="Dtos\Gameplay\PlayerLeftDto.cs" />
     <Compile Include="Dtos\Gameplay\TokenStateDto.cs" />
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
+    <Compile Include="Dtos\PlayerStatsDto.cs" />
     <Compile Include="Enums\MoveEffectType.cs" />
     <Compile Include="Dtos\Gameplay\PlayerMoveResultDto.cs" />
     <Compile Include="Dtos\Gameplay\RollDiceRequestDto.cs" />

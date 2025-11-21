@@ -11,12 +11,13 @@ namespace SnakesAndLadders.Services.Logic
     public sealed class StatsAppService : IStatsAppService
     {
         private const int DEFAULT_MAX_RESULTS = 50;
+        private const int DEFAULT_STATS_RANKING_MAX_RESULTS = 50;
 
-        private readonly IStatsRepository _statsRepository;
+        private readonly IStatsRepository statsRepository;
 
         public StatsAppService(IStatsRepository statsRepository)
         {
-            _statsRepository = statsRepository
+            this.statsRepository = statsRepository
                 ?? throw new ArgumentNullException(nameof(statsRepository));
         }
 
@@ -26,7 +27,19 @@ namespace SnakesAndLadders.Services.Logic
                 ? DEFAULT_MAX_RESULTS
                 : maxResults;
 
-            return _statsRepository.GetTopPlayersByCoins(effectiveMaxResults);
+            return statsRepository.GetTopPlayersByCoins(effectiveMaxResults);
+        }
+
+        public PlayerStatsDto GetPlayerStatsByUserId(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            return statsRepository.GetPlayerStatsByUserId(
+                userId,
+                DEFAULT_STATS_RANKING_MAX_RESULTS);
         }
     }
 }

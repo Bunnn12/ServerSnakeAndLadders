@@ -19,18 +19,19 @@ namespace SnakesAndLadders.Services.Wcf
 
         private static readonly ILog Logger = LogManager.GetLogger(typeof(StatsService));
 
-        private readonly IStatsAppService _statsAppService;
+        private readonly IStatsAppService statsAppService;
 
         public StatsService(IStatsAppService statsAppService)
         {
-            _statsAppService = statsAppService ?? throw new ArgumentNullException(nameof(statsAppService));
+            this.statsAppService = statsAppService
+                ?? throw new ArgumentNullException(nameof(statsAppService));
         }
 
         public IList<PlayerRankingItemDto> GetTopPlayersByCoins(int maxResults)
         {
             try
             {
-                return _statsAppService.GetTopPlayersByCoins(maxResults);
+                return statsAppService.GetTopPlayersByCoins(maxResults);
             }
             catch (ArgumentOutOfRangeException ex)
             {
@@ -40,6 +41,24 @@ namespace SnakesAndLadders.Services.Wcf
             catch (Exception ex)
             {
                 Logger.Error("Unexpected error in GetTopPlayersByCoins.", ex);
+                throw new FaultException(ERROR_UNEXPECTED);
+            }
+        }
+
+        public PlayerStatsDto GetPlayerStatsByUserId(int userId)
+        {
+            try
+            {
+                return statsAppService.GetPlayerStatsByUserId(userId);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                Logger.Warn("Validation error in GetPlayerStatsByUserId.", ex);
+                throw new FaultException(ERROR_VALIDATION);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unexpected error in GetPlayerStatsByUserId.", ex);
                 throw new FaultException(ERROR_UNEXPECTED);
             }
         }
