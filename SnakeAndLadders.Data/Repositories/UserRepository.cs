@@ -13,6 +13,10 @@ namespace SnakesAndLadders.Data.Repositories
         private const int MAX_LAST_NAME = 255;
         private const int MAX_DESCRIPTION = 500;
 
+        private const string DEFAULT_PROFILE_PHOTO_ID = "DEF";
+        private const byte STATUS_ACTIVE = 0x01;
+        private const byte STATUS_INACTIVE = 0x00;
+
         public AccountDto GetByUsername(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
@@ -20,31 +24,35 @@ namespace SnakesAndLadders.Data.Repositories
                 throw new ArgumentException("username es obligatorio.", nameof(username));
             }
 
+            if (username.Length > MAX_USERNAME)
+            {
+                throw new ArgumentException(
+                    $"username excede la longitud máxima permitida ({MAX_USERNAME}).",
+                    nameof(username));
+            }
+
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                var dto =
+                var row =
                     (from u in db.Usuario.AsNoTracking()
                      join a in db.AvatarDesbloqueado.AsNoTracking()
                          on u.IdAvatarDesbloqueadoActual equals a.IdAvatarDesbloqueado
                          into avatarGroup
                      from a in avatarGroup.DefaultIfEmpty() // LEFT JOIN
                      where u.NombreUsuario == username
-                     select new AccountDto
+                     select new
                      {
-                         UserId = u.IdUsuario,
-                         Username = u.NombreUsuario,
-                         FirstName = u.Nombre,
-                         LastName = u.Apellidos,
-                         ProfileDescription = u.DescripcionPerfil,
-                         Coins = u.Monedas,
-                         HasProfilePhoto = u.FotoPerfil != null && u.FotoPerfil.Length > 0,
-                         ProfilePhotoId = (u.FotoPerfil ?? "DEF").Trim().ToUpper(),
-                         CurrentSkinUnlockedId = u.IdAvatarDesbloqueadoActual,
-                         CurrentSkinId = a.AvatarIdAvatar.ToString()
+                         Usuario = u,
+                         AvatarDesbloqueado = a
                      })
                     .SingleOrDefault();
 
-                return dto;
+                if (row == null)
+                {
+                    return null;
+                }
+
+                return MapToAccountDto(row.Usuario, row.AvatarDesbloqueado);
             }
         }
 
@@ -57,17 +65,22 @@ namespace SnakesAndLadders.Data.Repositories
 
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                var dto = db.Usuario
+                var entity = db.Usuario
                     .AsNoTracking()
-                    .Where(u => u.IdUsuario == userId)
-                    .Select(u => new ProfilePhotoDto
-                    {
-                        UserId = u.IdUsuario,
-                        ProfilePhotoId = (u.FotoPerfil ?? "DEF").Trim().ToUpper()
-                    })
-                    .SingleOrDefault();
+                    .SingleOrDefault(u => u.IdUsuario == userId);
 
-                return dto;
+                if (entity == null)
+                {
+                    return null;
+                }
+
+                string normalizedPhotoId = NormalizePhotoId(entity.FotoPerfil);
+
+                return new ProfilePhotoDto
+                {
+                    UserId = entity.IdUsuario,
+                    ProfilePhotoId = normalizedPhotoId
+                };
             }
         }
 
@@ -85,21 +98,24 @@ namespace SnakesAndLadders.Data.Repositories
                     "UserId must be positive.");
             }
 
-            if (!string.IsNullOrWhiteSpace(request.FirstName) && request.FirstName.Length > MAX_FIRST_NAME)
+            if (!string.IsNullOrWhiteSpace(request.FirstName) &&
+                request.FirstName.Length > MAX_FIRST_NAME)
             {
                 throw new ArgumentException(
                     $"FirstName exceeds {MAX_FIRST_NAME} characters.",
                     nameof(request));
             }
 
-            if (!string.IsNullOrWhiteSpace(request.LastName) && request.LastName.Length > MAX_LAST_NAME)
+            if (!string.IsNullOrWhiteSpace(request.LastName) &&
+                request.LastName.Length > MAX_LAST_NAME)
             {
                 throw new ArgumentException(
                     $"LastName exceeds {MAX_LAST_NAME} characters.",
                     nameof(request));
             }
 
-            if (request.ProfileDescription != null && request.ProfileDescription.Length > MAX_DESCRIPTION)
+            if (request.ProfileDescription != null &&
+                request.ProfileDescription.Length > MAX_DESCRIPTION)
             {
                 throw new ArgumentException(
                     $"ProfileDescription exceeds {MAX_DESCRIPTION} characters.",
@@ -108,7 +124,9 @@ namespace SnakesAndLadders.Data.Repositories
 
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                var entity = db.Usuario.SingleOrDefault(u => u.IdUsuario == request.UserId);
+                var entity = db.Usuario
+                    .SingleOrDefault(u => u.IdUsuario == request.UserId);
+
                 if (entity == null)
                 {
                     throw new InvalidOperationException("User not found.");
@@ -138,33 +156,25 @@ namespace SnakesAndLadders.Data.Repositories
 
                 db.SaveChanges();
 
-                var dto =
+                var row =
                     (from u in db.Usuario.AsNoTracking()
                      join a in db.AvatarDesbloqueado.AsNoTracking()
                          on u.IdAvatarDesbloqueadoActual equals a.IdAvatarDesbloqueado
                          into avatarGroup
                      from a in avatarGroup.DefaultIfEmpty()
                      where u.IdUsuario == request.UserId
-                     select new AccountDto
+                     select new
                      {
-                         UserId = u.IdUsuario,
-                         Username = u.NombreUsuario,
-                         FirstName = u.Nombre,
-                         LastName = u.Apellidos,
-                         ProfileDescription = u.DescripcionPerfil,
-                         Coins = u.Monedas,
-                         HasProfilePhoto = u.FotoPerfil != null && u.FotoPerfil.Length > 0,
-                         ProfilePhotoId = (u.FotoPerfil ?? "DEF").Trim().ToUpper(),
-                         CurrentSkinUnlockedId = u.IdAvatarDesbloqueadoActual,
-                         CurrentSkinId = a.AvatarIdAvatar.ToString()
+                         Usuario = u,
+                         AvatarDesbloqueado = a
                      })
                     .Single();
 
-                return dto;
+                return MapToAccountDto(row.Usuario, row.AvatarDesbloqueado);
             }
         }
 
-        public static string GetAvatarIdByUserId(int userId) 
+        public static string GetAvatarIdByUserId(int userId)
         {
             if (userId <= 0)
             {
@@ -173,18 +183,100 @@ namespace SnakesAndLadders.Data.Repositories
 
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                var result =
+                var row =
                     (from u in db.Usuario.AsNoTracking()
                      join a in db.AvatarDesbloqueado.AsNoTracking()
                          on u.IdAvatarDesbloqueadoActual equals a.IdAvatarDesbloqueado
                          into avatarGroup
                      from a in avatarGroup.DefaultIfEmpty()
                      where u.IdUsuario == userId
-                     select a.AvatarIdAvatar.ToString() ?? u.FotoPerfil ?? "DEF")
+                     select new
+                     {
+                         Usuario = u,
+                         AvatarDesbloqueado = a
+                     })
                     .SingleOrDefault();
 
-                return result?.Trim().ToUpper();
+                if (row == null)
+                {
+                    return DEFAULT_PROFILE_PHOTO_ID;
+                }
+
+                if (row.AvatarDesbloqueado != null)
+                {
+                    // Usamos el ID del avatar desbloqueado
+                    return row.AvatarDesbloqueado.AvatarIdAvatar
+                        .ToString()
+                        .Trim()
+                        .ToUpperInvariant();
+                }
+
+                // Fallback: FotoPerfil como código
+                return NormalizePhotoId(row.Usuario.FotoPerfil);
             }
+        }
+
+        public void DeactivateUser(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            using (var db = new SnakeAndLaddersDBEntities1())
+            {
+                var entity = db.Usuario.SingleOrDefault(u => u.IdUsuario == userId);
+
+                if (entity == null)
+                {
+                    throw new InvalidOperationException("User not found.");
+                }
+
+                // BINARY(1) -> normalmente se mapea como byte[]
+                entity.Estado = new[] { STATUS_INACTIVE };
+
+                db.SaveChanges();
+            }
+        }
+
+        // ===== Helpers privados =====
+
+        private static AccountDto MapToAccountDto(Usuario usuario, AvatarDesbloqueado avatar)
+        {
+            if (usuario == null)
+            {
+                return null;
+            }
+
+            string normalizedPhotoId = NormalizePhotoId(usuario.FotoPerfil);
+
+            return new AccountDto
+            {
+                UserId = usuario.IdUsuario,
+                Username = usuario.NombreUsuario,
+                FirstName = usuario.Nombre,
+                LastName = usuario.Apellidos,
+                ProfileDescription = usuario.DescripcionPerfil,
+                Coins = usuario.Monedas,
+
+                HasProfilePhoto = !string.IsNullOrWhiteSpace(usuario.FotoPerfil),
+                ProfilePhotoId = normalizedPhotoId,
+
+                CurrentSkinUnlockedId = usuario.IdAvatarDesbloqueadoActual,
+                CurrentSkinId = avatar != null
+                    ? avatar.AvatarIdAvatar.ToString()
+                    : null
+            };
+        }
+
+        private static string NormalizePhotoId(string rawPhotoId)
+        {
+            if (string.IsNullOrWhiteSpace(rawPhotoId))
+            {
+                return DEFAULT_PROFILE_PHOTO_ID;
+            }
+
+            return rawPhotoId.Trim().ToUpperInvariant();
         }
     }
 }

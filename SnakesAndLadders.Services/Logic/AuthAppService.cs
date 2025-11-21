@@ -181,7 +181,17 @@ namespace SnakesAndLadders.Services.Logic
             }
 
             DateTime expiresAtUtc = DateTime.UtcNow.AddMinutes(ttlMinutes);
-            string token = IssueToken(userId, expiresAtUtc);
+
+            string token;
+            try
+            {
+                token = IssueToken(userId, expiresAtUtc);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error while issuing auth token.", ex);
+                return Fail(AUTH_CODE_SERVER_ERROR);
+            }
 
             var result = Ok(
                 userId: userId,
@@ -192,6 +202,23 @@ namespace SnakesAndLadders.Services.Logic
             result.ExpiresAtUtc = expiresAtUtc;
 
             return result;
+        }
+
+        private static string IssueToken(int userId, DateTime expiresAtUtc)
+        {
+            string secret = ConfigurationManager.AppSettings[APP_KEY_SECRET];
+
+            if (string.IsNullOrWhiteSpace(secret))
+            {
+                throw new InvalidOperationException("Auth secret is not configured (Auth:Secret).");
+            }
+
+            long expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
+            string payload = $"{userId}|{expUnix}";
+            string signatureHex = ComputeHmacHex(secret, payload);
+            string raw = $"{payload}|{signatureHex}";
+
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
         }
 
         /// <summary>
@@ -334,22 +361,6 @@ namespace SnakesAndLadders.Services.Logic
 
                 return stringBuilder.ToString();
             }
-        }
-
-        private static string IssueToken(int userId, DateTime expiresAtUtc)
-        {
-            string secret = ConfigurationManager.AppSettings[APP_KEY_SECRET] ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(secret))
-            {
-                return null;
-            }
-
-            long expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
-            string payload = $"{userId}|{expUnix}";
-            string signatureHex = ComputeHmacHex(secret, payload);
-            string raw = $"{payload}|{signatureHex}";
-
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
         }
 
         /// <summary>

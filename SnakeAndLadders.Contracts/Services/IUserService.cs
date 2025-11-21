@@ -6,7 +6,6 @@ namespace SnakeAndLadders.Contracts.Services
     [ServiceContract]
     public interface IUserService
     {
-        
         [OperationContract]
         AccountDto GetProfileByUsername(string username);
 
@@ -15,5 +14,8 @@ namespace SnakeAndLadders.Contracts.Services
 
         [OperationContract]
         AccountDto UpdateProfile(UpdateProfileRequestDto request);
+
+        [OperationContract]
+        void DeactivateAccount(int userId);
     }
 }

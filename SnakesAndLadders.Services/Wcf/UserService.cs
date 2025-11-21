@@ -11,23 +11,21 @@ namespace SnakesAndLadders.Services.Wcf
         IncludeExceptionDetailInFaults = false)]
     public sealed class UserService : IUserService
     {
-
-        //si
-        private readonly IUserAppService _app;
+        private readonly IUserAppService app;
 
         public UserService(IUserAppService app)
         {
-            _app = app ?? throw new ArgumentNullException(nameof(app));
+            this.app = app ?? throw new ArgumentNullException(nameof(app));
         }
 
         public AccountDto GetProfileByUsername(string username)
         {
-            return _app.GetProfileByUsername(username);
+            return app.GetProfileByUsername(username);
         }
 
         public ProfilePhotoDto GetProfilePhoto(int userId)
         {
-            return _app.GetProfilePhoto(userId);
+            return app.GetProfilePhoto(userId);
         }
 
         public AccountDto UpdateProfile(UpdateProfileRequestDto request)
@@ -37,7 +35,12 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new ArgumentNullException(nameof(request));
             }
 
-            return _app.UpdateProfile(request);
+            return app.UpdateProfile(request);
+        }
+
+        public void DeactivateAccount(int userId)
+        {
+            app.DeactivateAccount(userId);
         }
     }
 }

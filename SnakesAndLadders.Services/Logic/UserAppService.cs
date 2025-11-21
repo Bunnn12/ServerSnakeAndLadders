@@ -6,30 +6,46 @@ namespace SnakesAndLadders.Services.Logic
 {
     public sealed class UserAppService : IUserAppService
     {
-        private readonly IUserRepository _users;
+        private readonly IUserRepository users;
 
         public UserAppService(IUserRepository users)
         {
-            if (users == null) throw new ArgumentNullException("users");
-            _users = users;
+            this.users = users ?? throw new ArgumentNullException(nameof(users));
         }
 
         public AccountDto GetProfileByUsername(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
-                throw new ArgumentException("Username is required.", "username");
+            {
+                throw new ArgumentException("Username is required.", nameof(username));
+            }
 
-            return _users.GetByUsername(username);
+            return users.GetByUsername(username);
         }
 
         public ProfilePhotoDto GetProfilePhoto(int userId)
         {
-            if (userId <= 0) throw new ArgumentOutOfRangeException("userId");
-            return _users.GetPhotoByUserId(userId);
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            return users.GetPhotoByUserId(userId);
         }
+
         public AccountDto UpdateProfile(UpdateProfileRequestDto request)
         {
-            return _users.UpdateProfile(request);
+            return users.UpdateProfile(request);
+        }
+
+        public void DeactivateAccount(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            users.DeactivateUser(userId);
         }
     }
 }
