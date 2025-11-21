@@ -11,6 +11,8 @@ namespace SnakesAndLadders.Services.Wcf
         IncludeExceptionDetailInFaults = false)]
     public sealed class UserService : IUserService
     {
+
+        //si
         private readonly IUserAppService _app;
 
         public UserService(IUserAppService app)
