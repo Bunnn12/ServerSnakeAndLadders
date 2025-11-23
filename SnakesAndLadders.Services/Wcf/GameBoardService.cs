@@ -1,5 +1,4 @@
-﻿// SnakesAndLadders.Services.Wcf/GameBoardService.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.ServiceModel;
@@ -11,13 +10,18 @@ using SnakesAndLadders.Services.Logic;
 
 namespace SnakesAndLadders.Services.Wcf
 {
-    [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single, ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [ServiceBehavior(
+        InstanceContextMode = InstanceContextMode.Single,
+        ConcurrencyMode = ConcurrencyMode.Multiple)]
     public sealed class GameBoardService : IGameBoardService
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(GameBoardService));
 
         private const string ERROR_UNEXPECTED_CREATE = "An unexpected internal error occurred while creating the board.";
         private const string ERROR_GAME_ID_INVALID = "GameId must be greater than zero.";
+        private const string ERROR_REQUEST_NULL = "Request cannot be null.";
+
+        private const int INVALID_USER_ID = 0;
 
         private readonly GameBoardBuilder gameBoardBuilder = new GameBoardBuilder();
         private readonly IGameSessionStore gameSessionStore;
@@ -31,9 +35,14 @@ namespace SnakesAndLadders.Services.Wcf
         {
             if (request == null)
             {
-                const string msg = "Request cannot be null.";
-                Logger.Warn(msg);
-                throw new FaultException(msg);
+                Logger.Warn(ERROR_REQUEST_NULL);
+                throw new FaultException(ERROR_REQUEST_NULL);
+            }
+
+            if (request.GameId <= 0)
+            {
+                Logger.Warn(ERROR_GAME_ID_INVALID);
+                throw new FaultException(ERROR_GAME_ID_INVALID);
             }
 
             try
@@ -47,14 +56,27 @@ namespace SnakesAndLadders.Services.Wcf
                     request.EnableTeleportCells,
                     request.Difficulty);
 
-                var board = gameBoardBuilder.BuildBoard(request);
+                BoardDefinitionDto board = gameBoardBuilder.BuildBoard(request);
 
-                var players = (request.PlayerUserIds ?? Array.Empty<int>())
-                    .Where(id => id > 0)
+                int[] rawPlayerIds = request.PlayerUserIds ?? Array.Empty<int>();
+
+                List<int> players = rawPlayerIds
+                    .Where(id => id != INVALID_USER_ID) // ⬅ aquí aceptas invitados (ids negativos)
                     .Distinct()
                     .ToList();
 
-                var session = gameSessionStore.CreateSession(request.GameId, board, players);
+                if (players.Count == 0)
+                {
+                    const string message = "Cannot create a game session without players.";
+                    Logger.WarnFormat(
+                        "CreateBoard: no valid player IDs. GameId={0}, RawCount={1}",
+                        request.GameId,
+                        rawPlayerIds.Length);
+
+                    throw new InvalidOperationException(message);
+                }
+
+                GameSession session = gameSessionStore.CreateSession(request.GameId, board, players);
 
                 Logger.InfoFormat(
                     "Game session created. GameId={0}, Players={1}",

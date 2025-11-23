@@ -9,17 +9,15 @@ namespace SnakesAndLadders.Services.Logic
     {
         private const int DICE_MIN_VALUE = 1;
         private const int DICE_MAX_VALUE = 6;
+        private const int INVALID_USER_ID = 0;
 
         private readonly BoardDefinitionDto board;
 
-        // Orden de turnos y posiciones actuales
         private readonly List<int> turnOrder;
         private readonly Dictionary<int, int> positionsByUserId;
 
-        // Mapa de serpientes/escaleras: índice origen -> índice destino
         private readonly Dictionary<int, int> jumpDestinationsByStartIndex;
 
-        // Índice de la casilla final (meta)
         private readonly int finalCellIndex;
 
         private readonly object syncRoot = new object();
@@ -44,7 +42,7 @@ namespace SnakesAndLadders.Services.Logic
 
             turnOrder = playerUserIds
                 .Distinct()
-                .Where(id => id > 0)
+                .Where(id => id != INVALID_USER_ID)
                 .ToList();
 
             if (turnOrder.Count == 0)
@@ -52,7 +50,6 @@ namespace SnakesAndLadders.Services.Logic
                 throw new InvalidOperationException("GameplayLogic requires at least one player.");
             }
 
-            
             positionsByUserId = turnOrder.ToDictionary(id => id, _ => 0);
 
             currentTurnIndex = 0;
@@ -60,10 +57,8 @@ namespace SnakesAndLadders.Services.Logic
 
             random = new Random(unchecked((int)DateTime.UtcNow.Ticks));
 
-            
             finalCellIndex = ResolveFinalCellIndex(board);
 
-            
             jumpDestinationsByStartIndex = ResolveJumpMap(board);
         }
 
@@ -74,7 +69,6 @@ namespace SnakesAndLadders.Services.Logic
                 return 0;
             }
 
-            
             return board.Cells.Max(c => c.Index);
         }
 
@@ -94,7 +88,6 @@ namespace SnakesAndLadders.Services.Logic
 
                 if (from > 0 && to > 0 && from != to)
                 {
-                    // Si hubiera duplicados, el último link gana
                     result[from] = to;
                 }
             }
@@ -126,19 +119,15 @@ namespace SnakesAndLadders.Services.Logic
 
                 int fromCellIndex = positionsByUserId[userId];
 
-                // Posición tentativa sin aplicar serpientes/escaleras
                 int tentativeTarget = fromCellIndex + diceValue;
                 int finalTarget = fromCellIndex;
                 string extraInfo = string.Empty;
 
-                // 1) Regla de tiro exacto para llegar a la meta
                 if (finalCellIndex > 0 && tentativeTarget > finalCellIndex)
                 {
-                    // Se pasa: no se mueve, solo pierde el turno
                     finalTarget = fromCellIndex;
                     extraInfo = "RollTooHigh_NoMove";
 
-                    // Avanzar el turno aunque no se haya movido
                     currentTurnIndex = (currentTurnIndex + 1) % turnOrder.Count;
 
                     return new RollDiceResult
@@ -151,10 +140,8 @@ namespace SnakesAndLadders.Services.Logic
                     };
                 }
 
-                // Si no se pasó, por ahora aterriza en la casilla tentativa
                 finalTarget = tentativeTarget;
 
-                // 2) Aplicar serpientes/escaleras si hay link en esa casilla
                 if (jumpDestinationsByStartIndex.TryGetValue(tentativeTarget, out int jumpDestination))
                 {
                     finalTarget = jumpDestination;
@@ -173,10 +160,8 @@ namespace SnakesAndLadders.Services.Logic
                     }
                 }
 
-                // 3) Actualizar posición real del jugador
                 positionsByUserId[userId] = finalTarget;
 
-                // 4) ¿Ganó?
                 bool isGameOver = false;
                 if (finalCellIndex > 0 && finalTarget >= finalCellIndex)
                 {
@@ -188,8 +173,6 @@ namespace SnakesAndLadders.Services.Logic
                         : extraInfo + "_Win";
                 }
 
-                // 5) Pasar el turno al siguiente (aunque alguien haya ganado,
-                // isFinished evita que vuelvan a tirar)
                 currentTurnIndex = (currentTurnIndex + 1) % turnOrder.Count;
 
                 return new RollDiceResult

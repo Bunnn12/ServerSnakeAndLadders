@@ -17,5 +17,9 @@ namespace SnakesAndLadders.Data
         public int IdSticker { get; set; }
         public string Nombre { get; set; }
         public byte[] Estado { get; set; }
+        public string CodigoSticker { get; set; }
+        public int PaqueteStickersIdPaqueteStickers { get; set; }
+    
+        public virtual PaqueteStickers PaqueteStickers { get; set; }
     }
 }

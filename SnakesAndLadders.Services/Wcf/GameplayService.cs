@@ -20,12 +20,12 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const string ERROR_REQUEST_NULL = "Request cannot be null.";
         private const string ERROR_GAME_ID_INVALID = "GameId must be greater than zero.";
-        private const string ERROR_USER_ID_INVALID = "UserId must be greater than zero.";
+        private const string ERROR_USER_ID_INVALID = "UserId is invalid.";
         private const string ERROR_SESSION_NOT_FOUND = "Game session not found for this game.";
         private const string ERROR_UNEXPECTED_ROLL = "Unexpected error while processing dice roll.";
         private const string ERROR_UNEXPECTED_STATE = "Unexpected error while retrieving game state.";
-        private const string ERROR_JOIN_INVALID = "GameId and UserId must be greater than zero.";
-        private const string ERROR_LEAVE_INVALID = "GameId and UserId must be greater than zero.";
+        private const string ERROR_JOIN_INVALID = "GameId must be greater than zero and UserId must be non-zero.";
+        private const string ERROR_LEAVE_INVALID = "GameId must be greater than zero and UserId must be non-zero.";
 
         private const string TURN_REASON_NORMAL = "NORMAL";
         private const string TURN_REASON_PLAYER_LEFT = "PLAYER_LEFT";
@@ -35,6 +35,8 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const string EFFECT_TOKEN_LADDER = "LADDER";
         private const string EFFECT_TOKEN_SNAKE = "SNAKE";
+
+        private const int INVALID_USER_ID = 0;
 
         private readonly IGameSessionStore gameSessionStore;
 
@@ -129,7 +131,7 @@ namespace SnakesAndLadders.Services.Wcf
 
         public void JoinGame(int gameId, int userId, string userName)
         {
-            if (gameId <= 0 || userId <= 0)
+            if (gameId <= 0 || userId == INVALID_USER_ID)
             {
                 throw new FaultException(ERROR_JOIN_INVALID);
             }
@@ -151,7 +153,7 @@ namespace SnakesAndLadders.Services.Wcf
 
         public void LeaveGame(int gameId, int userId, string reason)
         {
-            if (gameId <= 0 || userId <= 0)
+            if (gameId <= 0 || userId == INVALID_USER_ID)
             {
                 throw new FaultException(ERROR_LEAVE_INVALID);
             }
@@ -188,7 +190,7 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_GAME_ID_INVALID);
             }
 
-            if (request.PlayerUserId <= 0)
+            if (request.PlayerUserId == INVALID_USER_ID)
             {
                 throw new FaultException(ERROR_USER_ID_INVALID);
             }
@@ -423,13 +425,13 @@ namespace SnakesAndLadders.Services.Wcf
         private static int FindNextPlayerId(GameSession session, int leavingUserId)
         {
             var orderedPlayers = session.PlayerUserIds
-                .Where(id => id > 0)
+                .Where(id => id != INVALID_USER_ID)
                 .OrderBy(id => id)
                 .ToList();
 
             if (!orderedPlayers.Any())
             {
-                return 0;
+                return INVALID_USER_ID;
             }
 
             int index = orderedPlayers.IndexOf(leavingUserId);

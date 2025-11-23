@@ -24,6 +24,7 @@ namespace SnakesAndLadders.Data
         public string Nombre { get; set; }
         public Nullable<decimal> Probabilidad { get; set; }
         public byte[] Estado { get; set; }
+        public string CodigoCaja { get; set; }
     
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<Objeto> Objeto { get; set; }

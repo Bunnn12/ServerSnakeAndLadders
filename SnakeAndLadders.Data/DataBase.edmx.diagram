@@ -47,6 +47,18 @@
         <AssociationConnector Association="SnakeAndLaddersDBModel.FK_StickersUsuario_Usuario" ManuallyRouted="false" />
         <AssociationConnector Association="SnakeAndLaddersDBModel.FK_UHP_Usuario" ManuallyRouted="false" />
         <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Usuario_AvatarDesbloqueadoActual" />
+        <AssociationConnector Association="SnakeAndLaddersDBModel.FK_Sticker_PaqueteStickers" ManuallyRouted="true" >
+          <ConnectorPoint PointX="6.5" PointY="24.25" />
+          <ConnectorPoint PointX="6.4568798961117864" PointY="24.031154796353974" />
+          <ConnectorPoint PointX="6.4568798961117864" PointY="23.586832716224158" />
+          <ConnectorPoint PointX="5" PointY="23.586832716224158" />
+          <ConnectorPoint PointX="5" PointY="10.672587890625" />
+          <ConnectorPoint PointX="4.989583333333333" PointY="10.672587890625" />
+          <ConnectorPoint PointX="4.822916666666667" PointY="10.672587890625" />
+          <ConnectorPoint PointX="3.5" PointY="10.672587890625" />
+          <ConnectorPoint PointX="3.5" PointY="1.8362939453124998" />
+          <ConnectorPoint PointX="2.25" PointY="1.8362939453124998" />
+        </AssociationConnector>
       </Diagram>
     </edmx:Diagrams>
   </edmx:Designer>

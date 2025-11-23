@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +9,8 @@ namespace SnakesAndLadders.Services.Logic
 {
     public sealed class InMemoryGameSessionStore : IGameSessionStore
     {
+        private const int INVALID_USER_ID = 0;
+
         private readonly ConcurrentDictionary<int, GameSession> sessions =
             new ConcurrentDictionary<int, GameSession>();
 
@@ -29,7 +30,7 @@ namespace SnakesAndLadders.Services.Logic
             }
 
             var players = (playerUserIds ?? Enumerable.Empty<int>())
-                .Where(id => id > 0)
+                .Where(id => id != INVALID_USER_ID)
                 .Distinct()
                 .ToList();
 

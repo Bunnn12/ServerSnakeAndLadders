@@ -33,6 +33,7 @@
           <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
           <Property Name="Probabilidad" Type="decimal" Precision="6" Scale="3" />
           <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="CodigoCaja" Type="varchar" MaxLength="10" Nullable="false" />
         </EntityType>
         <EntityType Name="CajaAvatar">
           <Key>
@@ -71,6 +72,7 @@
           <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
           <Property Name="Caras" Type="int" Nullable="false" />
           <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="CodigoDado" Type="varchar" MaxLength="10" Nullable="false" />
         </EntityType>
         <EntityType Name="DadoUsuario">
           <Key>
@@ -98,6 +100,7 @@
           <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
           <Property Name="CajaObjetoIdCajaObjeto" Type="int" />
           <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="CodigoObjeto" Type="varchar" MaxLength="10" Nullable="false" />
         </EntityType>
         <EntityType Name="ObjetoUsuario">
           <Key>
@@ -116,6 +119,7 @@
           <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
           <Property Name="Precio" Type="int" Nullable="false" />
           <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="CodigoPaqueteStickers" Type="varchar" MaxLength="10" Nullable="false" />
         </EntityType>
         <EntityType Name="Partida">
           <Key>
@@ -165,6 +169,8 @@
           <Property Name="IdSticker" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="Nombre" Type="nvarchar" MaxLength="45" Nullable="false" />
           <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="CodigoSticker" Type="varchar" MaxLength="10" Nullable="false" />
+          <Property Name="PaqueteStickersIdPaqueteStickers" Type="int" Nullable="false" />
         </EntityType>
         <EntityType Name="StickersUsuario">
           <Key>
@@ -411,6 +417,18 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
+        <Association Name="FK_Sticker_PaqueteStickers">
+          <End Role="PaqueteStickers" Type="Self.PaqueteStickers" Multiplicity="1" />
+          <End Role="Sticker" Type="Self.Sticker" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="PaqueteStickers">
+              <PropertyRef Name="IdPaqueteStickers" />
+            </Principal>
+            <Dependent Role="Sticker">
+              <PropertyRef Name="PaqueteStickersIdPaqueteStickers" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
         <Association Name="FK_StickersUsuario_Paquete">
           <End Role="PaqueteStickers" Type="Self.PaqueteStickers" Multiplicity="0..1" />
           <End Role="StickersUsuario" Type="Self.StickersUsuario" Multiplicity="*" />
@@ -562,6 +580,10 @@
             <End Role="Usuario" EntitySet="Usuario" />
             <End Role="Sancion" EntitySet="Sancion" />
           </AssociationSet>
+          <AssociationSet Name="FK_Sticker_PaqueteStickers" Association="Self.FK_Sticker_PaqueteStickers">
+            <End Role="PaqueteStickers" EntitySet="PaqueteStickers" />
+            <End Role="Sticker" EntitySet="Sticker" />
+          </AssociationSet>
           <AssociationSet Name="FK_StickersUsuario_Paquete" Association="Self.FK_StickersUsuario_Paquete">
             <End Role="PaqueteStickers" EntitySet="PaqueteStickers" />
             <End Role="StickersUsuario" EntitySet="StickersUsuario" />
@@ -621,6 +643,7 @@
           <Property Name="Probabilidad" Type="Decimal" Precision="6" Scale="3" />
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
           <NavigationProperty Name="Objeto" Relationship="Self.FK_Objeto_Caja" FromRole="Caja" ToRole="Objeto" />
+          <Property Name="CodigoCaja" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
         </EntityType>
         <EntityType Name="CajaAvatar">
           <Key>
@@ -665,6 +688,7 @@
           <Property Name="Caras" Type="Int32" Nullable="false" />
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
           <NavigationProperty Name="DadoUsuario" Relationship="Self.FK_DadoUsuario_Dado" FromRole="Dado" ToRole="DadoUsuario" />
+          <Property Name="CodigoDado" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
         </EntityType>
         <EntityType Name="DadoUsuario">
           <Key>
@@ -698,6 +722,7 @@
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
           <NavigationProperty Name="Caja" Relationship="Self.FK_Objeto_Caja" FromRole="Objeto" ToRole="Caja" />
           <NavigationProperty Name="ObjetoUsuario" Relationship="Self.FK_ObjetoUsuario_Objeto" FromRole="Objeto" ToRole="ObjetoUsuario" />
+          <Property Name="CodigoObjeto" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
         </EntityType>
         <EntityType Name="ObjetoUsuario">
           <Key>
@@ -719,6 +744,8 @@
           <Property Name="Precio" Type="Int32" Nullable="false" />
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
           <NavigationProperty Name="StickersUsuario" Relationship="Self.FK_StickersUsuario_Paquete" FromRole="PaqueteStickers" ToRole="StickersUsuario" />
+          <Property Name="CodigoPaqueteStickers" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <NavigationProperty Name="Sticker" Relationship="SnakeAndLaddersDBModel.FK_Sticker_PaqueteStickers" FromRole="PaqueteStickers" ToRole="Sticker" />
         </EntityType>
         <EntityType Name="Partida">
           <Key>
@@ -773,6 +800,9 @@
           <Property Name="IdSticker" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
           <Property Name="Nombre" Type="String" MaxLength="45" FixedLength="false" Unicode="true" Nullable="false" />
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
+          <Property Name="CodigoSticker" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <Property Name="PaqueteStickersIdPaqueteStickers" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="PaqueteStickers" Relationship="SnakeAndLaddersDBModel.FK_Sticker_PaqueteStickers" FromRole="Sticker" ToRole="PaqueteStickers" />
         </EntityType>
         <EntityType Name="StickersUsuario">
           <Key>
@@ -1196,6 +1226,10 @@
             <End Role="AvatarDesbloqueado" EntitySet="AvatarDesbloqueado" />
             <End Role="Usuario" EntitySet="Usuario" />
           </AssociationSet>
+          <AssociationSet Name="FK_Sticker_PaqueteStickers" Association="SnakeAndLaddersDBModel.FK_Sticker_PaqueteStickers">
+            <End Role="PaqueteStickers" EntitySet="PaqueteStickers" />
+            <End Role="Sticker" EntitySet="Sticker" />
+          </AssociationSet>
         </EntityContainer>
         <Association Name="FK_Usuario_AvatarDesbloqueadoActual">
           <End Type="SnakeAndLaddersDBModel.AvatarDesbloqueado" Role="AvatarDesbloqueado" Multiplicity="0..1" />
@@ -1206,6 +1240,18 @@
             </Principal>
             <Dependent Role="Usuario">
               <PropertyRef Name="IdAvatarDesbloqueadoActual" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Sticker_PaqueteStickers">
+          <End Type="SnakeAndLaddersDBModel.PaqueteStickers" Role="PaqueteStickers" Multiplicity="1" />
+          <End Type="SnakeAndLaddersDBModel.Sticker" Role="Sticker" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="PaqueteStickers">
+              <PropertyRef Name="IdPaqueteStickers" />
+            </Principal>
+            <Dependent Role="Sticker">
+              <PropertyRef Name="PaqueteStickersIdPaqueteStickers" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -1240,6 +1286,7 @@
           <EntitySetMapping Name="Caja">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Caja">
               <MappingFragment StoreEntitySet="Caja">
+                <ScalarProperty Name="CodigoCaja" ColumnName="CodigoCaja" />
                 <ScalarProperty Name="IdCajaObjeto" ColumnName="IdCajaObjeto" />
                 <ScalarProperty Name="Nombre" ColumnName="Nombre" />
                 <ScalarProperty Name="Probabilidad" ColumnName="Probabilidad" />
@@ -1282,6 +1329,7 @@
           <EntitySetMapping Name="Dado">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Dado">
               <MappingFragment StoreEntitySet="Dado">
+                <ScalarProperty Name="CodigoDado" ColumnName="CodigoDado" />
                 <ScalarProperty Name="IdDado" ColumnName="IdDado" />
                 <ScalarProperty Name="Nombre" ColumnName="Nombre" />
                 <ScalarProperty Name="Caras" ColumnName="Caras" />
@@ -1312,6 +1360,7 @@
           <EntitySetMapping Name="Objeto">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Objeto">
               <MappingFragment StoreEntitySet="Objeto">
+                <ScalarProperty Name="CodigoObjeto" ColumnName="CodigoObjeto" />
                 <ScalarProperty Name="IdObjeto" ColumnName="IdObjeto" />
                 <ScalarProperty Name="Nombre" ColumnName="Nombre" />
                 <ScalarProperty Name="CajaObjetoIdCajaObjeto" ColumnName="CajaObjetoIdCajaObjeto" />
@@ -1332,6 +1381,7 @@
           <EntitySetMapping Name="PaqueteStickers">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.PaqueteStickers">
               <MappingFragment StoreEntitySet="PaqueteStickers">
+                <ScalarProperty Name="CodigoPaqueteStickers" ColumnName="CodigoPaqueteStickers" />
                 <ScalarProperty Name="IdPaqueteStickers" ColumnName="IdPaqueteStickers" />
                 <ScalarProperty Name="Nombre" ColumnName="Nombre" />
                 <ScalarProperty Name="Precio" ColumnName="Precio" />
@@ -1387,6 +1437,8 @@
           <EntitySetMapping Name="Sticker">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Sticker">
               <MappingFragment StoreEntitySet="Sticker">
+                <ScalarProperty Name="PaqueteStickersIdPaqueteStickers" ColumnName="PaqueteStickersIdPaqueteStickers" />
+                <ScalarProperty Name="CodigoSticker" ColumnName="CodigoSticker" />
                 <ScalarProperty Name="IdSticker" ColumnName="IdSticker" />
                 <ScalarProperty Name="Nombre" ColumnName="Nombre" />
                 <ScalarProperty Name="Estado" ColumnName="Estado" />

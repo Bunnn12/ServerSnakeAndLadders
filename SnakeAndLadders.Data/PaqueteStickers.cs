@@ -18,14 +18,18 @@ namespace SnakesAndLadders.Data
         public PaqueteStickers()
         {
             this.StickersUsuario = new HashSet<StickersUsuario>();
+            this.Sticker = new HashSet<Sticker>();
         }
     
         public int IdPaqueteStickers { get; set; }
         public string Nombre { get; set; }
         public int Precio { get; set; }
         public byte[] Estado { get; set; }
+        public string CodigoPaqueteStickers { get; set; }
     
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<StickersUsuario> StickersUsuario { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<Sticker> Sticker { get; set; }
     }
 }
