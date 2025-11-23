@@ -23,5 +23,8 @@ namespace SnakeAndLadders.Contracts.Dtos
         [DataMember] public string ProfilePhotoId { get; set; }
         [DataMember] public string Token { get; set; }
         [DataMember] public DateTime? ExpiresAtUtc { get; set; }
+
+        [DataMember] public int? CurrentSkinUnlockedId { get; set; }
+        [DataMember] public string CurrentSkinId { get; set; }
     }
 }

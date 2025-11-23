@@ -25,6 +25,7 @@ namespace SnakesAndLadders.Data
         public string RarezaAvatar { get; set; }
         public Nullable<int> CajaAvatarIdCajaAvatar { get; set; }
         public byte[] Estado { get; set; }
+        public string CodigoAvatar { get; set; }
     
         public virtual CajaAvatar CajaAvatar { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]

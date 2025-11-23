@@ -14,6 +14,7 @@
           <Property Name="RarezaAvatar" Type="nvarchar" MaxLength="45" />
           <Property Name="CajaAvatarIdCajaAvatar" Type="int" />
           <Property Name="Estado" Type="binary" MaxLength="1" Nullable="false" />
+          <Property Name="CodigoAvatar" Type="nvarchar" MaxLength="10" />
         </EntityType>
         <EntityType Name="AvatarDesbloqueado">
           <Key>
@@ -597,6 +598,7 @@
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
           <NavigationProperty Name="CajaAvatar" Relationship="Self.FK_Avatar_CajaAvatar" FromRole="Avatar" ToRole="CajaAvatar" />
           <NavigationProperty Name="AvatarDesbloqueado" Relationship="Self.FK_AvatarDesbloqueado_Avatar" FromRole="Avatar" ToRole="AvatarDesbloqueado" />
+          <Property Name="CodigoAvatar" Type="String" MaxLength="10" FixedLength="false" Unicode="true" />
         </EntityType>
         <EntityType Name="AvatarDesbloqueado">
           <Key>
@@ -1216,6 +1218,7 @@
           <EntitySetMapping Name="Avatar">
             <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.Avatar">
               <MappingFragment StoreEntitySet="Avatar">
+                <ScalarProperty Name="CodigoAvatar" ColumnName="CodigoAvatar" />
                 <ScalarProperty Name="IdAvatar" ColumnName="IdAvatar" />
                 <ScalarProperty Name="NombreAvatar" ColumnName="NombreAvatar" />
                 <ScalarProperty Name="RarezaAvatar" ColumnName="RarezaAvatar" />

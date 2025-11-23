@@ -22,6 +22,7 @@ namespace SnakesAndLadders.Services.Logic
         private readonly IPasswordHasher _passwordHasher;
         private readonly IEmailSender _emailSender;
         private readonly IPlayerReportAppService _playerReportAppService;
+        private readonly IUserRepository _userRepository;
 
         private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpiresUtc, DateTime LastSentUtc)> _verificationCodesCache =
             new ConcurrentDictionary<string, (string, DateTime, DateTime)>(StringComparer.OrdinalIgnoreCase);
@@ -58,12 +59,14 @@ namespace SnakesAndLadders.Services.Logic
             IAccountsRepository accountsRepository,
             IPasswordHasher passwordHasher,
             IEmailSender emailSender,
-            IPlayerReportAppService playerReportAppService)
+            IPlayerReportAppService playerReportAppService,
+            IUserRepository userRepository)
         {
             _accountsRepository = accountsRepository ?? throw new ArgumentNullException(nameof(accountsRepository));
             _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
             _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
             _playerReportAppService = playerReportAppService ?? throw new ArgumentNullException(nameof(playerReportAppService));
+            _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         }
 
         /// <summary>
@@ -173,6 +176,19 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_SERVER_ERROR);
             }
 
+            // 🔹 Cargar datos completos de cuenta (incluyendo skin) desde UserRepository
+            AccountDto account = null;
+
+            try
+            {
+                account = _userRepository.GetByUserId(userId);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error while loading account data for login.", ex);
+                // No rompemos el login; simplemente no habrá skin en el resultado.
+            }
+
             string ttlText = ConfigurationManager.AppSettings[APP_KEY_TOKEN_MINUTES];
             int ttlMinutes;
             if (!int.TryParse(ttlText, out ttlMinutes) || ttlMinutes <= 0)
@@ -197,6 +213,12 @@ namespace SnakesAndLadders.Services.Logic
                 userId: userId,
                 displayName: displayName,
                 profilePhotoId: profilePhotoId);
+
+            if (account != null)
+            {
+                result.CurrentSkinId = account.CurrentSkinId;
+                result.CurrentSkinUnlockedId = account.CurrentSkinUnlockedId;
+            }
 
             result.Token = token;
             result.ExpiresAtUtc = expiresAtUtc;

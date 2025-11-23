@@ -61,6 +61,7 @@ internal static class Program
             var userRepo = new UserRepository();
             var lobbyRepo = new LobbyRepository();
             var friendsRepo = new FriendsRepository();
+            var userRepository = new UserRepository();
             IChatRepository chatRepo = new FileChatRepository(chatPath);
 
             var chatApp = new ChatAppService(chatRepo);
@@ -84,7 +85,7 @@ internal static class Program
                 accountStatusRepo,
                 playerSessionManager);
 
-            var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp);
+            var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp, userRepository);
             Func<string, int> getUserId = token => authApp.GetUserIdFromToken(token);
             var userApp = new UserAppService(userRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
