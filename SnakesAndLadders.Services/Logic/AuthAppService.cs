@@ -82,6 +82,7 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_INVALID_REQUEST);
             }
 
+            // Validaciones previas (usando métodos booleanos del repo)
             if (_accountsRepository.IsEmailRegistered(registration.Email))
             {
                 return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS);
@@ -92,33 +93,31 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS.Replace("Email", "UserName"));
             }
 
-            try
-            {
-                string passwordHash = _passwordHasher.Hash(registration.Password);
+            string passwordHash = _passwordHasher.Hash(registration.Password);
 
-                var requestDto = new CreateAccountRequestDto
-                {
-                    Username = registration.UserName,
-                    FirstName = registration.FirstName,
-                    LastName = registration.LastName,
-                    Email = registration.Email,
-                    PasswordHash = passwordHash
-                };
-
-                int newUserId = _accountsRepository.CreateUserWithAccountAndPassword(requestDto);
-
-                return Ok(userId: newUserId, displayName: registration.UserName);
-            }
-            catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
+            var requestDto = new CreateAccountRequestDto
             {
-                Logger.Warn("SQL duplicate key error while registering user.", ex);
-                return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS);
-            }
-            catch (Exception ex)
+                Username = registration.UserName,
+                FirstName = registration.FirstName,
+                LastName = registration.LastName,
+                Email = registration.Email,
+                PasswordHash = passwordHash
+            };
+
+            // CORRECCIÓN 1: Manejo de DbOperationResult
+            var createResult = _accountsRepository.CreateUserWithAccountAndPassword(requestDto);
+
+            if (!createResult.IsSuccess)
             {
-                Logger.Error("Unexpected error while registering user.", ex);
+                // Si el repositorio falló (error de BD, etc.), devolvemos error de servidor
+                // Opcional: Podrías loguear createResult.ErrorMessage
                 return Fail(AUTH_CODE_SERVER_ERROR);
             }
+
+            // Extraemos el ID de la "caja"
+            int newUserId = createResult.Data;
+
+            return Ok(userId: newUserId, displayName: registration.UserName);
         }
 
         /// <summary>
@@ -133,11 +132,17 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_INVALID_REQUEST);
             }
 
-            AuthCredentialsDto auth = _accountsRepository.GetAuthByIdentifier(request.Email);
-            if (auth == null)
+            // CORRECCIÓN 2: Manejo de DbOperationResult para Login
+            var authResult = _accountsRepository.GetAuthByIdentifier(request.Email);
+
+            // Si no fue exitoso (usuario no encontrado o error interno)
+            if (!authResult.IsSuccess)
             {
                 return Fail(AUTH_CODE_INVALID_CREDENTIALS);
             }
+
+            // Extraemos los datos seguros
+            AuthCredentialsDto auth = authResult.Data;
 
             int userId = auth.UserId;
             string passwordHash = auth.PasswordHash;
@@ -385,10 +390,6 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
-        /// <summary>
-        /// Gets the user id from a token issued by this service.
-        /// Returns 0 when the token is invalid or expired.
-        /// </summary>
         public int GetUserIdFromToken(string token)
         {
             if (string.IsNullOrWhiteSpace(token))

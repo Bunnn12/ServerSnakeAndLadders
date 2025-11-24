@@ -1,4 +1,5 @@
-﻿using SnakeAndLadders.Contracts.Dtos;
+﻿using ServerSnakesAndLadders.Common;
+using SnakeAndLadders.Contracts.Dtos;
 
 namespace SnakeAndLadders.Contracts.Interfaces
 {
@@ -6,7 +7,8 @@ namespace SnakeAndLadders.Contracts.Interfaces
     {
         bool IsEmailRegistered(string email);
         bool IsUserNameTaken(string userName);
-        int CreateUserWithAccountAndPassword(CreateAccountRequestDto createAccountRequest);
-        AuthCredentialsDto GetAuthByIdentifier(string identifier);
+
+        OperationResult<int> CreateUserWithAccountAndPassword(CreateAccountRequestDto createAccountRequest);
+        OperationResult<AuthCredentialsDto> GetAuthByIdentifier(string identifier);
     }
 }

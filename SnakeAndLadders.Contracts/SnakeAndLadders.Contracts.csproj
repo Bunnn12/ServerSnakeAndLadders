@@ -136,6 +136,11 @@
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\SnakesAndLadders.Common\SnakesAndLadders.Common.csproj">
+      <Project>{692bf1d4-1e80-4a17-affc-e5e0e5035e2a}</Project>
+      <Name>SnakesAndLadders.Common</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,13 +1,14 @@
-﻿using System;
-using System.Data.Entity;
-using System.Data.Entity.Infrastructure;
-using System.Data.SqlClient;
-using System.Linq;
-using log4net;
+﻿using log4net;
+using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data;
 using SnakesAndLadders.Server.Helpers;
+using System;
+using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
+using System.Data.SqlClient;
+using System.Linq;
 
 namespace ServerSnakesAndLadders
 {
@@ -16,254 +17,229 @@ namespace ServerSnakesAndLadders
     /// </summary>
     public class AccountsRepository : IAccountsRepository
     {
-        private const int EMAIL_MAX_LENGTH = 200;
-        private const int USERNAME_MAX_LENGTH = 90;
-        private const int PROFILE_DESCRIPTION_MAX_LENGTH = 510;
-        private const int PASSWORD_HASH_MAX_LENGTH = 510;
-        private const int PROFILE_PHOTO_ID_MAX_LENGTH = 5;
+        // --- CONSTANTES ---
+        private const int EmailMaxLength = 200;
+        private const int UsernameMaxLength = 90;
+        private const int ProfileDescMaxLength = 510;
+        private const int PasswordHashMaxLength = 510;
+        private const int ProfilePhotoIdMaxLength = 5;
+        private const int CommandTimeoutSeconds = 30;
+        private const int InitialCoins = 0;
+        private const byte StatusActive = 1;
 
-        private const int COMMAND_TIMEOUT_SECONDS = 30;
-        private const int INITIAL_COINS = 0;
-        private const byte STATUS_ACTIVE = 1;
         private static readonly ILog Logger = LogManager.GetLogger(typeof(AccountsRepository));
+        private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
 
+        // --- CONSTRUCTOR ---
+        public AccountsRepository(Func<SnakeAndLaddersDBEntities1> contextFactory = null)
+        {
+            _contextFactory = contextFactory ?? (() => new SnakeAndLaddersDBEntities1());
+        }
+
+        // --- MÉTODOS BOOLEANOS (Se quedan igual) ---
         public bool IsEmailRegistered(string email)
         {
-            string normalizedEmail = Normalize(email, EMAIL_MAX_LENGTH);
+            if (string.IsNullOrWhiteSpace(email)) return false;
+            string normalizedEmail = NormalizeString(email, EmailMaxLength);
 
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            using (var context = _contextFactory())
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
-
-                return dbContext.Cuenta
-                    .AsNoTracking()
-                    .Any(account => account.Correo == normalizedEmail);
+                ConfigureContext(context);
+                return context.Cuenta.AsNoTracking().Any(c => c.Correo == normalizedEmail);
             }
         }
 
         public bool IsUserNameTaken(string userName)
         {
-            string normalizedUserName = Normalize(userName, USERNAME_MAX_LENGTH);
+            if (string.IsNullOrWhiteSpace(userName)) return false;
+            string normalizedUserName = NormalizeString(userName, UsernameMaxLength);
 
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            using (var context = _contextFactory())
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                ConfigureContext(context);
+                return context.Usuario.AsNoTracking().Any(u => u.NombreUsuario == normalizedUserName);
+            }
+        }
 
-                return dbContext.Usuario
+        // --- MÉTODOS CON OPERATION RESULT ---
+
+        // CAMBIO: Ahora retorna OperationResult<int>
+        public OperationResult<int> CreateUserWithAccountAndPassword(CreateAccountRequestDto request)
+        {
+            if (request == null)
+                return OperationResult<int>.Failure("La solicitud no puede ser nula.");
+
+            try
+            {
+                var userData = PrepareUserData(request);
+
+                using (var context = _contextFactory())
+                using (var transaction = context.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
+                {
+                    try
+                    {
+                        context.Usuario.Add(userData.User);
+                        context.SaveChanges();
+
+                        userData.Account.UsuarioIdUsuario = userData.User.IdUsuario;
+                        context.Cuenta.Add(userData.Account);
+                        context.SaveChanges();
+
+                        userData.Password.UsuarioIdUsuario = userData.User.IdUsuario;
+                        userData.Password.Cuenta = userData.Account;
+                        context.Contrasenia.Add(userData.Password);
+                        context.SaveChanges();
+
+                        transaction.Commit();
+
+                        // ÉXITO
+                        return OperationResult<int>.Success(userData.User.IdUsuario);
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        Logger.Error("Error SQL al crear usuario.", ex);
+                        return OperationResult<int>.Failure("Error de base de datos al registrar usuario.");
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        Logger.Error("Error inesperado al crear usuario.", ex);
+                        return OperationResult<int>.Failure("Ocurrió un error inesperado.");
+                    }
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                return OperationResult<int>.Failure(ex.Message);
+            }
+        }
+
+        // CAMBIO: Ahora retorna OperationResult<AuthCredentialsDto>
+        public OperationResult<AuthCredentialsDto> GetAuthByIdentifier(string identifier)
+        {
+            if (string.IsNullOrWhiteSpace(identifier))
+                return OperationResult<AuthCredentialsDto>.Failure("El identificador es requerido.");
+
+            string trimmedIdentifier = identifier.Trim();
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                var userId = GetUserIdByEmail(context, trimmedIdentifier)
+                             ?? GetUserIdByUsername(context, trimmedIdentifier);
+
+                if (!userId.HasValue)
+                {
+                    return OperationResult<AuthCredentialsDto>.Failure("Usuario o contraseña incorrectos.");
+                }
+
+                var passwordHash = context.Contrasenia
                     .AsNoTracking()
-                    .Any(user => user.NombreUsuario == normalizedUserName);
+                    .Where(p => p.UsuarioIdUsuario == userId.Value)
+                    .OrderByDescending(p => p.FechaCreacion)
+                    .Select(p => p.Contrasenia1)
+                    .FirstOrDefault();
+
+                if (string.IsNullOrEmpty(passwordHash))
+                {
+                    Logger.Warn($"Integridad: El usuario {userId.Value} existe pero no tiene contraseña.");
+                    return OperationResult<AuthCredentialsDto>.Failure("Credenciales inválidas.");
+                }
+
+                var userProfile = context.Usuario
+                    .AsNoTracking()
+                    .Where(u => u.IdUsuario == userId.Value)
+                    .Select(u => new { u.NombreUsuario, u.FotoPerfil })
+                    .FirstOrDefault();
+
+                if (userProfile == null)
+                    return OperationResult<AuthCredentialsDto>.Failure("No se encontraron datos del perfil.");
+
+                var credentialsDto = new AuthCredentialsDto
+                {
+                    UserId = userId.Value,
+                    PasswordHash = passwordHash,
+                    DisplayName = userProfile.NombreUsuario,
+                    ProfilePhotoId = AvatarIdHelper.MapFromDb(userProfile.FotoPerfil)
+                };
+
+                // ÉXITO
+                return OperationResult<AuthCredentialsDto>.Success(credentialsDto);
             }
         }
 
-        /// <summary>
-        /// Creates a new user, account and password record in a single transaction.
-        /// </summary>
-        /// <param name="createAccountRequest">Data required to create the account.</param>
-        /// <returns>New user identifier.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when the request is null.</exception>
-        /// <exception cref="SqlException">SQL errors are logged and rethrown.</exception>
-        public int CreateUserWithAccountAndPassword(CreateAccountRequestDto createAccountRequest)
+        // --- HELPERS (Privados) ---
+
+        private void ConfigureContext(SnakeAndLaddersDBEntities1 context)
         {
-            if (createAccountRequest == null)
-            {
-                throw new ArgumentNullException(nameof(createAccountRequest));
-            }
-
-            string userName = RequireParam(
-                Normalize(createAccountRequest.Username, USERNAME_MAX_LENGTH),
-                nameof(createAccountRequest.Username));
-
-            string firstName = Normalize(createAccountRequest.FirstName, USERNAME_MAX_LENGTH);
-            string lastName = Normalize(createAccountRequest.LastName, USERNAME_MAX_LENGTH);
-
-            string profileDescription = Normalize(
-                createAccountRequest.ProfileDescription,
-                PROFILE_DESCRIPTION_MAX_LENGTH);
-
-            string profilePhotoId = Normalize(
-                createAccountRequest.ProfilePhotoId,
-                PROFILE_PHOTO_ID_MAX_LENGTH);
-
-            string email = RequireParam(
-                Normalize(createAccountRequest.Email, EMAIL_MAX_LENGTH),
-                nameof(createAccountRequest.Email));
-
-            string passwordHash = RequireParam(
-                Normalize(createAccountRequest.PasswordHash, PASSWORD_HASH_MAX_LENGTH),
-                nameof(createAccountRequest.PasswordHash));
-
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
-            using (var transaction = dbContext.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
-            {
-                try
-                {
-                    var userRow = new Usuario
-                    {
-                        NombreUsuario = userName,
-                        Nombre = firstName,
-                        Apellidos = lastName,
-                        DescripcionPerfil = string.IsNullOrWhiteSpace(profileDescription)
-                            ? null
-                            : profileDescription,
-                        FotoPerfil = string.IsNullOrWhiteSpace(profilePhotoId)
-                            ? null
-                            : profilePhotoId,
-                        Monedas = INITIAL_COINS,
-                        Estado = new[] { STATUS_ACTIVE }
-                    };
-
-                    dbContext.Usuario.Add(userRow);
-                    dbContext.SaveChanges();
-
-                    var accountRow = new Cuenta
-                    {
-                        UsuarioIdUsuario = userRow.IdUsuario,
-                        Correo = email,
-                        Estado = new[] { STATUS_ACTIVE }
-                    };
-
-                    dbContext.Cuenta.Add(accountRow);
-                    dbContext.SaveChanges();
-
-                    var passwordRow = new Contrasenia
-                    {
-                        UsuarioIdUsuario = userRow.IdUsuario,
-                        Contrasenia1 = passwordHash,
-                        Estado = new[] { STATUS_ACTIVE },
-                        FechaCreacion = DateTime.UtcNow,
-                        Cuenta = accountRow
-                    };
-
-                    dbContext.Contrasenia.Add(passwordRow);
-                    dbContext.SaveChanges();
-
-                    transaction.Commit();
-
-                    return userRow.IdUsuario;
-                }
-                catch (SqlException ex)
-                {
-                    transaction.Rollback();
-                    Logger.Error("Error creating user with account and password (SQL).", ex);
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    transaction.Rollback();
-                    Logger.Error("Unexpected error creating user with account and password.", ex);
-                    throw;
-                }
-            }
+            ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = CommandTimeoutSeconds;
         }
 
-        /// <summary>
-        /// Normalizes a string by trimming it and limiting it to the specified maximum length.
-        /// Returns an empty string when the input is null or whitespace.
-        /// </summary>
-        private static string Normalize(string value, int maxLength)
+        private int? GetUserIdByEmail(SnakeAndLaddersDBEntities1 context, string email)
         {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return string.Empty;
-            }
+            return context.Cuenta
+                .AsNoTracking()
+                .Where(c => c.Correo == email)
+                .Select(c => (int?)c.UsuarioIdUsuario)
+                .FirstOrDefault();
+        }
 
+        private int? GetUserIdByUsername(SnakeAndLaddersDBEntities1 context, string username)
+        {
+            return context.Usuario
+                .AsNoTracking()
+                .Where(u => u.NombreUsuario == username)
+                .Select(u => (int?)u.IdUsuario)
+                .FirstOrDefault();
+        }
+
+        private (Usuario User, Cuenta Account, Contrasenia Password) PrepareUserData(CreateAccountRequestDto request)
+        {
+            string userName = RequireParam(NormalizeString(request.Username, UsernameMaxLength), nameof(request.Username));
+            string email = RequireParam(NormalizeString(request.Email, EmailMaxLength), nameof(request.Email));
+            string passwordHash = RequireParam(NormalizeString(request.PasswordHash, PasswordHashMaxLength), nameof(request.PasswordHash));
+
+            var user = new Usuario
+            {
+                NombreUsuario = userName,
+                Nombre = NormalizeString(request.FirstName, UsernameMaxLength),
+                Apellidos = NormalizeString(request.LastName, UsernameMaxLength),
+                DescripcionPerfil = NormalizeString(request.ProfileDescription, ProfileDescMaxLength),
+                FotoPerfil = NormalizeString(request.ProfilePhotoId, ProfilePhotoIdMaxLength),
+                Monedas = InitialCoins,
+                Estado = new[] { StatusActive }
+            };
+
+            var account = new Cuenta
+            {
+                Correo = email,
+                Estado = new[] { StatusActive }
+            };
+
+            var password = new Contrasenia
+            {
+                Contrasenia1 = passwordHash,
+                Estado = new[] { StatusActive },
+                FechaCreacion = DateTime.UtcNow
+            };
+
+            return (user, account, password);
+        }
+
+        private static string NormalizeString(string value, int maxLength)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
             string trimmed = value.Trim();
-
-            return trimmed.Length <= maxLength
-                ? trimmed
-                : trimmed.Substring(0, maxLength);
+            return trimmed.Length <= maxLength ? trimmed : trimmed.Substring(0, maxLength);
         }
 
         private static string RequireParam(string value, string paramName)
         {
             if (string.IsNullOrWhiteSpace(value))
-            {
-                throw new ArgumentException($"{paramName} is required.", paramName);
-            }
-
+                throw new ArgumentException($"{paramName} es requerido.", paramName);
             return value;
-        }
-
-        /// <summary>
-        /// Retrieves authentication credentials by email or username identifier.
-        /// Returns null when user or password cannot be resolved.
-        /// </summary>
-        public AuthCredentialsDto GetAuthByIdentifier(string identifier)
-        {
-            if (string.IsNullOrWhiteSpace(identifier))
-            {
-                return null;
-            }
-
-            string trimmedIdentifier = identifier.Trim();
-
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
-            {
-                var accountMatch = dbContext.Cuenta
-                    .AsNoTracking()
-                    .Where(account => account.Correo == identifier)
-                    .Select(account => new { account.UsuarioIdUsuario })
-                    .FirstOrDefault();
-
-                int userId;
-
-                if (accountMatch != null)
-                {
-                    userId = accountMatch.UsuarioIdUsuario;
-                }
-                else
-                {
-                    var userMatch = dbContext.Usuario
-                        .AsNoTracking()
-                        .Where(user => user.NombreUsuario == identifier)
-                        .Select(user => new { user.IdUsuario })
-                        .FirstOrDefault();
-
-                    if (userMatch == null)
-                    {
-                        return null;
-                    }
-
-                    userId = userMatch.IdUsuario;
-                }
-
-                string lastPasswordHash = dbContext.Contrasenia
-                    .AsNoTracking()
-                    .Where(password => password.UsuarioIdUsuario == userId)
-                    .OrderByDescending(password => password.FechaCreacion)
-                    .Select(password => password.Contrasenia1)
-                    .FirstOrDefault();
-
-                if (lastPasswordHash == null)
-                {
-                    return null;
-                }
-
-                var userData = dbContext.Usuario
-                    .AsNoTracking()
-                    .Where(user => user.IdUsuario == userId)
-                    .Select(user => new
-                    {
-                        user.NombreUsuario,
-                        user.FotoPerfil
-                    })
-                    .FirstOrDefault();
-
-                if (userData == null)
-                {
-                    return null;
-                }
-
-                string normalizedAvatarId = AvatarIdHelper.MapFromDb(userData.FotoPerfil);
-
-                return new AuthCredentialsDto
-                {
-                    UserId = userId,
-                    PasswordHash = lastPasswordHash,
-                    DisplayName = userData.NombreUsuario,
-                    ProfilePhotoId = normalizedAvatarId
-                };
-            }
         }
     }
 }
