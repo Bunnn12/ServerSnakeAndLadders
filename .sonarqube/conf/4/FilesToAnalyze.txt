@@ -1,3 +1,10 @@
-﻿C:\Users\irene\Source\Repos\ServerSnakeAndLadders\Prueba\Program.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\Prueba\Properties\AssemblyInfo.cs
-C:\Users\irene\Source\Repos\ServerSnakeAndLadders\Prueba\App.config
+﻿C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\AssemblyInfo.cs
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\AppLogger.cs
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\EmailSender.cs
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\PlayerSessionManager.cs
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Helpers\Sha256PasswordHasher.cs
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Program.cs
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\Properties\AssemblyInfo.cs
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\ServerSecrets.config
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\App.config
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Server\packages.config

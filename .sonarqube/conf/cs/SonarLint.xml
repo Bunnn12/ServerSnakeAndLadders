@@ -2,6 +2,10 @@
 <AnalysisInput>
   <Settings>
     <Setting>
+      <Key>sonar.cs.opencover.reportsPaths</Key>
+      <Value>**/coverage.opencover.xml</Value>
+    </Setting>
+    <Setting>
       <Key>sonar.cs.ignoreHeaderComments</Key>
       <Value>true</Value>
     </Setting>
@@ -23,6 +27,57 @@
     </Setting>
   </Settings>
   <Rules>
+    <Rule>
+      <Key>S4050</Key>
+    </Rule>
+    <Rule>
+      <Key>S3925</Key>
+    </Rule>
+    <Rule>
+      <Key>S3881</Key>
+    </Rule>
+    <Rule>
+      <Key>S3447</Key>
+    </Rule>
+    <Rule>
+      <Key>S3236</Key>
+    </Rule>
+    <Rule>
+      <Key>S3451</Key>
+    </Rule>
+    <Rule>
+      <Key>S5773</Key>
+    </Rule>
+    <Rule>
+      <Key>S3343</Key>
+    </Rule>
+    <Rule>
+      <Key>S4159</Key>
+    </Rule>
+    <Rule>
+      <Key>S4277</Key>
+    </Rule>
+    <Rule>
+      <Key>S4428</Key>
+    </Rule>
+    <Rule>
+      <Key>S6967</Key>
+    </Rule>
+    <Rule>
+      <Key>S2139</Key>
+    </Rule>
+    <Rule>
+      <Key>S6675</Key>
+    </Rule>
+    <Rule>
+      <Key>S6670</Key>
+    </Rule>
+    <Rule>
+      <Key>S6608</Key>
+    </Rule>
+    <Rule>
+      <Key>S1135</Key>
+    </Rule>
     <Rule>
       <Key>S6562</Key>
     </Rule>
@@ -113,9 +168,6 @@
       <Key>S2696</Key>
     </Rule>
     <Rule>
-      <Key>S3236</Key>
-    </Rule>
-    <Rule>
       <Key>S5547</Key>
     </Rule>
     <Rule>
@@ -200,9 +252,6 @@
       <Key>S1125</Key>
     </Rule>
     <Rule>
-      <Key>S1135</Key>
-    </Rule>
-    <Rule>
       <Key>S4426</Key>
     </Rule>
     <Rule>
@@ -231,9 +280,6 @@
     </Rule>
     <Rule>
       <Key>S3655</Key>
-    </Rule>
-    <Rule>
-      <Key>S5773</Key>
     </Rule>
     <Rule>
       <Key>S3247</Key>
@@ -320,9 +366,6 @@
       <Key>S6964</Key>
     </Rule>
     <Rule>
-      <Key>S6967</Key>
-    </Rule>
-    <Rule>
       <Key>S6960</Key>
     </Rule>
     <Rule>
@@ -389,16 +432,10 @@
       <Key>S2187</Key>
     </Rule>
     <Rule>
-      <Key>S6675</Key>
-    </Rule>
-    <Rule>
       <Key>S6674</Key>
     </Rule>
     <Rule>
       <Key>S6798</Key>
-    </Rule>
-    <Rule>
-      <Key>S6670</Key>
     </Rule>
     <Rule>
       <Key>S6672</Key>
@@ -408,9 +445,6 @@
     </Rule>
     <Rule>
       <Key>S2178</Key>
-    </Rule>
-    <Rule>
-      <Key>S4159</Key>
     </Rule>
     <Rule>
       <Key>S3060</Key>
@@ -454,9 +488,6 @@
           <Value>^([A-Z]{1,3}[a-z0-9]+)*([A-Z]{2})?s$</Value>
         </Parameter>
       </Parameters>
-    </Rule>
-    <Rule>
-      <Key>S3447</Key>
     </Rule>
     <Rule>
       <Key>S2234</Key>
@@ -651,9 +682,6 @@
       <Key>S6961</Key>
     </Rule>
     <Rule>
-      <Key>S3451</Key>
-    </Rule>
-    <Rule>
       <Key>S5753</Key>
     </Rule>
     <Rule>
@@ -664,12 +692,6 @@
     </Rule>
     <Rule>
       <Key>S6609</Key>
-    </Rule>
-    <Rule>
-      <Key>S4428</Key>
-    </Rule>
-    <Rule>
-      <Key>S6608</Key>
     </Rule>
     <Rule>
       <Key>S3459</Key>
@@ -711,9 +733,6 @@
       <Key>S3346</Key>
     </Rule>
     <Rule>
-      <Key>S3343</Key>
-    </Rule>
-    <Rule>
       <Key>S2376</Key>
     </Rule>
     <Rule>
@@ -733,9 +752,6 @@
     </Rule>
     <Rule>
       <Key>S6617</Key>
-    </Rule>
-    <Rule>
-      <Key>S2139</Key>
     </Rule>
     <Rule>
       <Key>S6618</Key>
@@ -825,9 +841,6 @@
       <Key>S3400</Key>
     </Rule>
     <Rule>
-      <Key>S3881</Key>
-    </Rule>
-    <Rule>
       <Key>S2436</Key>
       <Parameters>
         <Parameter>
@@ -893,9 +906,6 @@
     </Rule>
     <Rule>
       <Key>S3928</Key>
-    </Rule>
-    <Rule>
-      <Key>S3925</Key>
     </Rule>
     <Rule>
       <Key>S3926</Key>
@@ -1096,9 +1106,6 @@
       <Key>S4052</Key>
     </Rule>
     <Rule>
-      <Key>S4050</Key>
-    </Rule>
-    <Rule>
       <Key>S6444</Key>
     </Rule>
     <Rule>
@@ -1115,9 +1122,6 @@
     </Rule>
     <Rule>
       <Key>S4260</Key>
-    </Rule>
-    <Rule>
-      <Key>S4277</Key>
     </Rule>
     <Rule>
       <Key>S6575</Key>

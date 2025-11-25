@@ -2,7 +2,7 @@
 using System.Transactions;
 using SnakesAndLadders.Data;
 
-namespace SnakesAndLadders.Test.Integration
+namespace SnakesAndLadders.Tests.integration
 {
     public abstract class IntegrationTestBase : IDisposable
     {

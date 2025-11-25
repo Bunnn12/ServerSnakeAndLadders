@@ -5,7 +5,7 @@ using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakesAndLadders.Data;
 using SnakesAndLadders.Data.Repositories;
-using SnakesAndLadders.Test.Integration;
+using SnakesAndLadders.Tests.integration;
 using Xunit;
 
 namespace SnakesAndLadders.Tests.Integration
