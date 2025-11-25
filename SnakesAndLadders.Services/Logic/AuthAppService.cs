@@ -45,6 +45,7 @@ namespace SnakesAndLadders.Services.Logic
         private const string AUTH_CODE_CODE_NOT_REQUESTED = "Auth.CodeNotRequested";
         private const string AUTH_CODE_CODE_EXPIRED = "Auth.CodeExpired";
         private const string AUTH_CODE_CODE_INVALID = "Auth.CodeInvalid";
+        private const string AUTH_CODE_ACCOUNT_DELETED = "Auth.AccountDeleted";
 
         private const string META_KEY_SANCTION_TYPE = "sanctionType";
         private const string META_KEY_BAN_ENDS_AT_UTC = "banEndsAtUtc";
@@ -132,16 +133,13 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_INVALID_REQUEST);
             }
 
-            // CORRECCIÓN 2: Manejo de DbOperationResult para Login
             var authResult = _accountsRepository.GetAuthByIdentifier(request.Email);
 
-            // Si no fue exitoso (usuario no encontrado o error interno)
-            if (!authResult.IsSuccess)
+            if (!authResult.IsSuccess || authResult.Data == null)
             {
                 return Fail(AUTH_CODE_INVALID_CREDENTIALS);
             }
 
-            // Extraemos los datos seguros
             AuthCredentialsDto auth = authResult.Data;
 
             int userId = auth.UserId;
@@ -181,17 +179,25 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_SERVER_ERROR);
             }
 
-            // 🔹 Cargar datos completos de cuenta (incluyendo skin) desde UserRepository
-            AccountDto account = null;
+            AccountDto account;
 
             try
             {
                 account = _userRepository.GetByUserId(userId);
+
+                if (account == null)
+                {
+                    Logger.WarnFormat(
+                        "Login credentials valid but account/profile not found. UserId={0}. Treating as invalid credentials.",
+                        userId);
+
+                    return Fail(AUTH_CODE_INVALID_CREDENTIALS);
+                }
             }
             catch (Exception ex)
             {
                 Logger.Error("Error while loading account data for login.", ex);
-                // No rompemos el login; simplemente no habrá skin en el resultado.
+                return Fail(AUTH_CODE_SERVER_ERROR);
             }
 
             string ttlText = ConfigurationManager.AppSettings[APP_KEY_TOKEN_MINUTES];
@@ -219,11 +225,8 @@ namespace SnakesAndLadders.Services.Logic
                 displayName: displayName,
                 profilePhotoId: profilePhotoId);
 
-            if (account != null)
-            {
-                result.CurrentSkinId = account.CurrentSkinId;
-                result.CurrentSkinUnlockedId = account.CurrentSkinUnlockedId;
-            }
+            result.CurrentSkinId = account.CurrentSkinId;
+            result.CurrentSkinUnlockedId = account.CurrentSkinUnlockedId;
 
             result.Token = token;
             result.ExpiresAtUtc = expiresAtUtc;

@@ -14,19 +14,4 @@
         public string CurrentSkinId { get; set; }
     }
 
-    public sealed class UpdateProfileRequestDto
-    {
-        public int UserId { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string ProfileDescription { get; set; }
-        public string ProfilePhotoId { get; set; }
-        
-    }
-
-    public class ProfilePhotoDto
-    {
-        public int UserId { get; set; }
-        public string ProfilePhotoId { get; set; }
-    }
 }

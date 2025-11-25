@@ -7,10 +7,12 @@ namespace SnakesAndLadders.Services.Logic
     public sealed class UserAppService : IUserAppService
     {
         private readonly IUserRepository users;
+        private readonly IAccountStatusRepository accountStatusRepository;
 
-        public UserAppService(IUserRepository users)
+        public UserAppService(IUserRepository users, IAccountStatusRepository accountStatusRepository)
         {
             this.users = users ?? throw new ArgumentNullException(nameof(users));
+            this.accountStatusRepository = accountStatusRepository ?? throw new ArgumentNullException(nameof(accountStatusRepository));
         }
 
         public AccountDto GetProfileByUsername(string username)
@@ -45,7 +47,7 @@ namespace SnakesAndLadders.Services.Logic
                 throw new ArgumentOutOfRangeException(nameof(userId));
             }
 
-            users.DeactivateUser(userId);
+            accountStatusRepository.SetUserAndAccountActiveState(userId, isActive: false);
         }
     }
 }

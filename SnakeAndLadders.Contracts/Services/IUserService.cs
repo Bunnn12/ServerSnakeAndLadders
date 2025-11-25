@@ -13,7 +13,7 @@ namespace SnakeAndLadders.Contracts.Services
         ProfilePhotoDto GetProfilePhoto(int userId);
 
         [OperationContract]
-        AccountDto UpdateProfile(UpdateProfileRequestDto request);
+        AccountDto UpdateProfile(UpdateProfileRequestDto request);  
 
         [OperationContract]
         void DeactivateAccount(int userId);

@@ -75,8 +75,10 @@
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
     <Compile Include="Dtos\ItemChestPurchaseDto.cs" />
     <Compile Include="Dtos\PlayerStatsDto.cs" />
+    <Compile Include="Dtos\ProfilePhotoDto.cs" />
     <Compile Include="Dtos\ShopRewardDto.cs" />
     <Compile Include="Dtos\StickerChestPurchaseDto.cs" />
+    <Compile Include="Dtos\UpdateProfileRequestDto.cs" />
     <Compile Include="Enums\MoveEffectType.cs" />
     <Compile Include="Dtos\Gameplay\PlayerMoveResultDto.cs" />
     <Compile Include="Dtos\Gameplay\RollDiceRequestDto.cs" />

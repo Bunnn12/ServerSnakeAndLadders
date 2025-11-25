@@ -88,7 +88,7 @@ internal static class Program
 
             var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp, userRepository);
             Func<string, int> getUserId = token => authApp.GetUserIdFromToken(token);
-            var userApp = new UserAppService(userRepo);
+            var userApp = new UserAppService(userRepo, accountStatusRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
             IStatsAppService statsApp = new StatsAppService(statsRepo);
             var friendsApp = new FriendsAppService(friendsRepo, getUserId);

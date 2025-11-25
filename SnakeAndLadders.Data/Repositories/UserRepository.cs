@@ -17,6 +17,13 @@ namespace SnakesAndLadders.Data.Repositories
         private const byte STATUS_ACTIVE = 0x01;
         private const byte STATUS_INACTIVE = 0x00;
 
+        private static bool IsActive(byte[] estado)
+        {
+            return estado != null
+                   && estado.Length > 0
+                   && estado[0] == STATUS_ACTIVE;
+        }
+
         public AccountDto GetByUsername(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
@@ -38,11 +45,11 @@ namespace SnakesAndLadders.Data.Repositories
                      join ad in db.AvatarDesbloqueado.AsNoTracking()
                          on u.IdAvatarDesbloqueadoActual equals ad.IdAvatarDesbloqueado
                          into avatarGroup
-                     from ad in avatarGroup.DefaultIfEmpty() // LEFT JOIN AvatarDesbloqueado
+                     from ad in avatarGroup.DefaultIfEmpty()
                      join av in db.Avatar.AsNoTracking()
                          on ad.AvatarIdAvatar equals av.IdAvatar
                          into avatarEntityGroup
-                     from av in avatarEntityGroup.DefaultIfEmpty() // LEFT JOIN Avatar
+                     from av in avatarEntityGroup.DefaultIfEmpty()
                      where u.NombreUsuario == username
                      select new
                      {
@@ -50,9 +57,9 @@ namespace SnakesAndLadders.Data.Repositories
                          AvatarDesbloqueado = ad,
                          Avatar = av
                      })
-                    .SingleOrDefault();
+                    .FirstOrDefault();
 
-                if (row == null)
+                if (row == null || !IsActive(row.Usuario.Estado))
                 {
                     return null;
                 }
@@ -74,7 +81,7 @@ namespace SnakesAndLadders.Data.Repositories
                     .AsNoTracking()
                     .SingleOrDefault(u => u.IdUsuario == userId);
 
-                if (entity == null)
+                if (entity == null || !IsActive(entity.Estado))
                 {
                     return null;
                 }
@@ -132,9 +139,9 @@ namespace SnakesAndLadders.Data.Repositories
                 var entity = db.Usuario
                     .SingleOrDefault(u => u.IdUsuario == request.UserId);
 
-                if (entity == null)
+                if (entity == null || !IsActive(entity.Estado))
                 {
-                    throw new InvalidOperationException("User not found.");
+                    throw new InvalidOperationException("User not found or inactive.");
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.FirstName))
@@ -178,7 +185,12 @@ namespace SnakesAndLadders.Data.Repositories
                          AvatarDesbloqueado = ad,
                          Avatar = av
                      })
-                    .Single();
+                    .FirstOrDefault();
+
+                if (row == null || !IsActive(row.Usuario.Estado))
+                {
+                    throw new InvalidOperationException("User not found or inactive.");
+                }
 
                 return MapToAccountDto(row.Usuario, row.AvatarDesbloqueado, row.Avatar);
             }
@@ -193,43 +205,51 @@ namespace SnakesAndLadders.Data.Repositories
 
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                var row =
-                    (from u in db.Usuario.AsNoTracking()
-                     join ad in db.AvatarDesbloqueado.AsNoTracking()
-                         on u.IdAvatarDesbloqueadoActual equals ad.IdAvatarDesbloqueado
-                         into avatarGroup
-                     from ad in avatarGroup.DefaultIfEmpty()
-                     join av in db.Avatar.AsNoTracking()
-                         on ad.AvatarIdAvatar equals av.IdAvatar
-                         into avatarEntityGroup
-                     from av in avatarEntityGroup.DefaultIfEmpty()
-                     where u.IdUsuario == userId
-                     select new
-                     {
-                         Usuario = u,
-                         AvatarDesbloqueado = ad,
-                         Avatar = av
-                     })
-                    .SingleOrDefault();
+                var user = db.Usuario
+                    .AsNoTracking()
+                    .SingleOrDefault(u => u.IdUsuario == userId);
 
-                if (row == null)
+                if (user == null)
                 {
                     return DEFAULT_PROFILE_PHOTO_ID;
                 }
 
-                if (row.Avatar != null &&
-                    !string.IsNullOrWhiteSpace(row.Avatar.CodigoAvatar))
+                AvatarDesbloqueado avatarUnlocked = null;
+                Avatar avatar = null;
+
+                if (user.IdAvatarDesbloqueadoActual.HasValue)
                 {
-                    return row.Avatar.CodigoAvatar
+                    int unlockedId = user.IdAvatarDesbloqueadoActual.Value;
+
+                    avatarUnlocked = db.AvatarDesbloqueado
+                        .AsNoTracking()
+                        .Where(ad => ad.IdAvatarDesbloqueado == unlockedId)
+                        .OrderByDescending(ad => ad.IdAvatarDesbloqueado)
+                        .FirstOrDefault();
+
+                    if (avatarUnlocked != null)
+                    {
+                        avatar = db.Avatar
+                            .AsNoTracking()
+                            .Where(av => av.IdAvatar == avatarUnlocked.AvatarIdAvatar)
+                            .OrderByDescending(av => av.IdAvatar)
+                            .FirstOrDefault();
+                    }
+                }
+
+                if (avatar != null &&
+                    !string.IsNullOrWhiteSpace(avatar.CodigoAvatar))
+                {
+                    return avatar.CodigoAvatar
                         .Trim()
                         .ToUpperInvariant();
                 }
 
-                return NormalizePhotoId(row.Usuario.FotoPerfil);
+                return NormalizePhotoId(user.FotoPerfil);
             }
         }
 
-        public void DeactivateUser(int userId)
+        public AccountDto GetByUserId(int userId)
         {
             if (userId <= 0)
             {
@@ -238,20 +258,42 @@ namespace SnakesAndLadders.Data.Repositories
 
             using (var db = new SnakeAndLaddersDBEntities1())
             {
-                var entity = db.Usuario.SingleOrDefault(u => u.IdUsuario == userId);
+                var user = db.Usuario
+                    .AsNoTracking()
+                    .SingleOrDefault(u => u.IdUsuario == userId);
 
-                if (entity == null)
+                if (user == null)
                 {
-                    throw new InvalidOperationException("User not found.");
+                    return null;
                 }
 
-                entity.Estado = new[] { STATUS_INACTIVE };
+                AvatarDesbloqueado avatarUnlocked = null;
+                Avatar avatar = null;
 
-                db.SaveChanges();
+                if (user.IdAvatarDesbloqueadoActual.HasValue)
+                {
+                    int unlockedId = user.IdAvatarDesbloqueadoActual.Value;
+
+                    avatarUnlocked = db.AvatarDesbloqueado
+                        .AsNoTracking()
+                        .Where(ad => ad.IdAvatarDesbloqueado == unlockedId)
+                        .OrderByDescending(ad => ad.IdAvatarDesbloqueado)
+                        .FirstOrDefault();
+
+                    if (avatarUnlocked != null)
+                    {
+                        avatar = db.Avatar
+                            .AsNoTracking()
+                            .Where(av => av.IdAvatar == avatarUnlocked.AvatarIdAvatar)
+                            .OrderByDescending(av => av.IdAvatar)
+                            .FirstOrDefault();
+                    }
+                }
+
+                return MapToAccountDto(user, avatarUnlocked, avatar);
             }
         }
 
-        // ===== Helpers privados =====
 
         private static AccountDto MapToAccountDto(
             Usuario usuario,
@@ -291,44 +333,6 @@ namespace SnakesAndLadders.Data.Repositories
                 CurrentSkinId = currentSkinCode
             };
         }
-
-        public AccountDto GetByUserId(int userId)
-        {
-            if (userId <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(userId));
-            }
-
-            using (var db = new SnakeAndLaddersDBEntities1())
-            {
-                var row =
-                    (from u in db.Usuario.AsNoTracking()
-                     join ad in db.AvatarDesbloqueado.AsNoTracking()
-                         on u.IdAvatarDesbloqueadoActual equals ad.IdAvatarDesbloqueado
-                         into avatarGroup
-                     from ad in avatarGroup.DefaultIfEmpty()
-                     join av in db.Avatar.AsNoTracking()
-                         on ad.AvatarIdAvatar equals av.IdAvatar
-                         into avatarEntityGroup
-                     from av in avatarEntityGroup.DefaultIfEmpty()
-                     where u.IdUsuario == userId
-                     select new
-                     {
-                         Usuario = u,
-                         AvatarDesbloqueado = ad,
-                         Avatar = av
-                     })
-                    .SingleOrDefault();
-
-                if (row == null)
-                {
-                    return null;
-                }
-
-                return MapToAccountDto(row.Usuario, row.AvatarDesbloqueado, row.Avatar);
-            }
-        }
-
 
         private static string NormalizePhotoId(string rawPhotoId)
         {

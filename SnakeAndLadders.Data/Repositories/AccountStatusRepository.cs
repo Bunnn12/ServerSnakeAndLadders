@@ -22,9 +22,8 @@ namespace SnakesAndLadders.Data.Repositories
 
         /// <summary>
         /// Sets the active state for the user, all related accounts and passwords.
+        /// When deactivating, it also frees username and email so they can be reused.
         /// </summary>
-        /// <param name="userId">Target user identifier.</param>
-        /// <param name="isActive">True to activate, false to deactivate.</param>
         public void SetUserAndAccountActiveState(int userId, bool isActive)
         {
             if (userId < 1)
@@ -44,6 +43,12 @@ namespace SnakesAndLadders.Data.Repositories
                     if (user != null)
                     {
                         user.Estado = dbStatus;
+
+                        if (!isActive)
+                        {
+                            string deletedUserName = $"deleted_{user.IdUsuario:D6}";
+                            user.NombreUsuario = deletedUserName;
+                        }
                     }
 
                     var accounts = context.Cuenta
@@ -53,6 +58,12 @@ namespace SnakesAndLadders.Data.Repositories
                     foreach (var account in accounts)
                     {
                         account.Estado = dbStatus;
+
+                        if (!isActive)
+                        {
+                            string deletedEmail = $"deleted+{userId:D6}@invalid.local";
+                            account.Correo = deletedEmail;
+                        }
                     }
 
                     var passwords = context.Contrasenia
