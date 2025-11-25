@@ -103,8 +103,6 @@ internal static class Program
             var statsSvc = new StatsService(statsApp);
             var friendsSvc = new FriendsService(friendsApp);
             var gameplaySvc = new GameplayService(gameSessionStore, appLogger);
-            var contextFactory = new Func<SnakeAndLaddersDBEntities1>(() => new SnakeAndLaddersDBEntities1());
-            SnakesAndLadders.Data.Helpers.StickerPackSeedHelper.SeedStickerPacks(contextFactory);
             var shopRepo = new ShopRepository();
             var shopApp = new ShopAppService(shopRepo, getUserId);
             var shopSvc = new ShopService(shopApp);

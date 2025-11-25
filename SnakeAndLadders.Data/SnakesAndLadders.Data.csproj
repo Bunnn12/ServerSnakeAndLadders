@@ -130,7 +130,6 @@
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
     </Compile>
-    <Compile Include="Helpers\StickerPackSeedHelper.cs" />
     <Compile Include="ListaAmigos.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
