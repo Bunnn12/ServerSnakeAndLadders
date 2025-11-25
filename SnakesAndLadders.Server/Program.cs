@@ -48,6 +48,7 @@ internal static class Program
         ServiceHost statsHost = null;
         ServiceHost friendsHost = null;
         ServiceHost gameplayHost = null;
+        ServiceHost shopHost = null;
 
         try
         {
@@ -102,6 +103,11 @@ internal static class Program
             var statsSvc = new StatsService(statsApp);
             var friendsSvc = new FriendsService(friendsApp);
             var gameplaySvc = new GameplayService(gameSessionStore, appLogger);
+            var contextFactory = new Func<SnakeAndLaddersDBEntities1>(() => new SnakeAndLaddersDBEntities1());
+            SnakesAndLadders.Data.Helpers.StickerPackSeedHelper.SeedStickerPacks(contextFactory);
+            var shopRepo = new ShopRepository();
+            var shopApp = new ShopAppService(shopRepo, getUserId);
+            var shopSvc = new ShopService(shopApp);
 
             lobbyHost = new ServiceHost(lobbySvc);
             authHost = new ServiceHost(authSvc);
@@ -112,6 +118,7 @@ internal static class Program
             statsHost = new ServiceHost(statsSvc);
             friendsHost = new ServiceHost(friendsSvc);
             gameplayHost = new ServiceHost(gameplaySvc);
+            shopHost = new ServiceHost(shopSvc);
 
             authHost.Open();
             userHost.Open();
@@ -122,6 +129,7 @@ internal static class Program
             statsHost.Open();
             friendsHost.Open();
             gameplayHost.Open();
+            shopHost.Open();
 
             Log.Info("Servidor iniciado y servicios levantados.");
 
@@ -135,6 +143,7 @@ internal static class Program
             Console.WriteLine(" - " + typeof(StatsService).FullName);
             Console.WriteLine(" - " + typeof(FriendsService).FullName);
             Console.WriteLine(" - " + typeof(GameplayService).FullName);
+            Console.WriteLine(" - " + typeof(ShopService).FullName);
             Console.WriteLine("Presiona Enter para detener…");
             Console.ReadLine();
         }
@@ -185,6 +194,7 @@ internal static class Program
             CloseSafely(statsHost, "StatsService");
             CloseSafely(friendsHost, "FriendsService");
             CloseSafely(gameplayHost, "GameplayService");
+            CloseSafely(shopHost, "ShopService");
 
             Log.Info("Servidor detenido.");
         }

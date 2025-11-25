@@ -56,6 +56,7 @@
     <Compile Include="Logic\IUserAppService.cs" />
     <Compile Include="Logic\LobbyAppService.cs" />
     <Compile Include="Logic\PlayerReportAppService.cs" />
+    <Compile Include="Logic\ShopAppService.cs" />
     <Compile Include="Logic\StatsAppService.cs" />
     <Compile Include="Logic\UserAppService.cs" />
     <Compile Include="Wcf\AuthService.cs" />
@@ -65,6 +66,7 @@
     <Compile Include="Wcf\GameplayService.cs" />
     <Compile Include="Wcf\LobbyService.cs" />
     <Compile Include="Wcf\PlayerReportService.cs" />
+    <Compile Include="Wcf\ShopService.cs" />
     <Compile Include="Wcf\StatsService.cs" />
     <Compile Include="Wcf\UserService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

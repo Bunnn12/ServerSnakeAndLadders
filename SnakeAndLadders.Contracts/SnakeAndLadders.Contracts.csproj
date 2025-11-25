@@ -52,11 +52,13 @@
     <Compile Include="Dtos\ActiveReportSearchCriteriaDto.cs" />
     <Compile Include="Dtos\AuthCredentialsDto.cs" />
     <Compile Include="Dtos\AuthResult.cs" />
+    <Compile Include="Dtos\AvatarChestPurchaseDto.cs" />
     <Compile Include="Dtos\BanInfoDto.cs" />
     <Compile Include="Dtos\ChatMessageDto.cs" />
     <Compile Include="Dtos\CreateAccountRequest.cs" />
     <Compile Include="Dtos\CreateGameRequest.cs" />
     <Compile Include="Dtos\CreateGameResponse.cs" />
+    <Compile Include="Dtos\DicePurchaseDto.cs" />
     <Compile Include="Dtos\FriendLinkDto.cs" />
     <Compile Include="Dtos\FriendListItemDto.cs" />
     <Compile Include="Dtos\FriendRequestItemDto.cs" />
@@ -71,7 +73,10 @@
     <Compile Include="Dtos\Gameplay\PlayerLeftDto.cs" />
     <Compile Include="Dtos\Gameplay\TokenStateDto.cs" />
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
+    <Compile Include="Dtos\ItemChestPurchaseDto.cs" />
     <Compile Include="Dtos\PlayerStatsDto.cs" />
+    <Compile Include="Dtos\ShopRewardDto.cs" />
+    <Compile Include="Dtos\StickerChestPurchaseDto.cs" />
     <Compile Include="Enums\MoveEffectType.cs" />
     <Compile Include="Dtos\Gameplay\PlayerMoveResultDto.cs" />
     <Compile Include="Dtos\Gameplay\RollDiceRequestDto.cs" />
@@ -95,6 +100,8 @@
     <Compile Include="Dtos\StartMatchRequest.cs" />
     <Compile Include="Dtos\UserBriefDto.cs" />
     <Compile Include="Enums\FriendRequestStatus.cs" />
+    <Compile Include="Enums\ShopChestRarity.cs" />
+    <Compile Include="Enums\ShopRewardType.cs" />
     <Compile Include="Faults\Faults.cs" />
     <Compile Include="Faults\ServiceFault.cs" />
     <Compile Include="Helpers\AvatarIdHelper.cs" />
@@ -117,6 +124,8 @@
     <Compile Include="Interfaces\IPlayerSessionManager.cs" />
     <Compile Include="Interfaces\IReportRepository.cs" />
     <Compile Include="Interfaces\ISanctionRepository.cs" />
+    <Compile Include="Interfaces\IShopAppService.cs" />
+    <Compile Include="Interfaces\IShopRepository.cs" />
     <Compile Include="Interfaces\IStatsAppService.cs" />
     <Compile Include="Interfaces\IStatsRepository.cs" />
     <Compile Include="Interfaces\IUserRepository.cs" />
@@ -130,6 +139,7 @@
     <Compile Include="Services\IGameplayService.cs" />
     <Compile Include="Services\ILobbyService.cs" />
     <Compile Include="Services\IPlayerReportService.cs" />
+    <Compile Include="Services\IShopService.cs" />
     <Compile Include="Services\IStatsService.cs" />
     <Compile Include="Services\IUserService.cs" />
   </ItemGroup>
