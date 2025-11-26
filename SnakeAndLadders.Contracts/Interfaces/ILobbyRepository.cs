@@ -2,7 +2,6 @@
 
 namespace SnakeAndLadders.Contracts.Interfaces
 {
-    
     public interface ILobbyRepository
     {
         bool CodeExists(string code);
@@ -13,6 +12,8 @@ namespace SnakeAndLadders.Contracts.Interfaces
             string dificultad,
             string code,
             DateTime expiresAtUtc);
+
+        void AddUserToGame(int gameId, int userId, bool isHost);
     }
 
     public sealed class CreatedGameInfo

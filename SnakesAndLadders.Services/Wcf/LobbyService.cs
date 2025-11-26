@@ -1,29 +1,87 @@
-﻿ 
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.ServiceModel;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Faults;
 using SnakeAndLadders.Contracts.Services;
+using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Wcf
 {
-    [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single, ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [ServiceBehavior(
+        InstanceContextMode = InstanceContextMode.Single,
+        ConcurrencyMode = ConcurrencyMode.Multiple)]
     public sealed class LobbyService : ILobbyService
     {
-        private readonly ConcurrentDictionary<int, LobbyInfo> _lobbies = new ConcurrentDictionary<int, LobbyInfo>();
-        private readonly Random _rng = new Random();
+        private readonly ILobbyAppService lobbyAppService;
+
+        private readonly ConcurrentDictionary<int, LobbyInfo> lobbies =
+            new ConcurrentDictionary<int, LobbyInfo>();
+
+        private readonly Random rng = new Random();
+        private static bool IsGuestUser(int userId)
+        {
+            return userId < 0; 
+        }
+
+        private int NextId()
+        {
+            lock (rng)
+            {
+                return rng.Next(100_000, 999_999);
+            }
+        }
+
+        private string GenerateCode()
+        {
+            lock (rng)
+            {
+                return rng.Next(0, 999_999).ToString("000000");
+            }
+        }
+
+        public LobbyService(ILobbyAppService lobbyAppService)
+        {
+            this.lobbyAppService = lobbyAppService ?? throw new ArgumentNullException(nameof(lobbyAppService));
+        }
 
         public CreateGameResponse CreateGame(CreateGameRequest request)
         {
-            if (request == null) Throw("REQ_NULL", "Solicitud nula.");
-            if (request.MaxPlayers < 2 || request.MaxPlayers > 4) Throw("MAX_PLAYERS", "MaxPlayers debe estar entre 2 y 4.");
+            if (request == null)
+            {
+                Throw("REQ_NULL", "Solicitud nula.");
+            }
 
-            var partidaId = NextId();
-            var codigo = GenerateCode();
+            if (request.MaxPlayers < 2 || request.MaxPlayers > 4)
+            {
+                Throw("MAX_PLAYERS", "MaxPlayers debe estar entre 2 y 4.");
+            }
 
-            var effectiveTtl = Math.Max(5, request.TtlMinutes);
+            bool isGuestHost = IsGuestUser(request.HostUserId);
+
+            int partidaId;
+            string codigo;
+            DateTime expiresAtUtc;
+
+            int effectiveTtl = Math.Max(5, request.TtlMinutes);
+
+            if (isGuestHost)
+            {
+                // 👇 Lobby solo en memoria, nada en BD
+                partidaId = NextId();
+                codigo = GenerateCode();
+                expiresAtUtc = DateTime.UtcNow.AddMinutes(effectiveTtl);
+            }
+            else
+            {
+                // 👇 Lobby persistido en BD
+                CreateGameResponse created = lobbyAppService.CreateGame(request);
+
+                partidaId = created.PartidaId;
+                codigo = created.CodigoPartida;
+                expiresAtUtc = created.ExpiresAtUtc;
+            }
 
             var lobby = new LobbyInfo
             {
@@ -33,163 +91,265 @@ namespace SnakesAndLadders.Services.Wcf
                 HostUserName = $"User{request.HostUserId}",
                 MaxPlayers = request.MaxPlayers,
                 Status = LobbyStatus.Waiting,
-                ExpiresAtUtc = DateTime.UtcNow.AddMinutes(effectiveTtl),
-
-
+                ExpiresAtUtc = expiresAtUtc,
                 BoardSide = request.BoardSide,
                 Difficulty = request.Dificultad,
                 PlayersRequested = request.PlayersRequested,
                 SpecialTiles = request.SpecialTiles
             };
 
-            lobby.Players.Add(new LobbyMember
-            {
-                UserId = request.HostUserId,
-                UserName = lobby.HostUserName,
-                IsHost = true,
-                JoinedAtUtc = DateTime.UtcNow,
-                AvatarId = request.HostAvatarId,
+            lobby.Players.Add(
+                new LobbyMember
+                {
+                    UserId = request.HostUserId,
+                    UserName = lobby.HostUserName,
+                    IsHost = true,
+                    JoinedAtUtc = DateTime.UtcNow,
+                    AvatarId = request.HostAvatarId,
+                    CurrentSkinUnlockedId = request.CurrentSkinUnlockedId,
+                    CurrentSkinId = request.CurrentSkinId
+                });
 
-                CurrentSkinUnlockedId = request.CurrentSkinUnlockedId,
-                CurrentSkinId = request.CurrentSkinId
-
-            });
-
-            _lobbies[partidaId] = lobby;
+            lobbies[partidaId] = lobby;
 
             return new CreateGameResponse
             {
                 PartidaId = partidaId,
                 CodigoPartida = codigo,
-                ExpiresAtUtc = lobby.ExpiresAtUtc
+                ExpiresAtUtc = expiresAtUtc
             };
         }
 
 
         public JoinLobbyResponse JoinLobby(JoinLobbyRequest request)
         {
-            if (request == null) return Fail("Solicitud nula.");
-            var lobby = _lobbies.Values.FirstOrDefault(l => l.CodigoPartida == request.CodigoPartida);
-            if (lobby == null) return Fail("Código inválido.");
-            if (lobby.Status != LobbyStatus.Waiting) return Fail("La partida ya comenzó o está cerrada.");
-            if (lobby.Players.Count >= lobby.MaxPlayers) return Fail("El lobby está lleno.");
-
-            if (lobby.Players.Any(p => p.UserId == request.UserId))
-                return new JoinLobbyResponse { Success = true, Lobby = lobby };
-
-            lobby.Players.Add(new LobbyMember
+            if (request == null)
             {
-                UserId = request.UserId,
-                UserName = request.UserName,
-                IsHost = false,
-                JoinedAtUtc = DateTime.UtcNow,
-                AvatarId = request.AvatarId,
-                CurrentSkinUnlockedId = request.CurrentSkinUnlockedId,
-                CurrentSkinId = request.CurrentSkinId
-            });
+                return Fail("Solicitud nula.");
+            }
 
-            return new JoinLobbyResponse { Success = true, Lobby = lobby };
+            LobbyInfo lobby = lobbies
+                .Values
+                .FirstOrDefault(info => info.CodigoPartida == request.CodigoPartida);
+
+            if (lobby == null)
+            {
+                return Fail("Código inválido.");
+            }
+
+            if (lobby.Status != LobbyStatus.Waiting)
+            {
+                return Fail("La partida ya comenzó o está cerrada.");
+            }
+
+            if (lobby.Players.Count >= lobby.MaxPlayers)
+            {
+                return Fail("El lobby está lleno.");
+            }
+
+            if (lobby.Players.Any(player => player.UserId == request.UserId))
+            {
+                return new JoinLobbyResponse
+                {
+                    Success = true,
+                    Lobby = lobby
+                };
+            }
+
+            // 👇 Solo usuarios reales se registran en BD
+            if (!IsGuestUser(request.UserId))
+            {
+                lobbyAppService.RegisterPlayerInGame(
+                    lobby.PartidaId,
+                    request.UserId,
+                    isHost: false);
+            }
+
+            lobby.Players.Add(
+                new LobbyMember
+                {
+                    UserId = request.UserId,
+                    UserName = request.UserName,
+                    IsHost = false,
+                    JoinedAtUtc = DateTime.UtcNow,
+                    AvatarId = request.AvatarId,
+                    CurrentSkinUnlockedId = request.CurrentSkinUnlockedId,
+                    CurrentSkinId = request.CurrentSkinId
+                });
+
+            return new JoinLobbyResponse
+            {
+                Success = true,
+                Lobby = lobby
+            };
         }
+
+
 
         public OperationResult LeaveLobby(LeaveLobbyRequest request)
         {
-            if (!_lobbies.TryGetValue(request.PartidaId, out var lobby))
-                return new OperationResult { Success = true, Message = "Lobby inexistente (ya cerrado)." };
+            if (!lobbies.TryGetValue(request.PartidaId, out LobbyInfo lobby))
+            {
+                return new OperationResult
+                {
+                    Success = true,
+                    Message = "Lobby inexistente (ya cerrado)."
+                };
+            }
 
-            var member = lobby.Players.FirstOrDefault(p => p.UserId == request.UserId);
-            if (member == null) return new OperationResult { Success = true, Message = "No estaba en el lobby." };
+            LobbyMember member = lobby
+                .Players
+                .FirstOrDefault(player => player.UserId == request.UserId);
+
+            if (member == null)
+            {
+                return new OperationResult
+                {
+                    Success = true,
+                    Message = "No estaba en el lobby."
+                };
+            }
 
             lobby.Players.Remove(member);
 
             if (member.IsHost)
             {
-                var next = lobby.Players.FirstOrDefault();
-                if (next != null)
+                LobbyMember nextHost = lobby.Players.FirstOrDefault();
+
+                if (nextHost != null)
                 {
-                    lobby.HostUserId = next.UserId;
-                    lobby.HostUserName = next.UserName;
-                    foreach (var p in lobby.Players) p.IsHost = (p.UserId == next.UserId);
+                    lobby.HostUserId = nextHost.UserId;
+                    lobby.HostUserName = nextHost.UserName;
+
+                    foreach (LobbyMember player in lobby.Players)
+                    {
+                        player.IsHost = player.UserId == nextHost.UserId;
+                    }
                 }
                 else
                 {
                     lobby.Status = LobbyStatus.Closed;
-                    _lobbies.TryRemove(request.PartidaId, out _);
+                    lobbies.TryRemove(request.PartidaId, out _);
                 }
             }
 
-            return new OperationResult { Success = true, Message = "Saliste del lobby." };
+            return new OperationResult
+            {
+                Success = true,
+                Message = "Saliste del lobby."
+            };
         }
 
         public OperationResult StartMatch(StartMatchRequest request)
         {
-            if (!_lobbies.TryGetValue(request.PartidaId, out var lobby))
-                return new OperationResult { Success = false, Message = "Lobby no encontrado." };
+            if (!lobbies.TryGetValue(request.PartidaId, out LobbyInfo lobby))
+            {
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = "Lobby no encontrado."
+                };
+            }
 
             if (lobby.HostUserId != request.HostUserId)
-                return new OperationResult { Success = false, Message = "Solo el host puede iniciar." };
+            {
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = "Solo el host puede iniciar."
+                };
+            }
 
             if (lobby.Players.Count < 2)
-                return new OperationResult { Success = false, Message = "Se requieren al menos 2 jugadores." };
-
+            {
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = "Se requieren al menos 2 jugadores."
+                };
+            }
 
             lobby.Status = LobbyStatus.InMatch;
-            return new OperationResult { Success = true, Message = "La partida se está iniciando..." };
+
+            return new OperationResult
+            {
+                Success = true,
+                Message = "La partida se está iniciando..."
+            };
         }
 
         public LobbyInfo GetLobbyInfo(GetLobbyInfoRequest request)
         {
-            _lobbies.TryGetValue(request.PartidaId, out var lobby);
+            lobbies.TryGetValue(request.PartidaId, out LobbyInfo lobby);
             return lobby;
         }
 
         private static void Throw(string code, string message)
         {
-            throw new FaultException<ServiceFault>(new ServiceFault { Code = code, Message = message, CorrelationId = Guid.NewGuid().ToString("N") });
+            var fault = new ServiceFault
+            {
+                Code = code,
+                Message = message,
+                CorrelationId = Guid.NewGuid().ToString("N")
+            };
+
+            throw new FaultException<ServiceFault>(fault);
         }
 
-        private JoinLobbyResponse Fail(string msg) => new JoinLobbyResponse { Success = false, FailureReason = msg };
-
-        private int NextId() => _rng.Next(100000, 999999);
-        private string GenerateCode() => _rng.Next(0, 999999).ToString("000000");
+        private static JoinLobbyResponse Fail(string message)
+        {
+            return new JoinLobbyResponse
+            {
+                Success = false,
+                FailureReason = message
+            };
+        }
 
         public void KickUserFromAllLobbies(int userId, string reason)
         {
-                if (userId <= 0)
+            if (userId <= 0)
+            {
+                return;
+            }
+
+            LobbyInfo[] snapshot = lobbies
+                .Values
+                .ToArray();
+
+            foreach (LobbyInfo lobby in snapshot)
+            {
+                LobbyMember member = lobby
+                    .Players
+                    .FirstOrDefault(player => player.UserId == userId);
+
+                if (member == null)
                 {
-                    return;
+                    continue;
                 }
-                var snapshot = _lobbies.Values.ToArray();
 
-                foreach (var lobby in snapshot)
+                lobby.Players.Remove(member);
+
+                if (member.IsHost)
                 {
-                    var member = lobby.Players.FirstOrDefault(p => p.UserId == userId);
-                    if (member == null)
+                    LobbyMember nextHost = lobby.Players.FirstOrDefault();
+
+                    if (nextHost != null)
                     {
-                        continue;
+                        lobby.HostUserId = nextHost.UserId;
+                        lobby.HostUserName = nextHost.UserName;
+
+                        foreach (LobbyMember player in lobby.Players)
+                        {
+                            player.IsHost = player.UserId == nextHost.UserId;
+                        }
                     }
-
-                    lobby.Players.Remove(member);
-
-                    if (member.IsHost)
+                    else
                     {
-                        var next = lobby.Players.FirstOrDefault();
-                        if (next != null)
-                        {
-                            lobby.HostUserId = next.UserId;
-                            lobby.HostUserName = next.UserName;
-
-                            foreach (var p in lobby.Players)
-                            {
-                                p.IsHost = p.UserId == next.UserId;
-                            }
-                        }
-                        else
-                        {
-                            lobby.Status = LobbyStatus.Closed;
-                            _lobbies.TryRemove(lobby.PartidaId, out _);
-                        }
+                        lobby.Status = LobbyStatus.Closed;
+                        lobbies.TryRemove(lobby.PartidaId, out _);
                     }
                 }
+            }
         }
     }
 }

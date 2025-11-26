@@ -76,7 +76,9 @@ internal static class Program
             IEmailSender email = new SmtpEmailSender();
             IAppLogger appLogger = new AppLogger(Log);
 
-            var lobbySvc = new LobbyService();
+            ILobbyRepository lobbyRepository = new LobbyRepository();
+            ILobbyAppService lobbyAppService = new LobbyAppService(lobbyRepository, appLogger);
+            var lobbySvc = new LobbyService(lobbyAppService);
 
             var playerSessionManager = new PlayerSessionManager(lobbySvc);
 

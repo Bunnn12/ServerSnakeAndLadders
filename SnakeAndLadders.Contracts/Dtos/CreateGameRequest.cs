@@ -15,5 +15,7 @@ namespace SnakeAndLadders.Contracts.Dtos
         [DataMember] public string HostAvatarId { get; set; }
         [DataMember] public int? CurrentSkinUnlockedId { get; set; }
         [DataMember] public string CurrentSkinId { get; set; }
+
+        [DataMember] public bool IsPrivate { get; set; } = true;
     }
 }

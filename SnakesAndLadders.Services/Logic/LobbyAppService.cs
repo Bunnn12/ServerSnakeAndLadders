@@ -1,21 +1,26 @@
-﻿using SnakeAndLadders.Contracts.Dtos;
-using SnakeAndLadders.Contracts.Interfaces;
-using System.Data.Sql;
-using System;
+﻿using System;
 using System.Security.Cryptography;
 using System.Text;
+using SnakeAndLadders.Contracts.Dtos;
+using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Logic
 {
     public sealed class LobbyAppService : ILobbyAppService
     {
-        private readonly ILobbyRepository repo;
-        private readonly IAppLogger log;
+        private const int DEFAULT_TTL_MINUTES = 30;
+        private const int GAME_CODE_LENGTH = 6;
+        private const int GAME_CODE_MAX_ATTEMPTS = 10;
+        private const int GAME_CODE_MAX_VALUE_EXCLUSIVE = 1_000_000;
 
-        public LobbyAppService(ILobbyRepository repo, IAppLogger log)
+        private readonly ILobbyRepository lobbyRepository;
+        private readonly IAppLogger appLogger;
+
+
+        public LobbyAppService(ILobbyRepository lobbyRepository, IAppLogger appLogger)
         {
-            this.repo = repo ?? throw new ArgumentNullException(nameof(repo));
-            this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.lobbyRepository = lobbyRepository ?? throw new ArgumentNullException(nameof(lobbyRepository));
+            this.appLogger = appLogger ?? throw new ArgumentNullException(nameof(appLogger));
         }
 
         public CreateGameResponse CreateGame(CreateGameRequest request)
@@ -25,7 +30,7 @@ namespace SnakesAndLadders.Services.Logic
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (request.HostUserId <= 0)
+            if (request.HostUserId == 0)
             {
                 throw new ArgumentException(
                     "HostUserId must be a positive number.",
@@ -39,15 +44,29 @@ namespace SnakesAndLadders.Services.Logic
                     nameof(request));
             }
 
-            var ttl = TimeSpan.FromMinutes(request.TtlMinutes <= 0 ? 30 : request.TtlMinutes);
-            var expiresAt = DateTime.UtcNow.Add(ttl);
-            var code = GenerateUniqueCode(6);
+            int ttlMinutes = request.TtlMinutes <= 0
+                ? DEFAULT_TTL_MINUTES
+                : request.TtlMinutes;
+
+            DateTime expiresAtUtc = DateTime.UtcNow.AddMinutes(ttlMinutes);
+
+            string code = GenerateUniqueCode();
 
             try
             {
-                var created = repo.CreateGame(request.HostUserId, request.MaxPlayers, request.Dificultad, code, expiresAt);
+                CreatedGameInfo created = lobbyRepository.CreateGame(
+                    request.HostUserId,
+                    request.MaxPlayers,
+                    request.Dificultad,
+                    code,
+                    expiresAtUtc);
 
-                log.Info($"Game created: PartidaId={created.PartidaId}, Code={created.Code}, ExpiresAt={created.ExpiresAtUtc:u}");
+                appLogger.Info(
+                    string.Format(
+                        "Game created: PartidaId={0}, Code={1}, ExpiresAt={2:u}",
+                        created.PartidaId,
+                        created.Code,
+                        created.ExpiresAtUtc));
 
                 return new CreateGameResponse
                 {
@@ -58,35 +77,69 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (InvalidOperationException ex)
             {
-                log.Error("DbUpdateException while creating game.", ex);
-                throw new InvalidOperationException("A conflict occurred while creating the game. Please try again.", ex);
+                appLogger.Error("Conflict while creating game.", ex);
+                throw new InvalidOperationException(
+                    "A conflict occurred while creating the game. Please try again.",
+                    ex);
             }
             catch (Exception ex)
             {
-                log.Error("Unexpected error while creating game.", ex);
+                appLogger.Error("Unexpected error while creating game.", ex);
                 throw;
             }
         }
 
-        private string GenerateUniqueCode(int length, int maxAttempts = 10)
+        public void RegisterPlayerInGame(int gameId, int userId, bool isHost)
         {
-            const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            using (var rng = RandomNumberGenerator.Create())
+            if (gameId <= 0)
             {
-                for (int attempt = 0; attempt < maxAttempts; attempt++)
+                throw new ArgumentOutOfRangeException(nameof(gameId));
+            }
+
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            try
+            {
+                lobbyRepository.AddUserToGame(gameId, userId, isHost);
+                appLogger.Info(
+                    $"Player registered in game. GameId={gameId}, UserId={userId}, IsHost={isHost}");
+            }
+            catch (Exception ex)
+            {
+                appLogger.Error("Error while registering player in game.", ex);
+                throw;
+            }
+        }
+
+        private string GenerateUniqueCode()
+        {
+            using (RandomNumberGenerator randomNumberGenerator = RandomNumberGenerator.Create())
+            {
+                for (int attempt = 0; attempt < GAME_CODE_MAX_ATTEMPTS; attempt++)
                 {
-                    var bytes = new byte[length];
-                    rng.GetBytes(bytes);
+                    byte[] bytes = new byte[4];
+                    randomNumberGenerator.GetBytes(bytes);
 
-                    var sb = new StringBuilder(length);
-                    for (int i = 0; i < length; i++)
-                        sb.Append(alphabet[bytes[i] % alphabet.Length]);
+                    int rawValue = BitConverter.ToInt32(bytes, 0);
+                    if (rawValue < 0)
+                    {
+                        rawValue = -rawValue;
+                    }
 
-                    var candidate = sb.ToString();
-                    if (!repo.CodeExists(candidate))
+                    int value = rawValue % GAME_CODE_MAX_VALUE_EXCLUSIVE;
+
+                    string candidate = value.ToString("D6");
+
+                    if (!lobbyRepository.CodeExists(candidate))
+                    {
                         return candidate;
+                    }
                 }
             }
+
             throw new InvalidOperationException("Failed to generate a unique game code.");
         }
     }

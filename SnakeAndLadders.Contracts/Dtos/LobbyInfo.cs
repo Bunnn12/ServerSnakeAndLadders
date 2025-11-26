@@ -20,5 +20,6 @@ namespace SnakeAndLadders.Contracts.Dtos
         [DataMember] public string Difficulty { get; set; }
         [DataMember] public byte PlayersRequested { get; set; }
         [DataMember] public string SpecialTiles { get; set; }
+        [DataMember] public bool IsPrivate { get; set; }
     }
 }
