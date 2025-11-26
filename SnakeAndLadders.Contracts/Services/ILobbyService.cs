@@ -1,11 +1,10 @@
-﻿
-using System.ServiceModel;
+﻿using System.ServiceModel;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Faults;
 
 namespace SnakeAndLadders.Contracts.Services
 {
-    [ServiceContract]
+    [ServiceContract(CallbackContract = typeof(ILobbyCallback))]
     public interface ILobbyService
     {
         [OperationContract]
@@ -27,5 +26,11 @@ namespace SnakeAndLadders.Contracts.Services
         [OperationContract]
         [FaultContract(typeof(ServiceFault))]
         LobbyInfo GetLobbyInfo(GetLobbyInfoRequest request);
+
+        [OperationContract(IsOneWay = true)]
+        void SubscribePublicLobbies(int userId);
+
+        [OperationContract(IsOneWay = true)]
+        void UnsubscribePublicLobbies(int userId);
     }
 }
