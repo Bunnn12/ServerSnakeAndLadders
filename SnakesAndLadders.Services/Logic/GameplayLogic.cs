@@ -11,8 +11,6 @@ namespace SnakesAndLadders.Services.Logic
         private const int DICE_MAX_VALUE = 6;
         private const int INVALID_USER_ID = 0;
 
-        private readonly BoardDefinitionDto board;
-
         private readonly List<int> turnOrder;
         private readonly Dictionary<int, int> positionsByUserId;
 
@@ -37,8 +35,6 @@ namespace SnakesAndLadders.Services.Logic
             {
                 throw new ArgumentNullException(nameof(playerUserIds));
             }
-
-            this.board = board;
 
             turnOrder = playerUserIds
                 .Distinct()
