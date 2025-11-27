@@ -3,6 +3,7 @@ using SnakeAndLadders.Contracts.Services;
 using SnakesAndLadders.Services.Logic;
 using System;
 using System.ServiceModel;
+using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Wcf
 {

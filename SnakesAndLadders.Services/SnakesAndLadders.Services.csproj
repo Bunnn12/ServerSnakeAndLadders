@@ -54,7 +54,6 @@
     <Compile Include="Logic\GameplayLogic.cs" />
     <Compile Include="Logic\InMemoryGameSessionStore.cs" />
     <Compile Include="Logic\InventoryAppService.cs" />
-    <Compile Include="Logic\IUserAppService.cs" />
     <Compile Include="Logic\LobbyAppService.cs" />
     <Compile Include="Logic\PlayerReportAppService.cs" />
     <Compile Include="Logic\ShopAppService.cs" />
