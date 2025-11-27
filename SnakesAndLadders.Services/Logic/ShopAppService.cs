@@ -16,12 +16,10 @@ namespace SnakesAndLadders.Services.Logic
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(ShopAppService));
 
-        // Error codes (el cliente los internacionaliza)
         private const string ERROR_INVALID_SESSION = "SHOP_INVALID_SESSION";
         private const string ERROR_NULL_RESULT = "SHOP_NULL_RESULT";
         private const string ERROR_NULL_DATA = "SHOP_NULL_DATA";
 
-        // Prices
         private const int PRICE_AVATAR_COMMON = 200;
         private const int PRICE_AVATAR_EPIC = 400;
         private const int PRICE_AVATAR_LEGENDARY = 800;
@@ -163,7 +161,7 @@ namespace SnakesAndLadders.Services.Logic
             return result.Data;
         }
 
-        private int GetAvatarPrice(ShopChestRarity rarity)
+        private static int GetAvatarPrice(ShopChestRarity rarity)
         {
             switch (rarity)
             {
@@ -178,7 +176,7 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
-        private int GetStickerPrice(ShopChestRarity rarity)
+        private static int GetStickerPrice(ShopChestRarity rarity)
         {
             switch (rarity)
             {
