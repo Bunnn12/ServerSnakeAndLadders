@@ -125,7 +125,6 @@ namespace SnakesAndLadders.Services.Logic
 
                 if (finalCellIndex > 0 && tentativeTarget > finalCellIndex)
                 {
-                    finalTarget = fromCellIndex;
                     extraInfo = "RollTooHigh_NoMove";
 
                     currentTurnIndex = (currentTurnIndex + 1) % turnOrder.Count;
