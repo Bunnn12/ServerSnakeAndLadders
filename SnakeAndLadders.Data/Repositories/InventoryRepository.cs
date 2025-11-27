@@ -1,0 +1,338 @@
+﻿using log4net;
+using SnakeAndLadders.Contracts.Dtos;
+using SnakeAndLadders.Contracts.Dtos.Gameplay;
+using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Data;
+using System;
+using System.Collections.Generic;
+using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
+using System.Data.SqlClient;
+using System.Linq;
+
+namespace ServerSnakesAndLadders
+{
+    public class InventoryRepository : IInventoryRepository
+    {
+        private const int CommandTimeoutSeconds = 30;
+        private const int MinValidUserId = 1;
+        private const byte MinSlotNumber = 1;
+        private const byte MaxItemSlots = 3;
+        private const byte MaxDiceSlots = 2;
+
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(InventoryRepository));
+
+        private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
+
+        public InventoryRepository(Func<SnakeAndLaddersDBEntities1> contextFactory = null)
+        {
+            _contextFactory = contextFactory ?? (() => new SnakeAndLaddersDBEntities1());
+        }
+
+        public IList<InventoryItemDto> GetUserItems(int userId)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var query =
+                        from userObject in context.ObjetoUsuario
+                        join obj in context.Objeto
+                            on userObject.ObjetoIdObjeto equals obj.IdObjeto
+                        join selected in context.ObjetoUsuarioSeleccionado
+                            .Where(s => s.UsuarioIdUsuario == userId)
+                            on new
+                            {
+                                userObject.UsuarioIdUsuario,
+                                userObject.ObjetoIdObjeto
+                            }
+                            equals new
+                            {
+                                UsuarioIdUsuario = selected.UsuarioIdUsuario,
+                                ObjetoIdObjeto = selected.ObjetoIdObjeto
+                            }
+                            into selectedJoin
+                        from selected in selectedJoin.DefaultIfEmpty()
+                        where userObject.UsuarioIdUsuario == userId
+                        select new InventoryItemDto
+                        {
+                            ObjectId = obj.IdObjeto,
+                            ObjectCode = obj.CodigoObjeto,
+                            Name = obj.Nombre,
+                            Quantity = userObject.CantidadObjeto,
+                            SlotNumber = selected == null
+                                ? (byte?)null
+                                : selected.NumeroSlot
+                        };
+
+                    return query
+                        .AsNoTracking()
+                        .ToList();
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al obtener el inventario de objetos del usuario.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al obtener el inventario de objetos del usuario.", ex);
+                    throw;
+                }
+            }
+        }
+
+        public IList<InventoryDiceDto> GetUserDice(int userId)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var query =
+                        from userDice in context.DadoUsuario
+                        join dice in context.Dado
+                            on userDice.DadoIdDado equals dice.IdDado
+                        join selected in context.DadoUsuarioSeleccionado
+                            .Where(s => s.UsuarioIdUsuario == userId)
+                            on new
+                            {
+                                userDice.UsuarioIdUsuario,
+                                userDice.DadoIdDado
+                            }
+                            equals new
+                            {
+                                UsuarioIdUsuario = selected.UsuarioIdUsuario,
+                                DadoIdDado = selected.DadoIdDado
+                            }
+                            into selectedJoin
+                        from selected in selectedJoin.DefaultIfEmpty()
+                        where userDice.UsuarioIdUsuario == userId
+                        select new InventoryDiceDto
+                        {
+                            DiceId = dice.IdDado,
+                            DiceCode = dice.CodigoDado,
+                            Name = dice.Nombre,
+                            Quantity = userDice.CantidadDado,
+                            SlotNumber = selected == null
+                                ? (byte?)null
+                                : selected.NumeroSlot
+                        };
+
+                    return query
+                        .AsNoTracking()
+                        .ToList();
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al obtener el inventario de dados del usuario.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al obtener el inventario de dados del usuario.", ex);
+                    throw;
+                }
+            }
+        }
+
+        public void UpdateSelectedItems(
+            int userId,
+            int? slot1ObjectId,
+            int? slot2ObjectId,
+            int? slot3ObjectId)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            var slots = new Dictionary<byte, int?>
+            {
+                { 1, slot1ObjectId },
+                { 2, slot2ObjectId },
+                { 3, slot3ObjectId }
+            };
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var existingSelections = context.ObjetoUsuarioSeleccionado
+                        .Where(s => s.UsuarioIdUsuario == userId)
+                        .ToList();
+
+                    foreach (var slotEntry in slots)
+                    {
+                        byte slotNumber = slotEntry.Key;
+                        int? objectId = slotEntry.Value;
+
+                        if (!IsValidItemSlot(slotNumber))
+                        {
+                            continue;
+                        }
+
+                        var entity = existingSelections
+                            .SingleOrDefault(s => s.NumeroSlot == slotNumber);
+
+                        if (objectId.HasValue)
+                        {
+                            if (entity == null)
+                            {
+                                entity = new ObjetoUsuarioSeleccionado
+                                {
+                                    UsuarioIdUsuario = userId,
+                                    NumeroSlot = slotNumber,
+                                    ObjetoIdObjeto = objectId.Value
+                                };
+
+                                context.ObjetoUsuarioSeleccionado.Add(entity);
+                            }
+                            else
+                            {
+                                entity.ObjetoIdObjeto = objectId.Value;
+                                context.Entry(entity).State = EntityState.Modified;
+                            }
+                        }
+                        else
+                        {
+                            if (entity != null)
+                            {
+                                context.ObjetoUsuarioSeleccionado.Remove(entity);
+                            }
+                        }
+                    }
+
+                    context.SaveChanges();
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al actualizar los objetos seleccionados del usuario.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al actualizar los objetos seleccionados del usuario.", ex);
+                    throw;
+                }
+            }
+        }
+
+        public void UpdateSelectedDice(
+            int userId,
+            int? slot1DiceId,
+            int? slot2DiceId)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            var slots = new Dictionary<byte, int?>
+            {
+                { 1, slot1DiceId },
+                { 2, slot2DiceId }
+            };
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var existingSelections = context.DadoUsuarioSeleccionado
+                        .Where(s => s.UsuarioIdUsuario == userId)
+                        .ToList();
+
+                    foreach (var slotEntry in slots)
+                    {
+                        byte slotNumber = slotEntry.Key;
+                        int? diceId = slotEntry.Value;
+
+                        if (!IsValidDiceSlot(slotNumber))
+                        {
+                            continue;
+                        }
+
+                        var entity = existingSelections
+                            .SingleOrDefault(s => s.NumeroSlot == slotNumber);
+
+                        if (diceId.HasValue)
+                        {
+                            if (entity == null)
+                            {
+                                entity = new DadoUsuarioSeleccionado
+                                {
+                                    UsuarioIdUsuario = userId,
+                                    NumeroSlot = slotNumber,
+                                    DadoIdDado = diceId.Value
+                                };
+
+                                context.DadoUsuarioSeleccionado.Add(entity);
+                            }
+                            else
+                            {
+                                entity.DadoIdDado = diceId.Value;
+                                context.Entry(entity).State = EntityState.Modified;
+                            }
+                        }
+                        else
+                        {
+                            if (entity != null)
+                            {
+                                context.DadoUsuarioSeleccionado.Remove(entity);
+                            }
+                        }
+                    }
+
+                    context.SaveChanges();
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al actualizar los dados seleccionados del usuario.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al actualizar los dados seleccionados del usuario.", ex);
+                    throw;
+                }
+            }
+        }
+
+        private void ConfigureContext(SnakeAndLaddersDBEntities1 context)
+        {
+            ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = CommandTimeoutSeconds;
+        }
+
+        private static bool IsValidUserId(int userId)
+        {
+            return userId >= MinValidUserId;
+        }
+
+        private static bool IsValidItemSlot(byte slotNumber)
+        {
+            return slotNumber >= MinSlotNumber && slotNumber <= MaxItemSlots;
+        }
+
+        private static bool IsValidDiceSlot(byte slotNumber)
+        {
+            return slotNumber >= MinSlotNumber && slotNumber <= MaxDiceSlots;
+        }
+    }
+}

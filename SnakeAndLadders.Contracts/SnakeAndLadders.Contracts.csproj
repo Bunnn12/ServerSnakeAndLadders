@@ -70,6 +70,9 @@
     <Compile Include="Dtos\Gameplay\GameSession.cs" />
     <Compile Include="Dtos\Gameplay\GetGameStateRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\GetGameStateResponseDto.cs" />
+    <Compile Include="Dtos\Gameplay\InventoryDiceDto.cs" />
+    <Compile Include="Dtos\Gameplay\InventoryItemDto.cs" />
+    <Compile Include="Dtos\Gameplay\InventorySnapshotDto.cs" />
     <Compile Include="Dtos\Gameplay\PlayerLeftDto.cs" />
     <Compile Include="Dtos\Gameplay\TokenStateDto.cs" />
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
@@ -120,6 +123,8 @@
     <Compile Include="Interfaces\IFriendsAppService.cs" />
     <Compile Include="Interfaces\IFriendsRepository.cs" />
     <Compile Include="Interfaces\IGameSessionStore.cs" />
+    <Compile Include="Interfaces\IInventoryAppService.cs" />
+    <Compile Include="Interfaces\IInventoryRepository.cs" />
     <Compile Include="Interfaces\ILobbyAppService.cs" />
     <Compile Include="Interfaces\ILobbyRepository.cs" />
     <Compile Include="Interfaces\IPasswordHasher.cs" />
@@ -140,6 +145,7 @@
     <Compile Include="Services\IGameBoardService.cs" />
     <Compile Include="Services\IGameplayCallback.cs" />
     <Compile Include="Services\IGameplayService.cs" />
+    <Compile Include="Services\IInventoryService.cs" />
     <Compile Include="Services\ILobbyCallback.cs" />
     <Compile Include="Services\ILobbyService.cs" />
     <Compile Include="Services\IPlayerReportService.cs" />

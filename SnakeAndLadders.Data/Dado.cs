@@ -18,6 +18,7 @@ namespace SnakesAndLadders.Data
         public Dado()
         {
             this.DadoUsuario = new HashSet<DadoUsuario>();
+            this.DadoUsuarioSeleccionado = new HashSet<DadoUsuarioSeleccionado>();
         }
     
         public int IdDado { get; set; }
@@ -28,5 +29,7 @@ namespace SnakesAndLadders.Data
     
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<DadoUsuario> DadoUsuario { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<DadoUsuarioSeleccionado> DadoUsuarioSeleccionado { get; set; }
     }
 }

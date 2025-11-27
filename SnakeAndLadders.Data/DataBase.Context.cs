@@ -45,5 +45,7 @@ namespace SnakesAndLadders.Data
         public virtual DbSet<StickersUsuario> StickersUsuario { get; set; }
         public virtual DbSet<Usuario> Usuario { get; set; }
         public virtual DbSet<UsuarioHasPartida> UsuarioHasPartida { get; set; }
+        public virtual DbSet<DadoUsuarioSeleccionado> DadoUsuarioSeleccionado { get; set; }
+        public virtual DbSet<ObjetoUsuarioSeleccionado> ObjetoUsuarioSeleccionado { get; set; }
     }
 }

@@ -30,6 +30,8 @@ namespace SnakesAndLadders.Data
             this.Sancion = new HashSet<Sancion>();
             this.StickersUsuario = new HashSet<StickersUsuario>();
             this.UsuarioHasPartida = new HashSet<UsuarioHasPartida>();
+            this.DadoUsuarioSeleccionado = new HashSet<DadoUsuarioSeleccionado>();
+            this.ObjetoUsuarioSeleccionado = new HashSet<ObjetoUsuarioSeleccionado>();
         }
     
         public int IdUsuario { get; set; }
@@ -69,5 +71,9 @@ namespace SnakesAndLadders.Data
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<UsuarioHasPartida> UsuarioHasPartida { get; set; }
         public virtual AvatarDesbloqueado AvatarDesbloqueado1 { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<DadoUsuarioSeleccionado> DadoUsuarioSeleccionado { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<ObjetoUsuarioSeleccionado> ObjetoUsuarioSeleccionado { get; set; }
     }
 }

@@ -18,6 +18,7 @@ namespace SnakesAndLadders.Data
         public Objeto()
         {
             this.ObjetoUsuario = new HashSet<ObjetoUsuario>();
+            this.ObjetoUsuarioSeleccionado = new HashSet<ObjetoUsuarioSeleccionado>();
         }
     
         public int IdObjeto { get; set; }
@@ -29,5 +30,7 @@ namespace SnakesAndLadders.Data
         public virtual Caja Caja { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<ObjetoUsuario> ObjetoUsuario { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<ObjetoUsuarioSeleccionado> ObjetoUsuarioSeleccionado { get; set; }
     }
 }

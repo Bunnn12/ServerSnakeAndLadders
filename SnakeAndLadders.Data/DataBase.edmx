@@ -83,6 +83,15 @@
           <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
           <Property Name="CantidadDado" Type="int" Nullable="false" />
         </EntityType>
+        <EntityType Name="DadoUsuarioSeleccionado">
+          <Key>
+            <PropertyRef Name="IdDadoUsuarioSeleccionado" />
+          </Key>
+          <Property Name="IdDadoUsuarioSeleccionado" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+          <Property Name="DadoIdDado" Type="int" Nullable="false" />
+          <Property Name="NumeroSlot" Type="tinyint" Nullable="false" />
+        </EntityType>
         <EntityType Name="ListaAmigos">
           <Key>
             <PropertyRef Name="IdListaAmigos" />
@@ -110,6 +119,15 @@
           <Property Name="ObjetoIdObjeto" Type="int" Nullable="false" />
           <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
           <Property Name="CantidadObjeto" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ObjetoUsuarioSeleccionado">
+          <Key>
+            <PropertyRef Name="IdObjetoUsuarioSeleccionado" />
+          </Key>
+          <Property Name="IdObjetoUsuarioSeleccionado" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="UsuarioIdUsuario" Type="int" Nullable="false" />
+          <Property Name="ObjetoIdObjeto" Type="int" Nullable="false" />
+          <Property Name="NumeroSlot" Type="tinyint" Nullable="false" />
         </EntityType>
         <EntityType Name="PaqueteStickers">
           <Key>
@@ -307,6 +325,30 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
+        <Association Name="FK_DadoUsuarioSeleccionado_Dado">
+          <End Role="Dado" Type="Self.Dado" Multiplicity="1" />
+          <End Role="DadoUsuarioSeleccionado" Type="Self.DadoUsuarioSeleccionado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Dado">
+              <PropertyRef Name="IdDado" />
+            </Principal>
+            <Dependent Role="DadoUsuarioSeleccionado">
+              <PropertyRef Name="DadoIdDado" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DadoUsuarioSeleccionado_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="DadoUsuarioSeleccionado" Type="Self.DadoUsuarioSeleccionado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="DadoUsuarioSeleccionado">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
         <Association Name="FK_ListaAmigos_U1">
           <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
           <End Role="ListaAmigos" Type="Self.ListaAmigos" Multiplicity="*" />
@@ -365,6 +407,30 @@
               <PropertyRef Name="IdUsuario" />
             </Principal>
             <Dependent Role="ObjetoUsuario">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ObjetoUsuarioSeleccionado_Objeto">
+          <End Role="Objeto" Type="Self.Objeto" Multiplicity="1" />
+          <End Role="ObjetoUsuarioSeleccionado" Type="Self.ObjetoUsuarioSeleccionado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Objeto">
+              <PropertyRef Name="IdObjeto" />
+            </Principal>
+            <Dependent Role="ObjetoUsuarioSeleccionado">
+              <PropertyRef Name="ObjetoIdObjeto" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ObjetoUsuarioSeleccionado_Usuario">
+          <End Role="Usuario" Type="Self.Usuario" Multiplicity="1" />
+          <End Role="ObjetoUsuarioSeleccionado" Type="Self.ObjetoUsuarioSeleccionado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="ObjetoUsuarioSeleccionado">
               <PropertyRef Name="UsuarioIdUsuario" />
             </Dependent>
           </ReferentialConstraint>
@@ -500,9 +566,11 @@
           <EntitySet Name="Cuenta" EntityType="Self.Cuenta" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Dado" EntityType="Self.Dado" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="DadoUsuario" EntityType="Self.DadoUsuario" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="DadoUsuarioSeleccionado" EntityType="Self.DadoUsuarioSeleccionado" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="ListaAmigos" EntityType="Self.ListaAmigos" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Objeto" EntityType="Self.Objeto" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="ObjetoUsuario" EntityType="Self.ObjetoUsuario" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ObjetoUsuarioSeleccionado" EntityType="Self.ObjetoUsuarioSeleccionado" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="PaqueteStickers" EntityType="Self.PaqueteStickers" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Partida" EntityType="Self.Partida" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="RedesSociales" EntityType="Self.RedesSociales" Schema="dbo" store:Type="Tables" />
@@ -544,6 +612,14 @@
             <End Role="Usuario" EntitySet="Usuario" />
             <End Role="DadoUsuario" EntitySet="DadoUsuario" />
           </AssociationSet>
+          <AssociationSet Name="FK_DadoUsuarioSeleccionado_Dado" Association="Self.FK_DadoUsuarioSeleccionado_Dado">
+            <End Role="Dado" EntitySet="Dado" />
+            <End Role="DadoUsuarioSeleccionado" EntitySet="DadoUsuarioSeleccionado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DadoUsuarioSeleccionado_Usuario" Association="Self.FK_DadoUsuarioSeleccionado_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="DadoUsuarioSeleccionado" EntitySet="DadoUsuarioSeleccionado" />
+          </AssociationSet>
           <AssociationSet Name="FK_ListaAmigos_U1" Association="Self.FK_ListaAmigos_U1">
             <End Role="Usuario" EntitySet="Usuario" />
             <End Role="ListaAmigos" EntitySet="ListaAmigos" />
@@ -563,6 +639,14 @@
           <AssociationSet Name="FK_ObjetoUsuario_Usuario" Association="Self.FK_ObjetoUsuario_Usuario">
             <End Role="Usuario" EntitySet="Usuario" />
             <End Role="ObjetoUsuario" EntitySet="ObjetoUsuario" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ObjetoUsuarioSeleccionado_Objeto" Association="Self.FK_ObjetoUsuarioSeleccionado_Objeto">
+            <End Role="Objeto" EntitySet="Objeto" />
+            <End Role="ObjetoUsuarioSeleccionado" EntitySet="ObjetoUsuarioSeleccionado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ObjetoUsuarioSeleccionado_Usuario" Association="Self.FK_ObjetoUsuarioSeleccionado_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="ObjetoUsuarioSeleccionado" EntitySet="ObjetoUsuarioSeleccionado" />
           </AssociationSet>
           <AssociationSet Name="FK_RedesSociales_Usuario" Association="Self.FK_RedesSociales_Usuario">
             <End Role="Usuario" EntitySet="Usuario" />
@@ -689,6 +773,7 @@
           <Property Name="Estado" Type="Binary" MaxLength="1" FixedLength="true" Nullable="false" />
           <NavigationProperty Name="DadoUsuario" Relationship="Self.FK_DadoUsuario_Dado" FromRole="Dado" ToRole="DadoUsuario" />
           <Property Name="CodigoDado" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <NavigationProperty Name="DadoUsuarioSeleccionado" Relationship="SnakeAndLaddersDBModel.FK_DadoUsuarioSeleccionado_Dado" FromRole="Dado" ToRole="DadoUsuarioSeleccionado" />
         </EntityType>
         <EntityType Name="DadoUsuario">
           <Key>
@@ -723,6 +808,7 @@
           <NavigationProperty Name="Caja" Relationship="Self.FK_Objeto_Caja" FromRole="Objeto" ToRole="Caja" />
           <NavigationProperty Name="ObjetoUsuario" Relationship="Self.FK_ObjetoUsuario_Objeto" FromRole="Objeto" ToRole="ObjetoUsuario" />
           <Property Name="CodigoObjeto" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="false" />
+          <NavigationProperty Name="ObjetoUsuarioSeleccionado" Relationship="SnakeAndLaddersDBModel.FK_ObjetoUsuarioSeleccionado_Objeto" FromRole="Objeto" ToRole="ObjetoUsuarioSeleccionado" />
         </EntityType>
         <EntityType Name="ObjetoUsuario">
           <Key>
@@ -842,6 +928,8 @@
           <NavigationProperty Name="UsuarioHasPartida" Relationship="Self.FK_UHP_Usuario" FromRole="Usuario" ToRole="UsuarioHasPartida" />
           <Property Name="IdAvatarDesbloqueadoActual" Type="Int32" />
           <NavigationProperty Name="AvatarDesbloqueado1" Relationship="SnakeAndLaddersDBModel.FK_Usuario_AvatarDesbloqueadoActual" FromRole="Usuario" ToRole="AvatarDesbloqueado" />
+          <NavigationProperty Name="DadoUsuarioSeleccionado" Relationship="SnakeAndLaddersDBModel.FK_DadoUsuarioSeleccionado_Usuario" FromRole="Usuario" ToRole="DadoUsuarioSeleccionado" />
+          <NavigationProperty Name="ObjetoUsuarioSeleccionado" Relationship="SnakeAndLaddersDBModel.FK_ObjetoUsuarioSeleccionado_Usuario" FromRole="Usuario" ToRole="ObjetoUsuarioSeleccionado" />
         </EntityType>
         <EntityType Name="UsuarioHasPartida">
           <Key>
@@ -1230,6 +1318,24 @@
             <End Role="PaqueteStickers" EntitySet="PaqueteStickers" />
             <End Role="Sticker" EntitySet="Sticker" />
           </AssociationSet>
+          <EntitySet Name="DadoUsuarioSeleccionado" EntityType="SnakeAndLaddersDBModel.DadoUsuarioSeleccionado" />
+          <EntitySet Name="ObjetoUsuarioSeleccionado" EntityType="SnakeAndLaddersDBModel.ObjetoUsuarioSeleccionado" />
+          <AssociationSet Name="FK_DadoUsuarioSeleccionado_Dado" Association="SnakeAndLaddersDBModel.FK_DadoUsuarioSeleccionado_Dado">
+            <End Role="Dado" EntitySet="Dado" />
+            <End Role="DadoUsuarioSeleccionado" EntitySet="DadoUsuarioSeleccionado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_DadoUsuarioSeleccionado_Usuario" Association="SnakeAndLaddersDBModel.FK_DadoUsuarioSeleccionado_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="DadoUsuarioSeleccionado" EntitySet="DadoUsuarioSeleccionado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ObjetoUsuarioSeleccionado_Objeto" Association="SnakeAndLaddersDBModel.FK_ObjetoUsuarioSeleccionado_Objeto">
+            <End Role="Objeto" EntitySet="Objeto" />
+            <End Role="ObjetoUsuarioSeleccionado" EntitySet="ObjetoUsuarioSeleccionado" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ObjetoUsuarioSeleccionado_Usuario" Association="SnakeAndLaddersDBModel.FK_ObjetoUsuarioSeleccionado_Usuario">
+            <End Role="Usuario" EntitySet="Usuario" />
+            <End Role="ObjetoUsuarioSeleccionado" EntitySet="ObjetoUsuarioSeleccionado" />
+          </AssociationSet>
         </EntityContainer>
         <Association Name="FK_Usuario_AvatarDesbloqueadoActual">
           <End Type="SnakeAndLaddersDBModel.AvatarDesbloqueado" Role="AvatarDesbloqueado" Multiplicity="0..1" />
@@ -1252,6 +1358,76 @@
             </Principal>
             <Dependent Role="Sticker">
               <PropertyRef Name="PaqueteStickersIdPaqueteStickers" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="DadoUsuarioSeleccionado">
+          <Key>
+            <PropertyRef Name="IdDadoUsuarioSeleccionado" />
+          </Key>
+          <Property Name="IdDadoUsuarioSeleccionado" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <Property Name="DadoIdDado" Type="Int32" Nullable="false" />
+          <Property Name="NumeroSlot" Type="Byte" Nullable="false" />
+          <NavigationProperty Name="Dado" Relationship="SnakeAndLaddersDBModel.FK_DadoUsuarioSeleccionado_Dado" FromRole="DadoUsuarioSeleccionado" ToRole="Dado" />
+          <NavigationProperty Name="Usuario" Relationship="SnakeAndLaddersDBModel.FK_DadoUsuarioSeleccionado_Usuario" FromRole="DadoUsuarioSeleccionado" ToRole="Usuario" />
+        </EntityType>
+        <EntityType Name="ObjetoUsuarioSeleccionado">
+          <Key>
+            <PropertyRef Name="IdObjetoUsuarioSeleccionado" />
+          </Key>
+          <Property Name="IdObjetoUsuarioSeleccionado" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="UsuarioIdUsuario" Type="Int32" Nullable="false" />
+          <Property Name="ObjetoIdObjeto" Type="Int32" Nullable="false" />
+          <Property Name="NumeroSlot" Type="Byte" Nullable="false" />
+          <NavigationProperty Name="Objeto" Relationship="SnakeAndLaddersDBModel.FK_ObjetoUsuarioSeleccionado_Objeto" FromRole="ObjetoUsuarioSeleccionado" ToRole="Objeto" />
+          <NavigationProperty Name="Usuario" Relationship="SnakeAndLaddersDBModel.FK_ObjetoUsuarioSeleccionado_Usuario" FromRole="ObjetoUsuarioSeleccionado" ToRole="Usuario" />
+        </EntityType>
+        <Association Name="FK_DadoUsuarioSeleccionado_Dado">
+          <End Type="SnakeAndLaddersDBModel.Dado" Role="Dado" Multiplicity="1" />
+          <End Type="SnakeAndLaddersDBModel.DadoUsuarioSeleccionado" Role="DadoUsuarioSeleccionado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Dado">
+              <PropertyRef Name="IdDado" />
+            </Principal>
+            <Dependent Role="DadoUsuarioSeleccionado">
+              <PropertyRef Name="DadoIdDado" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_DadoUsuarioSeleccionado_Usuario">
+          <End Type="SnakeAndLaddersDBModel.Usuario" Role="Usuario" Multiplicity="1" />
+          <End Type="SnakeAndLaddersDBModel.DadoUsuarioSeleccionado" Role="DadoUsuarioSeleccionado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="DadoUsuarioSeleccionado">
+              <PropertyRef Name="UsuarioIdUsuario" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ObjetoUsuarioSeleccionado_Objeto">
+          <End Type="SnakeAndLaddersDBModel.Objeto" Role="Objeto" Multiplicity="1" />
+          <End Type="SnakeAndLaddersDBModel.ObjetoUsuarioSeleccionado" Role="ObjetoUsuarioSeleccionado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Objeto">
+              <PropertyRef Name="IdObjeto" />
+            </Principal>
+            <Dependent Role="ObjetoUsuarioSeleccionado">
+              <PropertyRef Name="ObjetoIdObjeto" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ObjetoUsuarioSeleccionado_Usuario">
+          <End Type="SnakeAndLaddersDBModel.Usuario" Role="Usuario" Multiplicity="1" />
+          <End Type="SnakeAndLaddersDBModel.ObjetoUsuarioSeleccionado" Role="ObjetoUsuarioSeleccionado" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Usuario">
+              <PropertyRef Name="IdUsuario" />
+            </Principal>
+            <Dependent Role="ObjetoUsuarioSeleccionado">
+              <PropertyRef Name="UsuarioIdUsuario" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -1478,6 +1654,26 @@
                 <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
                 <ScalarProperty Name="PartidaIdPartida" ColumnName="PartidaIdPartida" />
                 <ScalarProperty Name="Ganador" ColumnName="Ganador" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="DadoUsuarioSeleccionado">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.DadoUsuarioSeleccionado">
+              <MappingFragment StoreEntitySet="DadoUsuarioSeleccionado">
+                <ScalarProperty Name="NumeroSlot" ColumnName="NumeroSlot" />
+                <ScalarProperty Name="DadoIdDado" ColumnName="DadoIdDado" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+                <ScalarProperty Name="IdDadoUsuarioSeleccionado" ColumnName="IdDadoUsuarioSeleccionado" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ObjetoUsuarioSeleccionado">
+            <EntityTypeMapping TypeName="SnakeAndLaddersDBModel.ObjetoUsuarioSeleccionado">
+              <MappingFragment StoreEntitySet="ObjetoUsuarioSeleccionado">
+                <ScalarProperty Name="NumeroSlot" ColumnName="NumeroSlot" />
+                <ScalarProperty Name="ObjetoIdObjeto" ColumnName="ObjetoIdObjeto" />
+                <ScalarProperty Name="UsuarioIdUsuario" ColumnName="UsuarioIdUsuario" />
+                <ScalarProperty Name="IdObjetoUsuarioSeleccionado" ColumnName="IdObjetoUsuarioSeleccionado" />
               </MappingFragment>
             </EntityTypeMapping>
           </EntitySetMapping>

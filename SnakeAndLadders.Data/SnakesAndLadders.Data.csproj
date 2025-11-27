@@ -115,6 +115,9 @@
     <Compile Include="DadoUsuario.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
+    <Compile Include="DadoUsuarioSeleccionado.cs">
+      <DependentUpon>DataBase.tt</DependentUpon>
+    </Compile>
     <Compile Include="DataBase.Context.cs">
       <DependentUpon>DataBase.Context.tt</DependentUpon>
       <AutoGen>True</AutoGen>
@@ -139,6 +142,9 @@
     <Compile Include="ObjetoUsuario.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
+    <Compile Include="ObjetoUsuarioSeleccionado.cs">
+      <DependentUpon>DataBase.tt</DependentUpon>
+    </Compile>
     <Compile Include="PaqueteStickers.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
@@ -156,6 +162,7 @@
     <Compile Include="Repositories\AccountStatusRepository.cs" />
     <Compile Include="Repositories\FileChatRepository.cs" />
     <Compile Include="Repositories\FriendsRepository.cs" />
+    <Compile Include="Repositories\InventoryRepository.cs" />
     <Compile Include="Repositories\LobbyRepository.cs" />
     <Compile Include="Repositories\ReportRepository.cs" />
     <Compile Include="Repositories\SanctionRepository.cs" />
