@@ -83,7 +83,6 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_INVALID_REQUEST);
             }
 
-            // Validaciones previas (usando métodos booleanos del repo)
             if (_accountsRepository.IsEmailRegistered(registration.Email))
             {
                 return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS);
@@ -105,17 +104,13 @@ namespace SnakesAndLadders.Services.Logic
                 PasswordHash = passwordHash
             };
 
-            // CORRECCIÓN 1: Manejo de DbOperationResult
             var createResult = _accountsRepository.CreateUserWithAccountAndPassword(requestDto);
 
             if (!createResult.IsSuccess)
             {
-                // Si el repositorio falló (error de BD, etc.), devolvemos error de servidor
-                // Opcional: Podrías loguear createResult.ErrorMessage
                 return Fail(AUTH_CODE_SERVER_ERROR);
             }
 
-            // Extraemos el ID de la "caja"
             int newUserId = createResult.Data;
 
             return Ok(userId: newUserId, displayName: registration.UserName);

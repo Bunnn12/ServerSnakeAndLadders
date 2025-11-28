@@ -67,10 +67,10 @@ namespace SnakesAndLadders.Services.Logic
 
             if (request.GameId <= 0)
             {
-
                 Logger.Error("ocurrio un error de argumentos");
-                throw new ArgumentOutOfRangeException(nameof(request.GameId), "GameId must be greater than zero.");
-                
+                throw new ArgumentOutOfRangeException(
+                    nameof(request),
+                    "GameId must be greater than zero.");
             }
 
             var enabledTypes = GetEnabledSpecialTypes(request).ToList();
@@ -96,9 +96,9 @@ namespace SnakesAndLadders.Services.Logic
             return board;
         }
         private static void AddSnakesAndLadders(
-    IList<BoardCellDto> cells,
-    BoardDefinitionDto board,
-    string difficulty)
+            IList<BoardCellDto> cells,
+            BoardDefinitionDto board,
+            string difficulty)
         {
             if (cells == null || cells.Count == 0)
             {
@@ -219,12 +219,11 @@ namespace SnakesAndLadders.Services.Logic
 
 
         private static void AddLadders(
-     IList<BoardCellDto> cells,
-     int count,
-     IList<BoardLinkDto> links,
-     HashSet<int> usedIndexes,
-     int totalCells
-     )
+             IList<BoardCellDto> cells,
+             int count,
+             IList<BoardLinkDto> links,
+             HashSet<int> usedIndexes,
+             int totalCells)
         {
             if (count <= 0)
                 return;
@@ -292,11 +291,12 @@ namespace SnakesAndLadders.Services.Logic
         }
 
         private static void AddSnakes(
-    IList<BoardCellDto> cells,
-    int count,
-    IList<BoardLinkDto> links,
-    HashSet<int> usedIndexes,
-    int totalCells)
+            IList<BoardCellDto> cells,
+            int count,
+            IList<BoardLinkDto> links,
+            HashSet<int> usedIndexes,
+            int totalCells)
+
         {
             if (count <= 0)
             {
@@ -442,8 +442,8 @@ namespace SnakesAndLadders.Services.Logic
                             Column = column,
                             IsDark = isDark,
                             SpecialType = SpecialCellType.None,
-                            IsStart = (currentIndex == MIN_CELL_INDEX),          // 👈 inicio
-                            IsFinal = (currentIndex == layout.CellCount)         // 👈 final
+                            IsStart = (currentIndex == MIN_CELL_INDEX),          
+                            IsFinal = (currentIndex == layout.CellCount)     
                         });
 
                         currentIndex++;
@@ -455,10 +455,11 @@ namespace SnakesAndLadders.Services.Logic
         }
 
         private static void AssignSpecialCells(
-    IList<BoardCellDto> cells,
-    BoardSizeOption boardSize,
-    IReadOnlyCollection<SpecialCellType> enabledTypes)
+            IList<BoardCellDto> cells,
+            BoardSizeOption boardSize,
+            IReadOnlyCollection<SpecialCellType> enabledTypes)
         {
+
             if (cells == null)
             {
                 throw new ArgumentNullException(nameof(cells));
@@ -656,16 +657,14 @@ namespace SnakesAndLadders.Services.Logic
         }
         private static bool IsAdjacentToAny(BoardCellDto candidate, IList<BoardCellDto> selected)
         {
-            foreach (BoardCellDto cell in selected)
+            if (selected == null || selected.Count == 0)
             {
-                if (AreAdjacent(cell, candidate))
-                {
-                    return true;
-                }
+                return false;
             }
 
-            return false;
+            return selected.Any(cell => AreAdjacent(cell, candidate));
         }
+
         private static bool AreAdjacent(BoardCellDto a, BoardCellDto b)
         {
             int deltaRow = Math.Abs(a.Row - b.Row);
@@ -761,6 +760,5 @@ namespace SnakesAndLadders.Services.Logic
             public int CellCount { get; }
         }
 
-        //aaaa
     }
 }
