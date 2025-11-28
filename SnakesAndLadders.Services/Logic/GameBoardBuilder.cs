@@ -419,8 +419,8 @@ namespace SnakesAndLadders.Services.Logic
                             Column = column,
                             IsDark = isDark,
                             SpecialType = SpecialCellType.None,
-                            IsStart = (currentIndex == MIN_CELL_INDEX),          // 👈 inicio
-                            IsFinal = (currentIndex == layout.CellCount)         // 👈 final
+                            IsStart = (currentIndex == MIN_CELL_INDEX),          
+                            IsFinal = (currentIndex == layout.CellCount)         
                         });
 
                         currentIndex++;

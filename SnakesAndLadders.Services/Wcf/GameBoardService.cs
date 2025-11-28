@@ -61,7 +61,7 @@ namespace SnakesAndLadders.Services.Wcf
                 int[] rawPlayerIds = request.PlayerUserIds ?? Array.Empty<int>();
 
                 List<int> players = rawPlayerIds
-                    .Where(id => id != INVALID_USER_ID) // ⬅ aquí aceptas invitados (ids negativos)
+                    .Where(id => id != INVALID_USER_ID) 
                     .Distinct()
                     .ToList();
 
