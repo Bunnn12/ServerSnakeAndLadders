@@ -1,30 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Runtime.Serialization;
+﻿using System.Collections.Generic;
+using System;
 
 namespace SnakeAndLadders.Contracts.Dtos
 {
-    [DataContract]
-    public class AuthResult
+    public sealed class AuthResult
     {
-        [DataMember] public bool Success { get; set; }
+        public bool Success { get; set; }
 
-        [DataMember] public string Code { get; set; } 
+        public string Code { get; set; }
 
-        [DataMember] public Dictionary<string, string> Meta { get; set; }
+        public Dictionary<string, string> Meta { get; set; }
 
-        [DataMember] public int? UserId { get; set; }
-        [DataMember] public string DisplayName { get; set; }
+        public int? UserId { get; set; }
 
-        [DataMember] public string TechnicalMessage { get; set; }
+        public string DisplayName { get; set; }
 
-        [DataMember] public string Message { get; set; }
+        public string TechnicalMessage { get; set; }
 
-        [DataMember] public string ProfilePhotoId { get; set; }
-        [DataMember] public string Token { get; set; }
-        [DataMember] public DateTime? ExpiresAtUtc { get; set; }
+        public string Message { get; set; }
 
-        [DataMember] public int? CurrentSkinUnlockedId { get; set; }
-        [DataMember] public string CurrentSkinId { get; set; }
+        public string ProfilePhotoId { get; set; }
+
+        public string Token { get; set; }
+
+        public DateTime? ExpiresAtUtc { get; set; }
+
+        public int? CurrentSkinUnlockedId { get; set; }
+
+        public string CurrentSkinId { get; set; }
     }
 }

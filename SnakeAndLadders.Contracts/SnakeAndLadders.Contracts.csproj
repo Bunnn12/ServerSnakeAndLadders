@@ -54,11 +54,14 @@
     <Compile Include="Dtos\AuthResult.cs" />
     <Compile Include="Dtos\AvatarChestPurchaseDto.cs" />
     <Compile Include="Dtos\BanInfoDto.cs" />
+    <Compile Include="Dtos\ChangePasswordRequestDto.cs" />
+    <Compile Include="Dtos\ChangePasswordValidationContext.cs" />
     <Compile Include="Dtos\ChatMessageDto.cs" />
     <Compile Include="Dtos\CreateAccountRequest.cs" />
     <Compile Include="Dtos\CreateGameRequest.cs" />
     <Compile Include="Dtos\CreateGameResponse.cs" />
     <Compile Include="Dtos\DicePurchaseDto.cs" />
+    <Compile Include="Dtos\EmailCodeValidationResult.cs" />
     <Compile Include="Dtos\FriendLinkDto.cs" />
     <Compile Include="Dtos\FriendListItemDto.cs" />
     <Compile Include="Dtos\FriendRequestItemDto.cs" />
@@ -78,6 +81,8 @@
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
     <Compile Include="Dtos\ItemChestPurchaseDto.cs" />
     <Compile Include="Dtos\LobbySummary.cs" />
+    <Compile Include="Dtos\PasswordHistoryResult.cs" />
+    <Compile Include="Dtos\PersistPasswordResult.cs" />
     <Compile Include="Dtos\PlayerStatsDto.cs" />
     <Compile Include="Dtos\ProfilePhotoDto.cs" />
     <Compile Include="Dtos\ShopRewardDto.cs" />

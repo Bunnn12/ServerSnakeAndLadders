@@ -36,5 +36,15 @@ namespace SnakesAndLadders.Services.Wcf
         {
             return _authAppService.ConfirmEmailVerification(email, code);
         }
+
+        public AuthResult RequestPasswordChangeCode(string email)
+        {
+            return _authAppService.RequestPasswordChangeCode(email);
+        }
+
+        public AuthResult ChangePassword(ChangePasswordRequestDto request)
+        {
+            return _authAppService.ChangePassword(request);
+        }
     }
 }
