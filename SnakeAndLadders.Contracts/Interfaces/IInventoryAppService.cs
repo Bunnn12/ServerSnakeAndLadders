@@ -21,5 +21,23 @@ namespace SnakeAndLadders.Contracts.Interfaces
             int userId,
             int? slot1DiceId,
             int? slot2DiceId);
+
+        void EquipItemToSlot(
+        int userId,
+        byte slotNumber,
+        int objectId);
+
+        void UnequipItemFromSlot(
+            int userId,
+            byte slotNumber);
+
+        void EquipDiceToSlot(
+            int userId,
+            byte slotNumber,
+            int diceId);
+
+        void UnequipDiceFromSlot(
+            int userId,
+            byte slotNumber);
     }
 }

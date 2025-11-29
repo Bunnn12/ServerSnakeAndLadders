@@ -315,6 +315,91 @@ namespace ServerSnakesAndLadders
             }
         }
 
+        public void RemoveItemFromSlot(int userId, byte slotNumber)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            if (!IsValidItemSlot(slotNumber))
+            {
+                throw new ArgumentOutOfRangeException(nameof(slotNumber));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var entity = context.ObjetoUsuarioSeleccionado
+                        .SingleOrDefault(
+                            s => s.UsuarioIdUsuario == userId
+                                 && s.NumeroSlot == slotNumber);
+
+                    if (entity != null)
+                    {
+                        context.ObjetoUsuarioSeleccionado.Remove(entity);
+                        context.SaveChanges();
+                    }
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al quitar el objeto seleccionado del slot.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al quitar el objeto seleccionado del slot.", ex);
+                    throw;
+                }
+            }
+        }
+
+        public void RemoveDiceFromSlot(int userId, byte slotNumber)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            if (!IsValidDiceSlot(slotNumber))
+            {
+                throw new ArgumentOutOfRangeException(nameof(slotNumber));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var entity = context.DadoUsuarioSeleccionado
+                        .SingleOrDefault(
+                            s => s.UsuarioIdUsuario == userId
+                                 && s.NumeroSlot == slotNumber);
+
+                    if (entity != null)
+                    {
+                        context.DadoUsuarioSeleccionado.Remove(entity);
+                        context.SaveChanges();
+                    }
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al quitar el dado seleccionado del slot.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al quitar el dado seleccionado del slot.", ex);
+                    throw;
+                }
+            }
+        }
+
+
         private void ConfigureContext(SnakeAndLaddersDBEntities1 context)
         {
             ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = CommandTimeoutSeconds;

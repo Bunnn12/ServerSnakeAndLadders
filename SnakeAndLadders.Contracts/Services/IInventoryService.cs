@@ -22,5 +22,27 @@ namespace SnakeAndLadders.Contracts.Services
             int userId,
             int? slot1DiceId,
             int? slot2DiceId);
+
+        [OperationContract]
+        void EquipItemToSlot(
+            int userId,
+            byte slotNumber,
+            int objectId);
+
+        [OperationContract]
+        void UnequipItemFromSlot(
+            int userId,
+            byte slotNumber);
+
+        [OperationContract]
+        void EquipDiceToSlot(
+            int userId,
+            byte slotNumber,
+            int diceId);
+
+        [OperationContract]
+        void UnequipDiceFromSlot(
+            int userId,
+            byte slotNumber);
     }
 }

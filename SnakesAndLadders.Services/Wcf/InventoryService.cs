@@ -74,5 +74,77 @@ namespace SnakesAndLadders.Services.Wcf
                 throw;
             }
         }
+
+        public void EquipItemToSlot(
+            int userId,
+            byte slotNumber,
+            int objectId)
+        {
+            try
+            {
+                inventoryAppService.EquipItemToSlot(
+                    userId,
+                    slotNumber,
+                    objectId);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error en InventoryService.EquipItemToSlot.", ex);
+                throw;
+            }
+        }
+
+        public void UnequipItemFromSlot(
+            int userId,
+            byte slotNumber)
+        {
+            try
+            {
+                inventoryAppService.UnequipItemFromSlot(
+                    userId,
+                    slotNumber);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error en InventoryService.UnequipItemFromSlot.", ex);
+                throw;
+            }
+        }
+
+        public void EquipDiceToSlot(
+            int userId,
+            byte slotNumber,
+            int diceId)
+        {
+            try
+            {
+                inventoryAppService.EquipDiceToSlot(
+                    userId,
+                    slotNumber,
+                    diceId);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error en InventoryService.EquipDiceToSlot.", ex);
+                throw;
+            }
+        }
+
+        public void UnequipDiceFromSlot(
+            int userId,
+            byte slotNumber)
+        {
+            try
+            {
+                inventoryAppService.UnequipDiceFromSlot(
+                    userId,
+                    slotNumber);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error en InventoryService.UnequipDiceFromSlot.", ex);
+                throw;
+            }
+        }
     }
 }

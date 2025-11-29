@@ -10,6 +10,11 @@ namespace SnakeAndLadders.Contracts.Interfaces
 
         IList<InventoryDiceDto> GetUserDice(int userId);
 
+        void RemoveItemFromSlot(int userId, byte slotNumber);
+
+        void RemoveDiceFromSlot(int userId, byte slotNumber);
+
+
         void UpdateSelectedItems(
             int userId,
             int? slot1ObjectId,
