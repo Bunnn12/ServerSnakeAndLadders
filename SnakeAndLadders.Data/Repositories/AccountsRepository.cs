@@ -5,6 +5,7 @@ using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data;
 using SnakesAndLadders.Server.Helpers;
 using System;
+using System.Collections.Generic;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.SqlClient;
@@ -17,14 +18,14 @@ namespace ServerSnakesAndLadders
     /// </summary>
     public class AccountsRepository : IAccountsRepository
     {
-        private const int EmailMaxLength = 200;
-        private const int UsernameMaxLength = 90;
-        private const int ProfileDescMaxLength = 510;
-        private const int PasswordHashMaxLength = 510;
-        private const int ProfilePhotoIdMaxLength = 5;
-        private const int CommandTimeoutSeconds = 30;
-        private const int InitialCoins = 0;
-        private const byte StatusActive = 1;
+        private const int EMAIL_MAX_LENGTH = 200;
+        private const int USERNAME_MAX_LENGTH = 90;
+        private const int PROFILE_DESC_MAX_LENGTH = 510;
+        private const int PASSWORD_HASH_MAX_LENGTH = 510;
+        private const int PROFILE_PHOTO_ID_MAX_LENGTH = 5;
+        private const int COMMAND_TIMEOUT_SECONDS = 30;
+        private const int INITIAL_COINS = 0;
+        private const byte STATUS_ACTIVE = 1;
 
         private static readonly ILog Logger = LogManager.GetLogger(typeof(AccountsRepository));
 
@@ -42,7 +43,7 @@ namespace ServerSnakesAndLadders
                 return false;
             }
 
-            string normalizedEmail = NormalizeString(email, EmailMaxLength);
+            string normalizedEmail = NormalizeString(email, EMAIL_MAX_LENGTH);
 
             using (var context = _contextFactory())
             {
@@ -63,7 +64,7 @@ namespace ServerSnakesAndLadders
                 return false;
             }
 
-            string normalizedUserName = NormalizeString(userName, UsernameMaxLength);
+            string normalizedUserName = NormalizeString(userName, USERNAME_MAX_LENGTH);
 
             using (var context = _contextFactory())
             {
@@ -203,7 +204,7 @@ namespace ServerSnakesAndLadders
 
         private void ConfigureContext(SnakeAndLaddersDBEntities1 context)
         {
-            ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = CommandTimeoutSeconds;
+            ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
         }
 
         private int? GetUserIdByEmail(SnakeAndLaddersDBEntities1 context, string email)
@@ -294,42 +295,221 @@ namespace ServerSnakesAndLadders
         private (Usuario User, Cuenta Account, Contrasenia Password) PrepareUserData(CreateAccountRequestDto request)
         {
             string userName = RequireParam(
-                NormalizeString(request.Username, UsernameMaxLength),
+                NormalizeString(request.Username, USERNAME_MAX_LENGTH),
                 nameof(request.Username));
 
             string email = RequireParam(
-                NormalizeString(request.Email, EmailMaxLength),
+                NormalizeString(request.Email, EMAIL_MAX_LENGTH),
                 nameof(request.Email));
 
             string passwordHash = RequireParam(
-                NormalizeString(request.PasswordHash, PasswordHashMaxLength),
+                NormalizeString(request.PasswordHash, PASSWORD_HASH_MAX_LENGTH),
                 nameof(request.PasswordHash));
 
             var user = new Usuario
             {
                 NombreUsuario = userName,
-                Nombre = NormalizeString(request.FirstName, UsernameMaxLength),
-                Apellidos = NormalizeString(request.LastName, UsernameMaxLength),
-                DescripcionPerfil = NormalizeString(request.ProfileDescription, ProfileDescMaxLength),
-                FotoPerfil = NormalizeString(request.ProfilePhotoId, ProfilePhotoIdMaxLength),
-                Monedas = InitialCoins,
-                Estado = new[] { StatusActive }
+                Nombre = NormalizeString(request.FirstName, USERNAME_MAX_LENGTH),
+                Apellidos = NormalizeString(request.LastName, USERNAME_MAX_LENGTH),
+                DescripcionPerfil = NormalizeString(request.ProfileDescription, PROFILE_DESC_MAX_LENGTH),
+                FotoPerfil = NormalizeString(request.ProfilePhotoId, PROFILE_PHOTO_ID_MAX_LENGTH),
+                Monedas = INITIAL_COINS,
+                Estado = new[] { STATUS_ACTIVE }
             };
 
             var account = new Cuenta
             {
                 Correo = email,
-                Estado = new[] { StatusActive }
+                Estado = new[] { STATUS_ACTIVE }
             };
 
             var password = new Contrasenia
             {
                 Contrasenia1 = passwordHash,
-                Estado = new[] { StatusActive },
+                Estado = new[] { STATUS_ACTIVE },
                 FechaCreacion = DateTime.UtcNow
             };
 
             return (user, account, password);
+        }
+        public OperationResult<IReadOnlyList<string>> GetLastPasswordHashes(int userId, int maxCount)
+        {
+            if (userId <= 0)
+            {
+                return OperationResult<IReadOnlyList<string>>.Failure("UserId must be positive.");
+            }
+
+            if (maxCount <= 0)
+            {
+                return OperationResult<IReadOnlyList<string>>.Failure("maxCount must be positive.");
+            }
+
+            try
+            {
+                using (var context = _contextFactory())
+                {
+                    ConfigureContext(context);
+
+                    List<string> hashes = context.Contrasenia
+                        .AsNoTracking()
+                        .Where(p => p.UsuarioIdUsuario == userId)
+                        .OrderByDescending(p => p.FechaCreacion)
+                        .Take(maxCount)
+                        .Select(p => p.Contrasenia1)
+                        .ToList();
+
+                    IReadOnlyList<string> readOnlyHashes = hashes;
+
+                    return OperationResult<IReadOnlyList<string>>.Success(readOnlyHashes);
+                }
+            }
+            catch (SqlException ex)
+            {
+                Logger.Error("SQL error while loading password history.", ex);
+                return OperationResult<IReadOnlyList<string>>.Failure("Database error while loading password history.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unexpected error while loading password history.", ex);
+                return OperationResult<IReadOnlyList<string>>.Failure("Unexpected error while loading password history.");
+            }
+        }
+
+        public OperationResult<bool> AddPasswordHash(int userId, string passwordHash)
+        {
+            if (userId <= 0)
+            {
+                return OperationResult<bool>.Failure("UserId must be positive.");
+            }
+
+            if (string.IsNullOrWhiteSpace(passwordHash))
+            {
+                return OperationResult<bool>.Failure("PasswordHash is required.");
+            }
+
+            try
+            {
+                using (var context = _contextFactory())
+                {
+                    ConfigureContext(context);
+
+                    // 1) Buscar la cuenta ACTIVA de ese usuario
+                    var account = context.Cuenta
+                        .AsNoTracking()
+                        .Where(c => c.UsuarioIdUsuario == userId)
+                        .ToList()
+                        .Where(c => IsActiveStatus(c.Estado))
+                        .OrderByDescending(c => c.IdCuenta)
+                        .FirstOrDefault();
+
+                    if (account == null)
+                    {
+                        Logger.ErrorFormat(
+                            "No active account found for user when changing password. UserId={0}",
+                            userId);
+
+                        return OperationResult<bool>.Failure("No active account found for user.");
+                    }
+
+                    var passwordEntity = new Contrasenia
+                    {
+                        UsuarioIdUsuario = userId,
+                        CuentaIdCuenta = account.IdCuenta,
+                        Contrasenia1 = passwordHash,
+                        Estado = new[] { STATUS_ACTIVE },
+                        FechaCreacion = DateTime.UtcNow
+                    };
+
+                    context.Contrasenia.Add(passwordEntity);
+                    context.SaveChanges();
+
+                    return OperationResult<bool>.Success(true);
+                }
+            }
+            catch (SqlException ex)
+            {
+                Logger.Error("SQL error while inserting new password.", ex);
+                return OperationResult<bool>.Failure("Database error while updating password.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unexpected error while inserting new password.", ex);
+                return OperationResult<bool>.Failure("Unexpected error while updating password.");
+            }
+        }
+        private Cuenta GetActiveAccountForUser(SnakeAndLaddersDBEntities1 context, int userId)
+        {
+            var accounts = context.Cuenta
+                .AsNoTracking()
+                .Where(c => c.UsuarioIdUsuario == userId)
+                .ToList();
+
+            if (accounts.Count == 0)
+            {
+                return null;
+            }
+
+            var activeAccounts = accounts
+                .Where(a => IsActiveStatus(a.Estado))
+                .ToList();
+
+            if (activeAccounts.Count == 0)
+            {
+                return null;
+            }
+
+            if (activeAccounts.Count > 1)
+            {
+                Logger.WarnFormat(
+                    "Se encontraron {0} cuentas ACTIVAS para el usuario {1}. Se usará la de mayor IdCuenta.",
+                    activeAccounts.Count,
+                    userId);
+            }
+
+            var selected = activeAccounts
+                .OrderByDescending(a => a.IdCuenta)
+                .First();
+
+            return selected;
+        }
+
+
+        public string GetEmailByUserId(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                var accounts = context.Cuenta
+                    .AsNoTracking()
+                    .Where(c => c.UsuarioIdUsuario == userId)
+                    .ToList();
+
+                if (accounts.Count == 0)
+                {
+                    return null;
+                }
+
+                var activeAccounts = accounts
+                    .Where(a => IsActiveStatus(a.Estado))
+                    .ToList();
+
+                if (activeAccounts.Count == 0)
+                {
+                    return null;
+                }
+
+                var selected = activeAccounts
+                    .OrderByDescending(a => a.IdCuenta)
+                    .First();
+
+                return selected.Correo;
+            }
         }
 
         private static string NormalizeString(string value, int maxLength)
@@ -359,7 +539,7 @@ namespace ServerSnakesAndLadders
         {
             return status != null
                    && status.Length > 0
-                   && status[0] == StatusActive;
+                   && status[0] == STATUS_ACTIVE;
         }
     }
 }

@@ -17,5 +17,11 @@ namespace SnakeAndLadders.Contracts.Services
 
         [OperationContract]
         AuthResult ConfirmEmailVerification(string email, string code);
+
+        [OperationContract]
+        AuthResult ChangePassword(ChangePasswordRequestDto request);
+
+        [OperationContract]
+        AuthResult RequestPasswordChangeCode(string email);
     }
 }

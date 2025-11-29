@@ -6,6 +6,7 @@ using System.Data.SqlClient;
 using System.Security.Cryptography;
 using System.Text;
 using log4net;
+using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 
@@ -45,7 +46,9 @@ namespace SnakesAndLadders.Services.Logic
         private const string AUTH_CODE_CODE_NOT_REQUESTED = "Auth.CodeNotRequested";
         private const string AUTH_CODE_CODE_EXPIRED = "Auth.CodeExpired";
         private const string AUTH_CODE_CODE_INVALID = "Auth.CodeInvalid";
-        private const string AUTH_CODE_ACCOUNT_DELETED = "Auth.AccountDeleted";
+        private const string AUTH_CODE_PASSWORD_WEAK = "Auth.PasswordWeak";
+        private const string AUTH_CODE_PASSWORD_REUSED = "Auth.PasswordReused";
+        private const string AUTH_CODE_EMAIL_NOT_FOUND = "Auth.EmailNotFound";
 
         private const string META_KEY_SANCTION_TYPE = "sanctionType";
         private const string META_KEY_BAN_ENDS_AT_UTC = "banEndsAtUtc";
@@ -55,6 +58,10 @@ namespace SnakesAndLadders.Services.Logic
         private const int DEFAULT_TOKEN_MINUTES = 10080;
         private const string APP_KEY_SECRET = "Auth:Secret";
         private const string APP_KEY_TOKEN_MINUTES = "Auth:TokenMinutes";
+
+        private const int PASSWORD_MIN_LENGTH = 8;
+        private const int PASSWORD_MAX_LENGTH = 64;
+        private const int PASSWORD_HISTORY_LIMIT = 3;
 
         public AuthAppService(
             IAccountsRepository accountsRepository,
@@ -444,5 +451,333 @@ namespace SnakesAndLadders.Services.Logic
                 return 0;
             }
         }
+        public AuthResult RequestPasswordChangeCode(string email)
+        {
+            email = (email ?? string.Empty).Trim().ToLowerInvariant();
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return Fail(AUTH_CODE_EMAIL_REQUIRED);
+            }
+
+            bool isRegistered;
+
+            try
+            {
+                isRegistered = _accountsRepository.IsEmailRegistered(email);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error while checking email for password change.", ex);
+                return Fail(AUTH_CODE_SERVER_ERROR);
+            }
+
+            if (!isRegistered)
+            {
+                return Fail(AUTH_CODE_EMAIL_NOT_FOUND);
+            }
+
+            if (_verificationCodesCache.TryGetValue(email, out var entry))
+            {
+                TimeSpan elapsed = DateTime.UtcNow - entry.LastSentUtc;
+
+                if (elapsed < RESEND_WINDOW)
+                {
+                    int secondsToWait = (int)(RESEND_WINDOW - elapsed).TotalSeconds;
+
+                    return Fail(
+                        AUTH_CODE_THROTTLE_WAIT,
+                        new Dictionary<string, string>
+                        {
+                            [META_KEY_SECONDS] = secondsToWait.ToString()
+                        });
+                }
+            }
+
+            string code = GenerateCode(VERIFICATION_CODE_DIGITS);
+            DateTime nowUtc = DateTime.UtcNow;
+
+            _verificationCodesCache[email] = (code, nowUtc.Add(VERIFICATION_TTL), nowUtc);
+
+            try
+            {
+                _emailSender.SendVerificationCode(email, code);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error while sending password change verification code.", ex);
+                _verificationCodesCache.TryRemove(email, out _);
+
+                return Fail(
+                    AUTH_CODE_EMAIL_SEND_FAILED,
+                    new Dictionary<string, string>
+                    {
+                        [META_KEY_REASON] = ex.GetType().Name
+                    });
+            }
+        }
+        public AuthResult ChangePassword(ChangePasswordRequestDto request)
+        {
+            ChangePasswordValidationContext validationContext = ValidateChangePasswordRequest(request);
+
+            if (validationContext.Error != null)
+            {
+                return validationContext.Error;
+            }
+
+            EmailCodeValidationResult emailResult = ValidateEmailAndCode(
+                validationContext.Email,
+                validationContext.VerificationCode);
+
+            if (!emailResult.IsValid)
+            {
+                return emailResult.Error;
+            }
+
+            PasswordHistoryResult historyResult = LoadPasswordHistory(validationContext.UserId);
+
+            if (!historyResult.IsValid)
+            {
+                return historyResult.Error;
+            }
+
+            IReadOnlyList<string> passwordHistory = historyResult.History;
+
+            if (IsPasswordReused(validationContext.NewPassword, passwordHistory))
+            {
+                return Fail(AUTH_CODE_PASSWORD_REUSED);
+            }
+
+            PersistPasswordResult persistResult = PersistNewPassword(
+                validationContext.UserId,
+                validationContext.NewPassword);
+
+            if (!persistResult.IsSuccess)
+            {
+                return persistResult.Error;
+            }
+
+            return Ok(
+                code: AUTH_CODE_OK,
+                userId: validationContext.UserId);
+        }
+
+        private ChangePasswordValidationContext ValidateChangePasswordRequest(ChangePasswordRequestDto request)
+        {
+            var context = new ChangePasswordValidationContext
+            {
+                UserId = 0,
+                Email = string.Empty,
+                NewPassword = string.Empty,
+                VerificationCode = string.Empty,
+                Error = null
+            };
+
+            if (request == null)
+            {
+                context.Error = Fail(AUTH_CODE_INVALID_REQUEST);
+                return context;
+            }
+
+            string rawEmail = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+            string newPassword = request.NewPassword ?? string.Empty;
+            string verificationCode = (request.VerificationCode ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(rawEmail)
+                || string.IsNullOrWhiteSpace(newPassword)
+                || string.IsNullOrWhiteSpace(verificationCode))
+            {
+                context.Error = Fail(AUTH_CODE_INVALID_REQUEST);
+                return context;
+            }
+
+            if (!IsPasswordFormatValid(newPassword))
+            {
+                context.Error = Fail(AUTH_CODE_PASSWORD_WEAK);
+                return context;
+            }
+
+            try
+            {
+                OperationResult<AuthCredentialsDto> authResult =
+                    _accountsRepository.GetAuthByIdentifier(rawEmail);
+
+                if (!authResult.IsSuccess || authResult.Data == null)
+                {
+                    context.Error = Fail(AUTH_CODE_INVALID_CREDENTIALS);
+                    return context;
+                }
+
+                context.UserId = authResult.Data.UserId;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error while loading user for password change.", ex);
+                context.Error = Fail(AUTH_CODE_SERVER_ERROR);
+                return context;
+            }
+
+            context.Email = rawEmail;
+            context.NewPassword = newPassword;
+            context.VerificationCode = verificationCode;
+
+            return context;
+        }
+
+        private EmailCodeValidationResult ValidateEmailAndCode(string email, string verificationCode)
+        {
+            var result = new EmailCodeValidationResult
+            {
+                IsValid = false,
+                Email = string.Empty,
+                Error = null
+            };
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                result.Error = Fail(AUTH_CODE_INVALID_REQUEST);
+                return result;
+            }
+
+            string normalizedEmail = email.Trim().ToLowerInvariant();
+
+            if (!_verificationCodesCache.TryGetValue(normalizedEmail, out var entry))
+            {
+                result.Error = Fail(AUTH_CODE_CODE_NOT_REQUESTED);
+                return result;
+            }
+
+            if (DateTime.UtcNow > entry.ExpiresUtc)
+            {
+                _verificationCodesCache.TryRemove(normalizedEmail, out _);
+                result.Error = Fail(AUTH_CODE_CODE_EXPIRED);
+                return result;
+            }
+
+            if (!string.Equals(verificationCode, entry.Code, StringComparison.Ordinal))
+            {
+                result.Error = Fail(AUTH_CODE_CODE_INVALID);
+                return result;
+            }
+
+            _verificationCodesCache.TryRemove(normalizedEmail, out _);
+
+            result.IsValid = true;
+            result.Email = normalizedEmail;
+
+            return result;
+        }
+
+        private PasswordHistoryResult LoadPasswordHistory(int userId)
+        {
+            var result = new PasswordHistoryResult
+            {
+                IsValid = false,
+                History = Array.Empty<string>(),
+                Error = null
+            };
+
+            OperationResult<IReadOnlyList<string>> historyResult =
+                _accountsRepository.GetLastPasswordHashes(userId, PASSWORD_HISTORY_LIMIT);
+
+            if (!historyResult.IsSuccess || historyResult.Data == null || historyResult.Data.Count == 0)
+            {
+                Logger.WarnFormat(
+                    "Password change requested but no password history found. UserId={0}",
+                    userId);
+
+                result.Error = Fail(AUTH_CODE_SERVER_ERROR);
+                return result;
+            }
+
+            result.IsValid = true;
+            result.History = historyResult.Data;
+            return result;
+        }
+
+        private bool IsPasswordReused(string newPassword, IReadOnlyList<string> passwordHistory)
+        {
+            for (int index = 0; index < passwordHistory.Count; index++)
+            {
+                string oldHash = passwordHistory[index];
+
+                if (string.IsNullOrWhiteSpace(oldHash))
+                {
+                    continue;
+                }
+
+                if (_passwordHasher.Verify(newPassword, oldHash))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsPasswordFormatValid(string password)
+        {
+            if (string.IsNullOrEmpty(password))
+            {
+                return false;
+            }
+
+            if (password.Length < PASSWORD_MIN_LENGTH || password.Length > PASSWORD_MAX_LENGTH)
+            {
+                return false;
+            }
+
+            bool hasUpper = false;
+            bool hasLower = false;
+            bool hasDigit = false;
+
+            for (int index = 0; index < password.Length; index++)
+            {
+                char character = password[index];
+
+                if (char.IsUpper(character))
+                {
+                    hasUpper = true;
+                }
+                else if (char.IsLower(character))
+                {
+                    hasLower = true;
+                }
+                else if (char.IsDigit(character))
+                {
+                    hasDigit = true;
+                }
+            }
+
+            return hasUpper && hasLower && hasDigit;
+        }
+
+        private PersistPasswordResult PersistNewPassword(int userId, string newPassword)
+        {
+            var result = new PersistPasswordResult
+            {
+                IsSuccess = false,
+                Error = null
+            };
+
+            string newHash = _passwordHasher.Hash(newPassword);
+
+            OperationResult<bool> addResult = _accountsRepository.AddPasswordHash(userId, newHash);
+
+            if (!addResult.IsSuccess || !addResult.Data)
+            {
+                Logger.ErrorFormat(
+                    "Failed to insert new password hash. UserId={0}",
+                    userId);
+
+                result.Error = Fail(AUTH_CODE_SERVER_ERROR);
+                return result;
+            }
+
+            result.IsSuccess = true;
+            return result;
+        }
+
     }
 }
