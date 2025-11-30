@@ -13,6 +13,9 @@ namespace SnakeAndLadders.Contracts.Services
         void OnTurnChanged(TurnChangedDto turnInfo);
 
         [OperationContract(IsOneWay = true)]
+        void OnItemUsed(ItemUsedNotificationDto notification);
+
+        [OperationContract(IsOneWay = true)]
         void OnPlayerLeft(PlayerLeftDto playerLeftInfo);
     }
 }

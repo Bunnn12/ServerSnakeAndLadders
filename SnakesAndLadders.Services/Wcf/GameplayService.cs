@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.ServiceModel;
+﻿// SnakesAndLadders.Services.Wcf/GameplayService.cs
 using log4net;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
 using SnakesAndLadders.Services.Logic;
+using SnakesAndLadders.Services.Logic.Gameplay;
+using System;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.ServiceModel;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -26,6 +28,9 @@ namespace SnakesAndLadders.Services.Wcf
         private const string ERROR_UNEXPECTED_STATE = "Unexpected error while retrieving game state.";
         private const string ERROR_JOIN_INVALID = "GameId must be greater than zero and UserId must be non-zero.";
         private const string ERROR_LEAVE_INVALID = "GameId must be greater than zero and UserId must be non-zero.";
+        private const string ERROR_USE_ITEM_INVALID_SLOT = "Item slot number is invalid.";
+        private const string ERROR_USE_ITEM_NO_ITEM_IN_SLOT = "No item is equipped in the selected slot.";
+        private const string ERROR_USE_ITEM_NO_QUANTITY = "User does not have any remaining units of the selected item.";
 
         private const string TURN_REASON_NORMAL = "NORMAL";
         private const string TURN_REASON_PLAYER_LEFT = "PLAYER_LEFT";
@@ -35,10 +40,16 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const string EFFECT_TOKEN_LADDER = "LADDER";
         private const string EFFECT_TOKEN_SNAKE = "SNAKE";
+        private const string EFFECT_TOKEN_ROCKET_USED = "ROCKET_USED";
+        private const string EFFECT_TOKEN_ROCKET_IGNORED = "ROCKET_IGNORED";
 
         private const int INVALID_USER_ID = 0;
 
+        private const byte MIN_ITEM_SLOT = 1;
+        private const byte MAX_ITEM_SLOT = 3;
+
         private readonly IGameSessionStore gameSessionStore;
+        private readonly IInventoryRepository inventoryRepository;
 
         private readonly ConcurrentDictionary<int, GameplayLogic> gameplayByGameId =
             new ConcurrentDictionary<int, GameplayLogic>();
@@ -49,9 +60,20 @@ namespace SnakesAndLadders.Services.Wcf
         private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, string>> userNamesByGameId =
             new ConcurrentDictionary<int, ConcurrentDictionary<int, string>>();
 
-        public GameplayService(IGameSessionStore gameSessionStore, IAppLogger appLogger)
+        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, PendingRocketUsage>> pendingRocketsByGameId =
+            new ConcurrentDictionary<int, ConcurrentDictionary<int, PendingRocketUsage>>();
+
+        public GameplayService(
+       IGameSessionStore gameSessionStore,
+       IInventoryRepository inventoryRepository,
+       IAppLogger appLogger)
         {
-            this.gameSessionStore = gameSessionStore ?? throw new ArgumentNullException(nameof(gameSessionStore));
+            this.gameSessionStore = gameSessionStore
+                ?? throw new ArgumentNullException(nameof(gameSessionStore));
+
+            this.inventoryRepository = inventoryRepository
+                ?? throw new ArgumentNullException(nameof(inventoryRepository));
+
         }
 
         public RollDiceResponseDto RollDice(RollDiceRequestDto request)
@@ -65,6 +87,8 @@ namespace SnakesAndLadders.Services.Wcf
             {
                 RollDiceResult moveResult = logic.RollDice(request.PlayerUserId);
 
+                HandlePendingRocketConsumption(session.GameId, request.PlayerUserId, moveResult);
+
                 session.IsFinished = moveResult.IsGameOver;
                 gameSessionStore.UpdateSession(session);
 
@@ -73,6 +97,10 @@ namespace SnakesAndLadders.Services.Wcf
                 BroadcastMoveAndTurn(session, request.PlayerUserId, moveResult);
 
                 return rollResponse;
+            }
+            catch (FaultException)
+            {
+                throw;
             }
             catch (InvalidOperationException ex)
             {
@@ -113,13 +141,7 @@ namespace SnakesAndLadders.Services.Wcf
                     GameId = session.GameId,
                     CurrentTurnUserId = state.CurrentTurnUserId,
                     IsFinished = state.IsFinished,
-                    Tokens = state.Tokens
-                        .Select(t => new TokenStateDto
-                        {
-                            UserId = t.UserId,
-                            CellIndex = t.CellIndex
-                        })
-                        .ToList()
+                    Tokens = state.Tokens.ToList()
                 };
             }
             catch (Exception ex)
@@ -128,6 +150,151 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_UNEXPECTED_STATE);
             }
         }
+
+        public UseItemResponseDto UseItem(UseItemRequestDto request)
+        {
+            if (request == null)
+            {
+                throw new FaultException(ERROR_REQUEST_NULL);
+            }
+
+            if (request.GameId <= 0)
+            {
+                throw new FaultException(ERROR_GAME_ID_INVALID);
+            }
+
+            if (request.PlayerUserId == INVALID_USER_ID)
+            {
+                throw new FaultException(ERROR_USER_ID_INVALID);
+            }
+
+            if (request.ItemSlotNumber < MIN_ITEM_SLOT || request.ItemSlotNumber > MAX_ITEM_SLOT)
+            {
+                throw new FaultException(ERROR_USE_ITEM_INVALID_SLOT);
+            }
+
+            GameSession session = GetSessionOrThrow(request.GameId);
+            GameplayLogic logic = GetOrCreateGameplayLogic(session);
+
+            InventoryItemDto equippedItem = ResolveEquippedItemForSlot(
+                request.PlayerUserId,
+                request.ItemSlotNumber);
+
+            try
+            {
+                ItemEffectResult effectResult = logic.UseItem(
+                    request.PlayerUserId,
+                    equippedItem.ObjectCode,
+                    request.TargetUserId);
+
+                bool isRocket = effectResult.EffectType == ItemEffectType.Rocket;
+
+                // --- Decidir consumo ---
+                bool shouldConsume = effectResult.ShouldConsumeItemImmediately;
+
+                // No consumir si lo bloqueó escudo
+                if (effectResult.WasBlockedByShield)
+                {
+                    shouldConsume = false;
+                }
+
+                // No consumir si no hubo movimiento real (ej. Ancla en casilla inicial)
+                if (effectResult.EffectType == ItemEffectType.Anchor &&
+                    effectResult.FromCellIndex == effectResult.ToCellIndex)
+                {
+                    shouldConsume = false;
+                }
+
+                // Rocket: se difiere al siguiente tiro (solo si no fue bloqueado)
+                if (isRocket && !effectResult.WasBlockedByShield)
+                {
+                    TrackPendingRocket(
+                        session.GameId,
+                        request.PlayerUserId,
+                        request.ItemSlotNumber,
+                        equippedItem.ObjectId,
+                        equippedItem.ObjectCode);
+                }
+
+                if (shouldConsume)
+                {
+                    inventoryRepository.ConsumeItem(
+                        request.PlayerUserId,
+                        equippedItem.ObjectId);
+
+                    inventoryRepository.RemoveItemFromSlot(
+                        request.PlayerUserId,
+                        request.ItemSlotNumber);
+                }
+
+                GetGameStateResponseDto updatedGameState = GetGameState(
+                    new GetGameStateRequestDto
+                    {
+                        GameId = request.GameId
+                    });
+
+                var response = new UseItemResponseDto
+                {
+                    Success = true,
+                    FailureReason = null,
+                    GameId = request.GameId,
+                    PlayerUserId = request.PlayerUserId,
+                    TargetUserId = request.TargetUserId,
+                    ItemCode = equippedItem.ObjectCode,
+                    EffectType = effectResult.EffectType,
+                    UpdatedGameState = updatedGameState
+                };
+
+                var notification = new ItemUsedNotificationDto
+                {
+                    GameId = request.GameId,
+                    UserId = request.PlayerUserId,
+                    TargetUserId = request.TargetUserId,
+                    ItemCode = equippedItem.ObjectCode,
+                    EffectResult = new ItemEffectResultDto
+                    {
+                        ItemCode = effectResult.ItemCode,
+                        EffectType = effectResult.EffectType,
+                        UserId = effectResult.UserId,
+                        TargetUserId = effectResult.TargetUserId,
+                        FromCellIndex = effectResult.FromCellIndex,
+                        ToCellIndex = effectResult.ToCellIndex,
+                        WasBlockedByShield = effectResult.WasBlockedByShield,
+                        TargetFrozen = effectResult.TargetFrozen,
+                        ShieldActivated = effectResult.ShieldActivated
+                    },
+                    UpdatedGameState = updatedGameState
+                };
+
+                NotifyItemUsed(request.GameId, notification);
+
+                return response;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Warn("Business validation error in UseItem.", ex);
+
+                return new UseItemResponseDto
+                {
+                    Success = false,
+                    FailureReason = ex.Message,
+                    GameId = request.GameId,
+                    PlayerUserId = request.PlayerUserId,
+                    TargetUserId = request.TargetUserId,
+                    ItemCode = equippedItem.ObjectCode,
+                    EffectType = ItemEffectType.None,
+                    UpdatedGameState = null
+                };
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unexpected error while processing item usage.", ex);
+                throw new FaultException("Unexpected error while processing item usage.");
+            }
+        }
+
+
+
 
         public void JoinGame(int gameId, int userId, string userName)
         {
@@ -175,7 +342,7 @@ namespace SnakesAndLadders.Services.Wcf
         {
             return gameplayByGameId.GetOrAdd(
                 session.GameId,
-                gameSessionId => new GameplayLogic(session.Board, session.PlayerUserIds));
+                _ => new GameplayLogic(session.Board, session.PlayerUserIds));
         }
 
         private static void ValidateRollDiceRequest(RollDiceRequestDto request)
@@ -234,6 +401,28 @@ namespace SnakesAndLadders.Services.Wcf
                 ExtraInfo = moveResult.ExtraInfo,
                 UpdatedTokens = null
             };
+        }
+
+        private static MoveEffectType MapMoveEffectType(string extraInfo)
+        {
+            if (string.IsNullOrWhiteSpace(extraInfo))
+            {
+                return MoveEffectType.None;
+            }
+
+            string normalized = extraInfo.ToUpperInvariant();
+
+            if (normalized.Contains(EFFECT_TOKEN_LADDER))
+            {
+                return MoveEffectType.Ladder;
+            }
+
+            if (normalized.Contains(EFFECT_TOKEN_SNAKE))
+            {
+                return MoveEffectType.Snake;
+            }
+
+            return MoveEffectType.None;
         }
 
         private void BroadcastMoveAndTurn(
@@ -296,28 +485,6 @@ namespace SnakesAndLadders.Services.Wcf
             };
         }
 
-        private static MoveEffectType MapMoveEffectType(string extraInfo)
-        {
-            if (string.IsNullOrWhiteSpace(extraInfo))
-            {
-                return MoveEffectType.None;
-            }
-
-            string normalized = extraInfo.ToUpperInvariant();
-
-            if (normalized.Contains(EFFECT_TOKEN_LADDER))
-            {
-                return MoveEffectType.Ladder;
-            }
-
-            if (normalized.Contains(EFFECT_TOKEN_SNAKE))
-            {
-                return MoveEffectType.Snake;
-            }
-
-            return MoveEffectType.None;
-        }
-
         private GameStateSnapshot GetCurrentStateSafe(GameSession session)
         {
             try
@@ -332,6 +499,84 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
+        private InventoryItemDto ResolveEquippedItemForSlot(int userId, byte slotNumber)
+        {
+            var items = inventoryRepository.GetUserItems(userId);
+
+            InventoryItemDto equippedItem = items
+                .FirstOrDefault(i => i.SlotNumber.HasValue && i.SlotNumber.Value == slotNumber);
+
+            if (equippedItem == null)
+            {
+                throw new FaultException(ERROR_USE_ITEM_NO_ITEM_IN_SLOT);
+            }
+
+            if (equippedItem.Quantity <= 0)
+            {
+                throw new FaultException(ERROR_USE_ITEM_NO_QUANTITY);
+            }
+
+            return equippedItem;
+        }
+
+        private void TrackPendingRocket(
+            int gameId,
+            int userId,
+            byte slotNumber,
+            int objectId,
+            string itemCode)
+        {
+            var pendingForGame = pendingRocketsByGameId.GetOrAdd(
+                gameId,
+                _ => new ConcurrentDictionary<int, PendingRocketUsage>());
+
+            pendingForGame[userId] = new PendingRocketUsage
+            {
+                GameId = gameId,
+                UserId = userId,
+                SlotNumber = slotNumber,
+                ObjectId = objectId,
+                ItemCode = itemCode
+            };
+        }
+
+        private void HandlePendingRocketConsumption(
+            int gameId,
+            int userId,
+            RollDiceResult moveResult)
+        {
+            if (!pendingRocketsByGameId.TryGetValue(gameId, out var pendingForGame))
+            {
+                return;
+            }
+
+            if (!pendingForGame.TryGetValue(userId, out PendingRocketUsage pending))
+            {
+                return;
+            }
+
+            string extraInfo = moveResult.ExtraInfo ?? string.Empty;
+            string normalized = extraInfo.ToUpperInvariant();
+
+            bool rocketUsed = normalized.Contains(EFFECT_TOKEN_ROCKET_USED);
+            bool rocketIgnored = normalized.Contains(EFFECT_TOKEN_ROCKET_IGNORED);
+
+            if (rocketUsed)
+            {
+                try
+                {
+                    inventoryRepository.ConsumeItem(userId, pending.ObjectId);
+                    inventoryRepository.RemoveItemFromSlot(userId, pending.SlotNumber);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error while consuming rocket item after dice roll.", ex);
+                }
+            }
+
+            pendingForGame.TryRemove(userId, out _);
+        }
+
         private void RegisterCallback(
             int gameId,
             int userId,
@@ -340,13 +585,13 @@ namespace SnakesAndLadders.Services.Wcf
         {
             var callbacksForGame = callbacksByGameId.GetOrAdd(
                 gameId,
-                callbacksDictionaryGameId => new ConcurrentDictionary<int, IGameplayCallback>());
+                _ => new ConcurrentDictionary<int, IGameplayCallback>());
 
             callbacksForGame[userId] = callbackChannel;
 
             var userNamesForGame = userNamesByGameId.GetOrAdd(
                 gameId,
-                userNamesDictionaryGameId => new ConcurrentDictionary<int, string>());
+                _ => new ConcurrentDictionary<int, string>());
 
             string effectiveUserName = string.IsNullOrWhiteSpace(userName)
                 ? $"User {userId}"
@@ -455,6 +700,7 @@ namespace SnakesAndLadders.Services.Wcf
 
             callbacksByGameId.TryRemove(gameId, out _);
             userNamesByGameId.TryRemove(gameId, out _);
+            pendingRocketsByGameId.TryRemove(gameId, out _);
         }
 
         private string GetUserNameOrDefault(int gameId, int userId)
@@ -520,6 +766,23 @@ namespace SnakesAndLadders.Services.Wcf
                     callbackEntry.Key,
                     callbackEntry.Value,
                     callback => callback.OnPlayerLeft(playerLeftInfo));
+            }
+        }
+
+        private void NotifyItemUsed(int gameId, ItemUsedNotificationDto notification)
+        {
+            if (!callbacksByGameId.TryGetValue(gameId, out var callbacksForGame))
+            {
+                return;
+            }
+
+            foreach (var callbackEntry in callbacksForGame.ToArray())
+            {
+                InvokeCallbackSafely(
+                    gameId,
+                    callbackEntry.Key,
+                    callbackEntry.Value,
+                    callback => callback.OnItemUsed(notification));
             }
         }
 

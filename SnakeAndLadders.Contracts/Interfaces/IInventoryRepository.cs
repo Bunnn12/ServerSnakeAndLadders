@@ -14,6 +14,7 @@ namespace SnakeAndLadders.Contracts.Interfaces
 
         void RemoveDiceFromSlot(int userId, byte slotNumber);
 
+        void ConsumeItem(int userId, int objectId);
 
         void UpdateSelectedItems(
             int userId,

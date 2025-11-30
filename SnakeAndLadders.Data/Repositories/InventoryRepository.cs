@@ -399,6 +399,59 @@ namespace ServerSnakesAndLadders
             }
         }
 
+        public void ConsumeItem(int userId, int objectId)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            if (objectId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(objectId));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var userObject = context.ObjetoUsuario
+                        .SingleOrDefault(
+                            o => o.UsuarioIdUsuario == userId
+                                 && o.ObjetoIdObjeto == objectId);
+
+                    if (userObject == null)
+                    {
+                        throw new InvalidOperationException(
+                            "El usuario no posee el objeto especificado en su inventario.");
+                    }
+
+                    if (userObject.CantidadObjeto <= 0)
+                    {
+                        throw new InvalidOperationException(
+                            "El usuario no tiene cantidad disponible del objeto especificado.");
+                    }
+
+                    userObject.CantidadObjeto -= 1;
+
+                    context.Entry(userObject).State = EntityState.Modified;
+                    context.SaveChanges();
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al consumir un objeto del inventario del usuario.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al consumir un objeto del inventario del usuario.", ex);
+                    throw;
+                }
+            }
+        }
+
 
         private void ConfigureContext(SnakeAndLaddersDBEntities1 context)
         {

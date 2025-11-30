@@ -13,6 +13,9 @@ namespace SnakeAndLadders.Contracts.Services
         GetGameStateResponseDto GetGameState(GetGameStateRequestDto request);
 
         [OperationContract]
+        UseItemResponseDto UseItem(UseItemRequestDto request);
+
+        [OperationContract]
         void JoinGame(int gameId, int userId, string userName);
 
         [OperationContract]

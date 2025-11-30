@@ -109,7 +109,7 @@ internal static class Program
             var playerReportSvc = new PlayerReportService(playerReportApp);
             var statsSvc = new StatsService(statsApp);
             var friendsSvc = new FriendsService(friendsApp);
-            var gameplaySvc = new GameplayService(gameSessionStore, appLogger);
+            var gameplaySvc = new GameplayService(gameSessionStore,inventoryRepo,appLogger);
             var shopSvc = new ShopService(shopApp);
             var inventorySvc = new InventoryService(inventoryApp);
 

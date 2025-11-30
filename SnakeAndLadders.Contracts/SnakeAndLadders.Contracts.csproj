@@ -76,9 +76,13 @@
     <Compile Include="Dtos\Gameplay\InventoryDiceDto.cs" />
     <Compile Include="Dtos\Gameplay\InventoryItemDto.cs" />
     <Compile Include="Dtos\Gameplay\InventorySnapshotDto.cs" />
+    <Compile Include="Dtos\Gameplay\ItemEffectResultDto.cs" />
+    <Compile Include="Dtos\Gameplay\ItemUsedNotificationDto.cs" />
     <Compile Include="Dtos\Gameplay\PlayerLeftDto.cs" />
     <Compile Include="Dtos\Gameplay\TokenStateDto.cs" />
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
+    <Compile Include="Dtos\Gameplay\UseItemRequestDto.cs" />
+    <Compile Include="Dtos\Gameplay\UseItemResponseDto.cs" />
     <Compile Include="Dtos\ItemChestPurchaseDto.cs" />
     <Compile Include="Dtos\LobbySummary.cs" />
     <Compile Include="Dtos\PasswordHistoryResult.cs" />
@@ -88,6 +92,7 @@
     <Compile Include="Dtos\ShopRewardDto.cs" />
     <Compile Include="Dtos\StickerChestPurchaseDto.cs" />
     <Compile Include="Dtos\UpdateProfileRequestDto.cs" />
+    <Compile Include="Enums\ItemEffectType.cs" />
     <Compile Include="Enums\MoveEffectType.cs" />
     <Compile Include="Dtos\Gameplay\PlayerMoveResultDto.cs" />
     <Compile Include="Dtos\Gameplay\RollDiceRequestDto.cs" />
