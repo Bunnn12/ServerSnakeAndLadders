@@ -5,12 +5,13 @@ using System.Net;
 using System.Net.Mail;
 using System.Text;
 using log4net;
+using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Host.Helpers
 {
     /// <summary>
-    /// SMTP-based implementation of IEmailSender for sending verification emails.
+    /// SMTP-based implementation of IEmailSender for sending emails.
     /// </summary>
     public sealed class SmtpEmailSender : IEmailSender
     {
@@ -31,6 +32,13 @@ namespace SnakesAndLadders.Host.Helpers
         private const string EMAIL_GREETING = "Hi!";
         private const string EMAIL_CODE_PREFIX = "Your verification code is: ";
         private const string EMAIL_EXPIRATION_TEXT = "This code expires in 10 minutes.";
+
+        private const string EMAIL_SUBJECT_GAME_INVITATION = "Game invitation";
+        private const string EMAIL_INVITE_GREETING_PREFIX = "Hi ";
+        private const string EMAIL_INVITE_FROM_PREFIX = "Your friend ";
+        private const string EMAIL_INVITE_FROM_SUFFIX = " has invited you to join a Snakes & Ladders match.";
+        private const string EMAIL_INVITE_GAME_CODE_PREFIX = "Game code: ";
+        private const string EMAIL_INVITE_INSTRUCTIONS = "Open the game, go to 'Join match' and enter this code.";
 
         private static readonly ILog Logger = LogManager.GetLogger(typeof(SmtpEmailSender));
 
@@ -78,7 +86,7 @@ namespace SnakesAndLadders.Host.Helpers
                 message.From = new MailAddress(from, fromName);
                 message.To.Add(new MailAddress(email));
                 message.Subject = EMAIL_SUBJECT_VERIFICATION;
-                message.Body = BuildBody(code);
+                message.Body = BuildVerificationBody(code);
                 message.IsBodyHtml = false;
 
                 using (var smtpClient = new SmtpClient(host, port))
@@ -94,7 +102,6 @@ namespace SnakesAndLadders.Host.Helpers
                     }
 
                     smtpClient.Credentials = new NetworkCredential(user, pass);
-
                     ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
                     Logger.InfoFormat(
@@ -126,7 +133,103 @@ namespace SnakesAndLadders.Host.Helpers
             }
         }
 
-        private static string BuildBody(string code)
+        public void SendGameInvitation(GameInvitationEmailDto request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ToEmail))
+            {
+                throw new ArgumentException("Destination email is required.", nameof(request.ToEmail));
+            }
+
+            if (string.IsNullOrWhiteSpace(request.GameCode))
+            {
+                throw new ArgumentException("GameCode is required.", nameof(request.GameCode));
+            }
+
+            string host = GetAppSetting(SMTP_HOST_KEY, string.Empty);
+            string portText = GetAppSetting(SMTP_PORT_KEY, DEFAULT_SMTP_PORT.ToString());
+            string enableSslText = GetAppSetting(
+                SMTP_ENABLE_SSL_KEY,
+                DEFAULT_ENABLE_SSL.ToString());
+
+            string user = GetAppSetting(SMTP_USER_KEY, string.Empty);
+            string pass = GetAppSetting(SMTP_PASS_KEY, string.Empty);
+            string from = GetAppSetting(SMTP_FROM_KEY, user);
+            string fromName = GetAppSetting(SMTP_FROM_NAME_KEY, DEFAULT_FROM_NAME);
+
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                Logger.Error("SMTP host is not configured (Smtp:Host).");
+                throw new InvalidOperationException("SMTP host is not configured.");
+            }
+
+            if (!int.TryParse(portText, out int port))
+            {
+                port = DEFAULT_SMTP_PORT;
+            }
+
+            if (!bool.TryParse(enableSslText, out bool enableSsl))
+            {
+                enableSsl = DEFAULT_ENABLE_SSL;
+            }
+
+            using (var message = new MailMessage())
+            {
+                message.From = new MailAddress(from, fromName);
+                message.To.Add(new MailAddress(request.ToEmail));
+                message.Subject = EMAIL_SUBJECT_GAME_INVITATION;
+                message.Body = BuildGameInvitationBody(request);
+                message.IsBodyHtml = false;
+
+                using (var smtpClient = new SmtpClient(host, port))
+                {
+                    smtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
+                    smtpClient.EnableSsl = enableSsl;
+                    smtpClient.UseDefaultCredentials = false;
+
+                    if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
+                    {
+                        Logger.Error("SMTP credentials are not configured (Smtp:User / Smtp:Pass).");
+                        throw new InvalidOperationException("SMTP credentials are not configured.");
+                    }
+
+                    smtpClient.Credentials = new NetworkCredential(user, pass);
+                    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+                    Logger.InfoFormat(
+                        "SMTP config: host={0}, port={1}, enableSsl={2}, user={3}",
+                        host,
+                        port,
+                        smtpClient.EnableSsl,
+                        user);
+
+                    try
+                    {
+                        smtpClient.Send(message);
+                    }
+                    catch (SmtpException ex)
+                    {
+                        Logger.Error("SMTP error while sending game invitation email.", ex);
+
+                        throw new InvalidOperationException(
+                            "SMTP error while sending game invitation email.",
+                            ex);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException(
+                            "Unexpected error while sending game invitation email.",
+                            ex);
+                    }
+                }
+            }
+        }
+
+        private static string BuildVerificationBody(string code)
         {
             var builder = new StringBuilder();
 
@@ -134,6 +237,28 @@ namespace SnakesAndLadders.Host.Helpers
             builder.AppendLine();
             builder.AppendLine(EMAIL_CODE_PREFIX + code);
             builder.AppendLine(EMAIL_EXPIRATION_TEXT);
+
+            return builder.ToString();
+        }
+
+        private static string BuildGameInvitationBody(GameInvitationEmailDto request)
+        {
+            string toName = string.IsNullOrWhiteSpace(request.ToUserName)
+                ? "player"
+                : request.ToUserName;
+
+            string inviterName = string.IsNullOrWhiteSpace(request.InviterUserName)
+                ? "your friend"
+                : request.InviterUserName;
+
+            var builder = new StringBuilder();
+
+            builder.AppendLine(EMAIL_INVITE_GREETING_PREFIX + toName + "!");
+            builder.AppendLine();
+            builder.AppendLine(EMAIL_INVITE_FROM_PREFIX + inviterName + EMAIL_INVITE_FROM_SUFFIX);
+            builder.AppendLine();
+            builder.AppendLine(EMAIL_INVITE_GAME_CODE_PREFIX + request.GameCode);
+            builder.AppendLine(EMAIL_INVITE_INSTRUCTIONS);
 
             return builder.ToString();
         }

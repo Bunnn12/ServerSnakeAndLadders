@@ -65,6 +65,7 @@
     <Compile Include="Dtos\FriendLinkDto.cs" />
     <Compile Include="Dtos\FriendListItemDto.cs" />
     <Compile Include="Dtos\FriendRequestItemDto.cs" />
+    <Compile Include="Dtos\GameInvitationEmailDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardCellDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardDefinitionDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardLinkDto.cs" />
@@ -83,6 +84,7 @@
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
     <Compile Include="Dtos\Gameplay\UseItemRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\UseItemResponseDto.cs" />
+    <Compile Include="Dtos\InviteFriendToGameRequestDto.cs" />
     <Compile Include="Dtos\ItemChestPurchaseDto.cs" />
     <Compile Include="Dtos\LobbySummary.cs" />
     <Compile Include="Dtos\PasswordHistoryResult.cs" />
@@ -92,6 +94,7 @@
     <Compile Include="Dtos\ShopRewardDto.cs" />
     <Compile Include="Dtos\StickerChestPurchaseDto.cs" />
     <Compile Include="Dtos\UpdateProfileRequestDto.cs" />
+    <Compile Include="Dtos\UserContactInfoDto.cs" />
     <Compile Include="Enums\ItemEffectType.cs" />
     <Compile Include="Enums\MoveEffectType.cs" />
     <Compile Include="Dtos\Gameplay\PlayerMoveResultDto.cs" />
@@ -137,6 +140,7 @@
     <Compile Include="Interfaces\IInventoryRepository.cs" />
     <Compile Include="Interfaces\ILobbyAppService.cs" />
     <Compile Include="Interfaces\ILobbyRepository.cs" />
+    <Compile Include="Interfaces\IMatchInvitationAppService.cs" />
     <Compile Include="Interfaces\IPasswordHasher.cs" />
     <Compile Include="Interfaces\IPlayerReportAppService.cs" />
     <Compile Include="Interfaces\IPlayerSessionManager.cs" />
@@ -159,6 +163,7 @@
     <Compile Include="Services\IInventoryService.cs" />
     <Compile Include="Services\ILobbyCallback.cs" />
     <Compile Include="Services\ILobbyService.cs" />
+    <Compile Include="Services\IMatchInvitationService.cs" />
     <Compile Include="Services\IPlayerReportService.cs" />
     <Compile Include="Services\IShopService.cs" />
     <Compile Include="Services\IStatsService.cs" />

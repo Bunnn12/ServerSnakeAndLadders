@@ -50,6 +50,7 @@ internal static class Program
         ServiceHost gameplayHost = null;
         ServiceHost shopHost = null;
         ServiceHost inventoryHost = null;
+        ServiceHost matchInvitationHost = null;
 
         try
         {
@@ -85,10 +86,7 @@ internal static class Program
 
             var playerSessionManager = new PlayerSessionManager(lobbySvc);
 
-            var playerReportApp = new PlayerReportAppService(
-                reportRepo,
-                sanctionRepo,
-                accountStatusRepo,
+            var playerReportApp = new PlayerReportAppService( reportRepo, sanctionRepo, accountStatusRepo,
                 playerSessionManager);
 
             var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp, userRepository);
@@ -99,6 +97,8 @@ internal static class Program
             var friendsApp = new FriendsAppService(friendsRepo, getUserId);
             var shopApp = new ShopAppService(shopRepo, getUserId);
             var inventoryApp = new InventoryAppService(inventoryRepo);
+            var matchInvitationApp = new MatchInvitationAppService(friendsRepo, userRepo, accountsRepo,
+                email, getUserId);
 
             IGameSessionStore gameSessionStore = new InMemoryGameSessionStore();
 
@@ -112,6 +112,7 @@ internal static class Program
             var gameplaySvc = new GameplayService(gameSessionStore,inventoryRepo,appLogger);
             var shopSvc = new ShopService(shopApp);
             var inventorySvc = new InventoryService(inventoryApp);
+            var matchInvitationSvc = new MatchInvitationService(matchInvitationApp);
 
             lobbyHost = new ServiceHost(lobbySvc);
             authHost = new ServiceHost(authSvc);
@@ -124,6 +125,7 @@ internal static class Program
             gameplayHost = new ServiceHost(gameplaySvc);
             shopHost = new ServiceHost(shopSvc);
             inventoryHost = new ServiceHost(inventorySvc);
+            matchInvitationHost = new ServiceHost(matchInvitationSvc);
 
             authHost.Open();
             userHost.Open();
@@ -136,6 +138,7 @@ internal static class Program
             gameplayHost.Open();
             shopHost.Open();
             inventoryHost.Open();
+            matchInvitationHost.Open();
 
             Log.Info("Servidor iniciado y servicios levantados.");
 
@@ -151,6 +154,7 @@ internal static class Program
             Console.WriteLine(" - " + typeof(GameplayService).FullName);
             Console.WriteLine(" - " + typeof(ShopService).FullName);
             Console.WriteLine(" - " + typeof(InventoryService).FullName);
+            Console.WriteLine(" - " + typeof(MatchInvitationService).FullName);
             Console.WriteLine("Presiona Enter para detener…");
             Console.ReadLine();
         }
@@ -203,6 +207,7 @@ internal static class Program
             CloseSafely(gameplayHost, "GameplayService");
             CloseSafely(shopHost, "ShopService");
             CloseSafely(inventoryHost, "InventoryService");
+            CloseSafely(matchInvitationHost, "MatchInvitationService");
 
             Log.Info("Servidor detenido.");
         }

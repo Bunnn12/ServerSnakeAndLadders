@@ -20,7 +20,6 @@ namespace SnakesAndLadders.Data.Repositories
         private const int COMMAND_TIMEOUT_SECONDS = 30;
         private const int DEFAULT_RANKING_MAX_RESULTS = 50;
 
-        // Flag de ganador almacenado en la columna Ganador (byte[])
         private const byte WINNER_FLAG = 0x01;
 
         /// <summary>
