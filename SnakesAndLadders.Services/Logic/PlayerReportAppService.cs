@@ -9,9 +9,6 @@ using SnakeAndLadders.Contracts.Services;
 
 namespace SnakesAndLadders.Services.Logic
 {
-    /// <summary>
-    /// Application service that manages player reports, sanctions and ban state.
-    /// </summary>
     public sealed class PlayerReportAppService : IPlayerReportAppService
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(PlayerReportAppService));
@@ -68,10 +65,6 @@ namespace SnakesAndLadders.Services.Logic
             _playerSessionManager = playerSessionManagerValue
                 ?? throw new ArgumentNullException(nameof(playerSessionManagerValue));
         }
-
-        /// <summary>
-        /// Creates a player report and evaluates automatic sanctions if needed.
-        /// </summary>
         public void CreateReport(ReportDto report)
         {
             if (report == null)

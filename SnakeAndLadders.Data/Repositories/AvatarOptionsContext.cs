@@ -8,5 +8,14 @@ namespace SnakesAndLadders.Data.Repositories
 {
     internal class AvatarOptionsContext
     {
+        
+            public string NormalizedPhotoId { get; set; }
+
+            public IList<int> UnlockedAvatarIds { get; set; }
+
+            public int CurrentAvatarEntityId { get; set; }
+
+            public IList<Avatar> AvatarEntities { get; set; }
+        
     }
 }

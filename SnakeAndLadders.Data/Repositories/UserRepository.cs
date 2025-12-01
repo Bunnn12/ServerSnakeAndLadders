@@ -453,15 +453,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        private sealed class AvatarOptionsContext
-        {
-            public string NormalizedPhotoId { get; set; }
-
-            public IList<int> UnlockedAvatarIds { get; set; }
-
-            public int CurrentAvatarEntityId { get; set; }
-
-            public IList<Avatar> AvatarEntities { get; set; }
-        }
+       
     }
 }

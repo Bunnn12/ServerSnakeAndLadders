@@ -6,9 +6,6 @@ using SnakesAndLadders.Server.Helpers;
 
 namespace SnakesAndLadders.Services.Logic
 {
-    /// <summary>
-    /// Application service for lobby chat: sending and retrieving recent messages.
-    /// </summary>
     public sealed class ChatAppService
     {
         private const int DEFAULT_RECENT_MESSAGES_COUNT = 100;
@@ -20,9 +17,6 @@ namespace SnakesAndLadders.Services.Logic
             _chatRepository = chatRepository ?? throw new ArgumentNullException(nameof(chatRepository));
         }
 
-        /// <summary>
-        /// Sends a chat message to the specified lobby if it contains non-empty text.
-        /// </summary>
         public void Send(int lobbyId, ChatMessageDto message)
         {
             if (message == null || string.IsNullOrWhiteSpace(message.Text))
@@ -42,10 +36,6 @@ namespace SnakesAndLadders.Services.Logic
 
             _chatRepository.Append(lobbyId, message);
         }
-
-        /// <summary>
-        /// Gets the most recent messages for a lobby, up to the requested amount.
-        /// </summary>
         public IList<ChatMessageDto> GetRecent(int lobbyId, int take)
         {
             int effectiveTake = take <= 0 ? DEFAULT_RECENT_MESSAGES_COUNT : take;

@@ -11,9 +11,6 @@ using SnakesAndLadders.Data;
 
 namespace SnakesAndLadders.Data.Repositories
 {
-    /// <summary>
-    /// Repository for friend relationships: links, pending requests and friend search.
-    /// </summary>
     public sealed class FriendsRepository : IFriendsRepository
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(FriendsRepository));
@@ -55,9 +52,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        /// <summary>
-        /// Creates a pending friend link or auto-accepts when the reverse pending already exists.
-        /// </summary>
         public FriendLinkDto CreatePending(int requesterUserId, int targetUserId)
         {
             using (var dbContext = new SnakeAndLaddersDBEntities1())
@@ -325,7 +319,6 @@ namespace SnakesAndLadders.Data.Repositories
                          friendLink.UsuarioIdUsuario2 == userId))
                     .ToList();
 
-                // El que “recibe” es userId2
                 var incoming = pending
                     .Where(friendLink => friendLink.UsuarioIdUsuario2 == userId)
                     .ToList();
@@ -405,9 +398,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        /// <summary>
-        /// Searches users by user name, excluding the current user and users already linked.
-        /// </summary>
         public IReadOnlyList<UserBriefDto> SearchUsers(string query, int maxResults, int excludeUserId)
         {
             query = (query ?? string.Empty).Trim();

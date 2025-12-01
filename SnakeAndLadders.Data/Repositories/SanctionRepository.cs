@@ -10,9 +10,7 @@ using SnakesAndLadders.Data;
 
 namespace SnakesAndLadders.Data.Repositories
 {
-    /// <summary>
-    /// Repository that handles persistence and queries for user sanctions.
-    /// </summary>
+    
     public sealed class SanctionRepository : ISanctionRepository
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(SanctionRepository));
@@ -23,9 +21,6 @@ namespace SnakesAndLadders.Data.Repositories
         {
         }
 
-        /// <summary>
-        /// Inserts a new sanction and updates the DTO with the generated identifier.
-        /// </summary>
         public void InsertSanction(SanctionDto dto)
         {
             if (dto == null)
@@ -58,10 +53,6 @@ namespace SnakesAndLadders.Data.Repositories
                 throw;
             }
         }
-
-        /// <summary>
-        /// Gets the last sanction applied to a user, or null if none exists.
-        /// </summary>
         public SanctionDto GetLastSanctionForUser(int userId)
         {
             try
@@ -97,9 +88,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        /// <summary>
-        /// Gets the full sanctions history for a user, ordered from newest to oldest.
-        /// </summary>
         public IList<SanctionDto> GetSanctionsHistory(int userId)
         {
             try

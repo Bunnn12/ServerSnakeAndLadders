@@ -13,9 +13,7 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Data.Repositories
 {
-    /// <summary>
-    /// File-based implementation of chat message storage per lobby using JSON lines.
-    /// </summary>
+   
     public sealed class FileChatRepository : IChatRepository
     {
         private static readonly object _syncLock = new object();
@@ -96,10 +94,6 @@ namespace SnakesAndLadders.Data.Repositories
 
             return fullPath;
         }
-
-        /// <summary>
-        /// Appends a chat message to the lobby file as a JSON line.
-        /// </summary>
         public void Append(int lobbyId, ChatMessageDto message)
         {
             ValidateLobbyId(lobbyId);
@@ -185,9 +179,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        /// <summary>
-        /// Reads the last N messages for a lobby from its chat file.
-        /// </summary>
         public IList<ChatMessageDto> ReadLast(int lobbyId, int take)
         {
             ValidateLobbyId(lobbyId);

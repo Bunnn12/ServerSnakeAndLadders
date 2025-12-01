@@ -24,11 +24,9 @@ namespace SnakesAndLadders.Services.Wcf
         private readonly ConcurrentDictionary<int, LobbyInfo> lobbies =
             new ConcurrentDictionary<int, LobbyInfo>();
 
-        // callbacks por lobby -> por usuario
         private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, ILobbyCallback>> lobbyCallbacks =
             new ConcurrentDictionary<int, ConcurrentDictionary<int, ILobbyCallback>>();
 
-        // suscriptores de la lista de públicas (userId -> callback)
         private readonly ConcurrentDictionary<int, ILobbyCallback> publicLobbySubscribers =
             new ConcurrentDictionary<int, ILobbyCallback>();
 
@@ -441,8 +439,6 @@ namespace SnakesAndLadders.Services.Wcf
             return lobby;
         }
 
-        // --------- SUSCRIPCIÓN PÚBLICAS ----------
-
         public void SubscribePublicLobbies(int userId)
         {
             CleanupExpiredLobbies();
@@ -465,8 +461,6 @@ namespace SnakesAndLadders.Services.Wcf
         {
             publicLobbySubscribers.TryRemove(userId, out _);
         }
-
-        // --------- KICK GLOBAL ----------
 
         public void KickUserFromAllLobbies(int userId, string reason)
         {
@@ -544,8 +538,6 @@ namespace SnakesAndLadders.Services.Wcf
 
             BroadcastPublicLobbies();
         }
-
-        // --------- HELPERS CALLBACKS ----------
 
         private void RegisterLobbyCallback(int partidaId, int userId)
         {

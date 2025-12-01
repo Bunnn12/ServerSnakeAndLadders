@@ -12,9 +12,6 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Logic
 {
-    /// <summary>
-    /// Application service for authentication, token issuing and email verification.
-    /// </summary>
     public sealed class AuthAppService : IAuthAppService
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(AuthAppService));
@@ -77,9 +74,6 @@ namespace SnakesAndLadders.Services.Logic
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         }
 
-        /// <summary>
-        /// Registers a new user and returns an AuthResult with the created user id.
-        /// </summary>
         public AuthResult RegisterUser(RegistrationDto registration)
         {
             if (registration == null
@@ -123,9 +117,6 @@ namespace SnakesAndLadders.Services.Logic
             return Ok(userId: newUserId, displayName: registration.UserName);
         }
 
-        /// <summary>
-        /// Authenticates a user and issues a token if credentials are valid and the user is not banned.
-        /// </summary>
         public AuthResult Login(LoginDto request)
         {
             if (request == null
@@ -252,10 +243,6 @@ namespace SnakesAndLadders.Services.Logic
 
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
         }
-
-        /// <summary>
-        /// Requests an email verification code for the given email.
-        /// </summary>
         public AuthResult RequestEmailVerification(string email)
         {
             email = (email ?? string.Empty).Trim().ToLowerInvariant();
@@ -301,10 +288,6 @@ namespace SnakesAndLadders.Services.Logic
                     new Dictionary<string, string> { [META_KEY_REASON] = ex.GetType().Name });
             }
         }
-
-        /// <summary>
-        /// Confirms an email verification code previously requested.
-        /// </summary>
         public AuthResult ConfirmEmailVerification(string email, string code)
         {
             email = (email ?? string.Empty).Trim().ToLowerInvariant();

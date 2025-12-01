@@ -19,11 +19,6 @@ namespace SnakesAndLadders.Data.Repositories
         private const byte STATUS_INACTIVE_VALUE = 0x00;
 
         private const int COMMAND_TIMEOUT_SECONDS = 30;
-
-        /// <summary>
-        /// Sets the active state for the user, all related accounts and passwords.
-        /// When deactivating, it also frees username and email so they can be reused.
-        /// </summary>
         public void SetUserAndAccountActiveState(int userId, bool isActive)
         {
             if (userId < 1)

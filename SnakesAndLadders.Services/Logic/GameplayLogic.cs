@@ -240,7 +240,7 @@ namespace SnakesAndLadders.Services.Logic
 
                     if (isSnake && playerState.HasShield)
                     {
-                        // Aquí sabemos que la serpiente fue bloqueada
+                        
                         extraInfo = EXTRA_INFO_SNAKE_BLOCKED_BY_SHIELD;
                     }
                     else if (isLadder)
@@ -338,9 +338,9 @@ namespace SnakesAndLadders.Services.Logic
 
 
         public ItemEffectResult UseItem(
-    int userId,
-    string itemCode,
-    int? targetUserId)
+            int userId,
+            string itemCode,
+            int? targetUserId)
         {
             if (string.IsNullOrWhiteSpace(itemCode))
             {
@@ -576,7 +576,6 @@ namespace SnakesAndLadders.Services.Logic
                 WasBlockedByShield = wasBlockedByShield,
                 TargetFrozen = false,
                 ShieldActivated = false,
-                // ⬇️ no efecto = no consumir
                 ShouldConsumeItemImmediately = !wasBlockedByShield
             };
         }
@@ -666,11 +665,9 @@ namespace SnakesAndLadders.Services.Logic
 
             if (isSnake && targetPlayer.HasShield)
             {
-                // Serpiente bloqueada por escudo: no se mueve
                 return candidatePosition;
             }
 
-            // No hay escudo o es escalera: se aplica el salto normal
             finalPosition = jumpDestination;
 
             return finalPosition;

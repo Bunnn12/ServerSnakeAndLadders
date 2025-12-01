@@ -5,9 +5,6 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Logic
 {
-    /// <summary>
-    /// Application service for statistics and rankings.
-    /// </summary>
     public sealed class StatsAppService : IStatsAppService
     {
         private const int DEFAULT_MAX_RESULTS = 50;

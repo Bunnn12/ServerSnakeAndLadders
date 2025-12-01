@@ -10,9 +10,7 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Host.Helpers
 {
-    /// <summary>
-    /// SMTP-based implementation of IEmailSender for sending emails.
-    /// </summary>
+
     public sealed class SmtpEmailSender : IEmailSender
     {
         private const string SMTP_HOST_KEY = "Smtp:Host";

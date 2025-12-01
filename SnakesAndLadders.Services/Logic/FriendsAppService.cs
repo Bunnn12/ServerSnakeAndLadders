@@ -9,9 +9,6 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Services.Logic
 {
-    /// <summary>
-    /// Application service that manages friend requests, links and search operations.
-    /// </summary>
     public sealed class FriendsAppService : IFriendsAppService
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(FriendsAppService));
@@ -37,10 +34,6 @@ namespace SnakesAndLadders.Services.Logic
             _getUserIdFromToken = getUserIdFromToken ?? throw new ArgumentNullException(nameof(getUserIdFromToken));
         }
 
-        /// <summary>
-        /// Sends a friend request from the current user (token) to the target user.
-        /// May auto-accept if a reverse pending request exists.
-        /// </summary>
         public FriendLinkDto SendFriendRequest(string token, int targetUserId)
         {
             int currentUserId = EnsureUser(token);

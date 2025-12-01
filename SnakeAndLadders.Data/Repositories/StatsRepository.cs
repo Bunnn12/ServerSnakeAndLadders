@@ -9,9 +9,7 @@ using SnakesAndLadders.Data;
 
 namespace SnakesAndLadders.Data.Repositories
 {
-    /// <summary>
-    /// Repository for statistics and ranking-related queries.
-    /// </summary>
+ 
     public sealed class StatsRepository : IStatsRepository
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(StatsRepository));
@@ -21,10 +19,6 @@ namespace SnakesAndLadders.Data.Repositories
         private const int DEFAULT_RANKING_MAX_RESULTS = 50;
 
         private const byte WINNER_FLAG = 0x01;
-
-        /// <summary>
-        /// Gets the top players ordered by coins (descending) and username (ascending).
-        /// </summary>
         public IList<PlayerRankingItemDto> GetTopPlayersByCoins(int maxResults)
         {
             if (maxResults <= 0)
@@ -67,9 +61,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        /// <summary>
-        /// Gets statistics for a single player, including matches and ranking by coins.
-        /// </summary>
         public PlayerStatsDto GetPlayerStatsByUserId(int userId, int rankingMaxResults)
         {
             if (userId <= 0)

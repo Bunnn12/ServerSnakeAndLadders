@@ -161,6 +161,7 @@
     <Compile Include="Repositories\AccountsRepository.cs" />
     <Compile Include="Repositories\AccountStatusRepository.cs" />
     <Compile Include="Repositories\AvatarDefaults.cs" />
+    <Compile Include="Repositories\AvatarOptionsContext.cs" />
     <Compile Include="Repositories\AvatarSpecialMapping.cs" />
     <Compile Include="Repositories\FileChatRepository.cs" />
     <Compile Include="Repositories\FriendsRepository.cs" />

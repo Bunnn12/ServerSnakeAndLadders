@@ -393,7 +393,6 @@ namespace ServerSnakesAndLadders
                 {
                     ConfigureContext(context);
 
-                    // 1) Buscar la cuenta ACTIVA de ese usuario
                     var account = context.Cuenta
                         .AsNoTracking()
                         .Where(c => c.UsuarioIdUsuario == userId)

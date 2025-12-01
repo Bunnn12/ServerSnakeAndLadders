@@ -44,7 +44,7 @@ namespace SnakesAndLadders.Data.Repositories
 
                     var partida = new Partida
                     {
-                        // IdPartida lo genera la BD (IDENTITY)
+
                         Dificultad = safeDifficulty,
                         CodigoPartida = code,
                         FechaInicio = null,
@@ -57,7 +57,6 @@ namespace SnakesAndLadders.Data.Repositories
                     context.Partida.Add(partida);
                     context.SaveChanges();
 
-                    // Si quieres persistir que el host está ligado a la partida:
                     var hostLink = new UsuarioHasPartida
                     {
                         UsuarioIdUsuario = hostUserId,

@@ -1,4 +1,4 @@
-﻿// SnakesAndLadders.Services.Wcf/GameplayService.cs
+﻿
 using log4net;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
@@ -188,24 +188,19 @@ namespace SnakesAndLadders.Services.Wcf
                     request.TargetUserId);
 
                 bool isRocket = effectResult.EffectType == ItemEffectType.Rocket;
-
-                // --- Decidir consumo ---
                 bool shouldConsume = effectResult.ShouldConsumeItemImmediately;
 
-                // No consumir si lo bloqueó escudo
                 if (effectResult.WasBlockedByShield)
                 {
                     shouldConsume = false;
                 }
 
-                // No consumir si no hubo movimiento real (ej. Ancla en casilla inicial)
                 if (effectResult.EffectType == ItemEffectType.Anchor &&
                     effectResult.FromCellIndex == effectResult.ToCellIndex)
                 {
                     shouldConsume = false;
                 }
 
-                // Rocket: se difiere al siguiente tiro (solo si no fue bloqueado)
                 if (isRocket && !effectResult.WasBlockedByShield)
                 {
                     TrackPendingRocket(

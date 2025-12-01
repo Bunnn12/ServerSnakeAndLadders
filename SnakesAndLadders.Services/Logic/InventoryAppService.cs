@@ -151,7 +151,7 @@ namespace SnakesAndLadders.Services.Logic
 
                 var slots = BuildCurrentItemSlots(items);
 
-                // Regla: no se puede equipar el mismo objeto en más de un slot.
+               
                 foreach (var slotKey in slots.Keys.ToList())
                 {
                     if (slots[slotKey].HasValue && slots[slotKey].Value == objectId)
