@@ -1,5 +1,4 @@
 ﻿using log4net;
-using log4net.Repository.Hierarchy;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Faults;
 using SnakeAndLadders.Contracts.Interfaces;
@@ -9,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.ServiceModel;
+using System.Threading;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -34,12 +34,22 @@ namespace SnakesAndLadders.Services.Wcf
 
         private readonly Random rng = new Random();
 
+        private readonly Timer cleanupTimer;
+
         private const string REASON_CLOSED = "CLOSED";
         private const string REASON_KICKED = "KICKED";
+
+        private const int CLEANUP_INTERVAL_SECONDS = 30;
 
         public LobbyService(ILobbyAppService lobbyAppService)
         {
             this.lobbyAppService = lobbyAppService ?? throw new ArgumentNullException(nameof(lobbyAppService));
+
+            cleanupTimer = new Timer(
+                _ => CleanupExpiredLobbies(),
+                null,
+                TimeSpan.FromSeconds(CLEANUP_INTERVAL_SECONDS),
+                TimeSpan.FromSeconds(CLEANUP_INTERVAL_SECONDS));
         }
 
         private static bool IsGuestUser(int userId)
@@ -61,6 +71,16 @@ namespace SnakesAndLadders.Services.Wcf
             {
                 return rng.Next(0, 999_999).ToString("000000");
             }
+        }
+
+        private static bool IsLobbyExpired(LobbyInfo lobby, DateTime nowUtc)
+        {
+            if (lobby == null)
+            {
+                return true;
+            }
+
+            return lobby.ExpiresAtUtc <= nowUtc;
         }
 
         public CreateGameResponse CreateGame(CreateGameRequest request)
@@ -128,18 +148,17 @@ namespace SnakesAndLadders.Services.Wcf
 
             lobbies[partidaId] = lobby;
 
-            // registrar callback del host
             RegisterLobbyCallback(partidaId, request.HostUserId);
 
-            // notificar lista de públicas
             BroadcastPublicLobbies();
 
             Logger.InfoFormat(
-    "CreateGame: LobbyId={0}, Code={1}, IsPrivate={2}, Status={3}",
-    lobby.PartidaId,
-    lobby.CodigoPartida,
-    lobby.IsPrivate,
-    lobby.Status);
+                "CreateGame: LobbyId={0}, Code={1}, IsPrivate={2}, Status={3}, ExpiresAtUtc={4:u}",
+                lobby.PartidaId,
+                lobby.CodigoPartida,
+                lobby.IsPrivate,
+                lobby.Status,
+                lobby.ExpiresAtUtc);
 
             return new CreateGameResponse
             {
@@ -147,12 +166,12 @@ namespace SnakesAndLadders.Services.Wcf
                 CodigoPartida = codigo,
                 ExpiresAtUtc = expiresAtUtc
             };
-
-            
         }
 
         public JoinLobbyResponse JoinLobby(JoinLobbyRequest request)
         {
+            CleanupExpiredLobbies();
+
             Logger.Info("JoinLobby: inicio.");
 
             if (request == null)
@@ -161,7 +180,10 @@ namespace SnakesAndLadders.Services.Wcf
                 return Fail("Solicitud nula.");
             }
 
-            Logger.InfoFormat("JoinLobby: buscando lobby con código {0}. UserId={1}", request.CodigoPartida, request.UserId);
+            Logger.InfoFormat(
+                "JoinLobby: buscando lobby con código {0}. UserId={1}",
+                request.CodigoPartida,
+                request.UserId);
 
             LobbyInfo lobby = lobbies
                 .Values
@@ -169,11 +191,30 @@ namespace SnakesAndLadders.Services.Wcf
 
             if (lobby == null)
             {
-                Logger.WarnFormat("JoinLobby: lobby no encontrado para código {0}.", request.CodigoPartida);
+                Logger.WarnFormat(
+                    "JoinLobby: lobby no encontrado para código {0}.",
+                    request.CodigoPartida);
                 return Fail("Código inválido.");
             }
 
-            Logger.InfoFormat("JoinLobby: lobby {0} encontrado. Status={1}, Players={2}/{3}",
+            DateTime nowUtc = DateTime.UtcNow;
+
+            if (IsLobbyExpired(lobby, nowUtc) || lobby.Status == LobbyStatus.Closed)
+            {
+                Logger.WarnFormat(
+                    "JoinLobby: lobby expirado o cerrado. PartidaId={0}, Status={1}, ExpiresAtUtc={2:u}",
+                    lobby.PartidaId,
+                    lobby.Status,
+                    lobby.ExpiresAtUtc);
+
+                CloseLobby(lobby, REASON_CLOSED);
+                BroadcastPublicLobbies();
+
+                return Fail("La partida ha expirado o está cerrada.");
+            }
+
+            Logger.InfoFormat(
+                "JoinLobby: lobby {0} encontrado. Status={1}, Players={2}/{3}",
                 lobby.PartidaId,
                 lobby.Status,
                 lobby.Players.Count,
@@ -196,12 +237,14 @@ namespace SnakesAndLadders.Services.Wcf
 
             if (existing != null)
             {
-                Logger.InfoFormat("JoinLobby: usuario {0} ya estaba en el lobby {1}. Solo se re-registra callback.",
+                Logger.InfoFormat(
+                    "JoinLobby: usuario {0} ya estaba en el lobby {1}. Solo se re-registra callback.",
                     request.UserId,
                     lobby.PartidaId);
 
                 RegisterLobbyCallback(lobby.PartidaId, request.UserId);
                 NotifyLobbyUpdated(lobby);
+
                 return new JoinLobbyResponse
                 {
                     Success = true,
@@ -209,20 +252,20 @@ namespace SnakesAndLadders.Services.Wcf
                 };
             }
 
-            Logger.InfoFormat("JoinLobby: usuario {0} nuevo en lobby {1}. Registrando en BD (si no es guest).",
+            Logger.InfoFormat(
+                "JoinLobby: usuario {0} nuevo en lobby {1}. Registrando en BD (si no es guest).",
                 request.UserId,
                 lobby.PartidaId);
 
             if (!IsGuestUser(request.UserId))
             {
-                // ⚠️ AQUÍ es donde sospecho que se puede estar colgando
                 lobbyAppService.RegisterPlayerInGame(
                     lobby.PartidaId,
                     request.UserId,
                     isHost: false);
-                
 
-                Logger.InfoFormat("JoinLobby: RegisterPlayerInGame completado para GameId={0}, UserId={1}.",
+                Logger.InfoFormat(
+                    "JoinLobby: RegisterPlayerInGame completado para GameId={0}, UserId={1}.",
                     lobby.PartidaId,
                     request.UserId);
             }
@@ -239,7 +282,8 @@ namespace SnakesAndLadders.Services.Wcf
                     CurrentSkinId = request.CurrentSkinId
                 });
 
-            Logger.InfoFormat("JoinLobby: usuario {0} agregado al lobby {1}. Total players={2}.",
+            Logger.InfoFormat(
+                "JoinLobby: usuario {0} agregado al lobby {1}. Total players={2}.",
                 request.UserId,
                 lobby.PartidaId,
                 lobby.Players.Count);
@@ -257,6 +301,19 @@ namespace SnakesAndLadders.Services.Wcf
             };
         }
 
+        private void CloseLobby(LobbyInfo lobby, string reason)
+        {
+            if (lobby == null)
+            {
+                return;
+            }
+
+            lobby.Status = LobbyStatus.Closed;
+
+            lobbies.TryRemove(lobby.PartidaId, out _);
+
+            NotifyLobbyClosed(lobby.PartidaId, reason ?? REASON_CLOSED);
+        }
 
         public OperationResult LeaveLobby(LeaveLobbyRequest request)
         {
@@ -301,9 +358,7 @@ namespace SnakesAndLadders.Services.Wcf
                 }
                 else
                 {
-                    lobby.Status = LobbyStatus.Closed;
-                    lobbies.TryRemove(request.PartidaId, out _);
-                    NotifyLobbyClosed(request.PartidaId, REASON_CLOSED);
+                    CloseLobby(lobby, REASON_CLOSED);
                     BroadcastPublicLobbies();
 
                     return new OperationResult
@@ -332,6 +387,20 @@ namespace SnakesAndLadders.Services.Wcf
                 {
                     Success = false,
                     Message = "Lobby no encontrado."
+                };
+            }
+
+            DateTime nowUtc = DateTime.UtcNow;
+
+            if (IsLobbyExpired(lobby, nowUtc) || lobby.Status == LobbyStatus.Closed)
+            {
+                CloseLobby(lobby, REASON_CLOSED);
+                BroadcastPublicLobbies();
+
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = "El lobby ha expirado o está cerrado."
                 };
             }
 
@@ -366,6 +435,8 @@ namespace SnakesAndLadders.Services.Wcf
 
         public LobbyInfo GetLobbyInfo(GetLobbyInfoRequest request)
         {
+            CleanupExpiredLobbies();
+
             lobbies.TryGetValue(request.PartidaId, out LobbyInfo lobby);
             return lobby;
         }
@@ -374,6 +445,8 @@ namespace SnakesAndLadders.Services.Wcf
 
         public void SubscribePublicLobbies(int userId)
         {
+            CleanupExpiredLobbies();
+
             ILobbyCallback callback = OperationContext.Current.GetCallbackChannel<ILobbyCallback>();
             if (callback == null)
             {
@@ -382,7 +455,6 @@ namespace SnakesAndLadders.Services.Wcf
 
             publicLobbySubscribers[userId] = callback;
 
-            // mandar snapshot inicial
             IList<LobbySummary> snapshot = BuildPublicLobbySummaries();
             SafeInvoke(
                 callback,
@@ -439,14 +511,34 @@ namespace SnakesAndLadders.Services.Wcf
                     }
                     else
                     {
-                        lobby.Status = LobbyStatus.Closed;
-                        lobbies.TryRemove(lobby.PartidaId, out _);
-                        NotifyLobbyClosed(lobby.PartidaId, REASON_CLOSED);
+                        CloseLobby(lobby, REASON_CLOSED);
                     }
                 }
                 else
                 {
                     NotifyLobbyUpdated(lobby);
+                }
+            }
+
+            BroadcastPublicLobbies();
+        }
+
+        private void CleanupExpiredLobbies()
+        {
+            DateTime nowUtc = DateTime.UtcNow;
+
+            LobbyInfo[] snapshot = lobbies.Values.ToArray();
+
+            foreach (LobbyInfo lobby in snapshot)
+            {
+                if (IsLobbyExpired(lobby, nowUtc) && lobby.Status != LobbyStatus.Closed)
+                {
+                    Logger.InfoFormat(
+                        "CleanupExpiredLobbies: cerrando lobby expirado. PartidaId={0}, ExpiresAtUtc={1:u}",
+                        lobby.PartidaId,
+                        lobby.ExpiresAtUtc);
+
+                    CloseLobby(lobby, REASON_CLOSED);
                 }
             }
 
@@ -556,9 +648,14 @@ namespace SnakesAndLadders.Services.Wcf
 
         private IList<LobbySummary> BuildPublicLobbySummaries()
         {
+            DateTime nowUtc = DateTime.UtcNow;
+
             return lobbies
                 .Values
-                .Where(l => !l.IsPrivate && l.Status == LobbyStatus.Waiting)
+                .Where(l =>
+                    !l.IsPrivate &&
+                    l.Status == LobbyStatus.Waiting &&
+                    !IsLobbyExpired(l, nowUtc))
                 .Select(l => new LobbySummary
                 {
                     PartidaId = l.PartidaId,

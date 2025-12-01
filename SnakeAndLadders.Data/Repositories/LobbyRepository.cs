@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
+using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Data.Repositories
@@ -91,6 +92,28 @@ namespace SnakesAndLadders.Data.Repositories
                 }
 
                 throw;
+            }
+        }
+
+        public void UpdateGameStatus(int gameId, LobbyStatus newStatus)
+        {
+            if (gameId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(gameId));
+            }
+
+            using (var context = new SnakeAndLaddersDBEntities1())
+            {
+                var partida = context.Partida
+                    .SingleOrDefault(p => p.IdPartida == gameId);
+
+                if (partida == null)
+                {
+                    return;
+                }
+
+                partida.EstadoPartida = (byte)newStatus;
+                context.SaveChanges();
             }
         }
 
