@@ -63,6 +63,7 @@
     <Compile Include="Logic\MatchInvitationAppService.cs" />
     <Compile Include="Logic\PlayerReportAppService.cs" />
     <Compile Include="Logic\ShopAppService.cs" />
+    <Compile Include="Logic\SocialProfileAppService.cs" />
     <Compile Include="Logic\StatsAppService.cs" />
     <Compile Include="Logic\UserAppService.cs" />
     <Compile Include="Wcf\AuthService.cs" />
@@ -75,6 +76,7 @@
     <Compile Include="Wcf\MatchInvitationService.cs" />
     <Compile Include="Wcf\PlayerReportService.cs" />
     <Compile Include="Wcf\ShopService.cs" />
+    <Compile Include="Wcf\SocialProfileService.cs" />
     <Compile Include="Wcf\StatsService.cs" />
     <Compile Include="Wcf\UserService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

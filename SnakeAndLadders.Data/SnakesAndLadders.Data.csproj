@@ -168,6 +168,7 @@
     <Compile Include="Repositories\SanctionRepository.cs" />
     <Compile Include="Repositories\ShopRepository.cs" />
     <Compile Include="Repositories\ShopRulesRepository.cs" />
+    <Compile Include="Repositories\SocialProfileRepository.cs" />
     <Compile Include="Repositories\StatsRepository.cs" />
     <Compile Include="Repositories\UserRepository.cs" />
     <Compile Include="Sancion.cs">

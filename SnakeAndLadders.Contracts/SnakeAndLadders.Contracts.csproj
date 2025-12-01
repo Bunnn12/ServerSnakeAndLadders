@@ -86,13 +86,16 @@
     <Compile Include="Dtos\Gameplay\UseItemResponseDto.cs" />
     <Compile Include="Dtos\InviteFriendToGameRequestDto.cs" />
     <Compile Include="Dtos\ItemChestPurchaseDto.cs" />
+    <Compile Include="Dtos\LinkSocialProfileRequestDto.cs" />
     <Compile Include="Dtos\LobbySummary.cs" />
     <Compile Include="Dtos\PasswordHistoryResult.cs" />
     <Compile Include="Dtos\PersistPasswordResult.cs" />
     <Compile Include="Dtos\PlayerStatsDto.cs" />
     <Compile Include="Dtos\ProfilePhotoDto.cs" />
     <Compile Include="Dtos\ShopRewardDto.cs" />
+    <Compile Include="Dtos\SocialProfileDto.cs" />
     <Compile Include="Dtos\StickerChestPurchaseDto.cs" />
+    <Compile Include="Dtos\UnlinkSocialProfileRequestDto.cs" />
     <Compile Include="Dtos\UpdateProfileRequestDto.cs" />
     <Compile Include="Dtos\UserContactInfoDto.cs" />
     <Compile Include="Enums\ItemEffectType.cs" />
@@ -121,6 +124,7 @@
     <Compile Include="Enums\FriendRequestStatus.cs" />
     <Compile Include="Enums\ShopChestRarity.cs" />
     <Compile Include="Enums\ShopRewardType.cs" />
+    <Compile Include="Enums\SocialNetworkType.cs" />
     <Compile Include="Faults\Faults.cs" />
     <Compile Include="Faults\ServiceFault.cs" />
     <Compile Include="Helpers\AvatarIdHelper.cs" />
@@ -148,6 +152,8 @@
     <Compile Include="Interfaces\ISanctionRepository.cs" />
     <Compile Include="Interfaces\IShopAppService.cs" />
     <Compile Include="Interfaces\IShopRepository.cs" />
+    <Compile Include="Interfaces\ISocialProfileAppService.cs" />
+    <Compile Include="Interfaces\ISocialProfileRepository.cs" />
     <Compile Include="Interfaces\IStatsAppService.cs" />
     <Compile Include="Interfaces\IStatsRepository.cs" />
     <Compile Include="Interfaces\IUserAppService.cs" />
@@ -166,6 +172,7 @@
     <Compile Include="Services\IMatchInvitationService.cs" />
     <Compile Include="Services\IPlayerReportService.cs" />
     <Compile Include="Services\IShopService.cs" />
+    <Compile Include="Services\ISocialProfileService.cs" />
     <Compile Include="Services\IStatsService.cs" />
     <Compile Include="Services\IUserService.cs" />
   </ItemGroup>

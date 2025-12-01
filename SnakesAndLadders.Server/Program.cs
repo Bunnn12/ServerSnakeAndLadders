@@ -51,6 +51,7 @@ internal static class Program
         ServiceHost shopHost = null;
         ServiceHost inventoryHost = null;
         ServiceHost matchInvitationHost = null;
+        ServiceHost socialProfileHost = null;
 
         try
         {
@@ -75,6 +76,8 @@ internal static class Program
             IStatsRepository statsRepo = new StatsRepository();
             var shopRepo = new ShopRepository();
             var inventoryRepo = new InventoryRepository();
+            var socialProfileRepo = new SocialProfileRepository();
+            ISocialProfileRepository socialProfileRepository = socialProfileRepo;
 
             IPasswordHasher hasher = new Sha256PasswordHasher();
             IEmailSender email = new SmtpEmailSender();
@@ -85,11 +88,10 @@ internal static class Program
             var lobbySvc = new LobbyService(lobbyAppService);
 
             var playerSessionManager = new PlayerSessionManager(lobbySvc);
-
-            var playerReportApp = new PlayerReportAppService( reportRepo, sanctionRepo, accountStatusRepo,
-                playerSessionManager);
-
-            var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp, userRepository);
+            var playerReportApp = new PlayerReportAppService( reportRepo, sanctionRepo, 
+                accountStatusRepo, playerSessionManager);
+            var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp, 
+                userRepository);
             Func<string, int> getUserId = token => authApp.GetUserIdFromToken(token);
             var userApp = new UserAppService(userRepo, accountStatusRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
@@ -97,8 +99,10 @@ internal static class Program
             var friendsApp = new FriendsAppService(friendsRepo, getUserId);
             var shopApp = new ShopAppService(shopRepo, getUserId);
             var inventoryApp = new InventoryAppService(inventoryRepo);
-            var matchInvitationApp = new MatchInvitationAppService(friendsRepo, userRepo, accountsRepo,
-                email, getUserId);
+            var matchInvitationApp = new MatchInvitationAppService(friendsRepo, userRepo, 
+                accountsRepo, email, getUserId);
+            ISocialProfileAppService socialProfileApp = new SocialProfileAppService(
+                socialProfileRepository, userRepository);
 
             IGameSessionStore gameSessionStore = new InMemoryGameSessionStore();
 
@@ -113,6 +117,7 @@ internal static class Program
             var shopSvc = new ShopService(shopApp);
             var inventorySvc = new InventoryService(inventoryApp);
             var matchInvitationSvc = new MatchInvitationService(matchInvitationApp);
+            var socialProfileSvc = new SocialProfileService(socialProfileApp);
 
             lobbyHost = new ServiceHost(lobbySvc);
             authHost = new ServiceHost(authSvc);
@@ -126,6 +131,7 @@ internal static class Program
             shopHost = new ServiceHost(shopSvc);
             inventoryHost = new ServiceHost(inventorySvc);
             matchInvitationHost = new ServiceHost(matchInvitationSvc);
+            socialProfileHost = new ServiceHost(socialProfileSvc);
 
             authHost.Open();
             userHost.Open();
@@ -139,6 +145,7 @@ internal static class Program
             shopHost.Open();
             inventoryHost.Open();
             matchInvitationHost.Open();
+            socialProfileHost.Open();
 
             Log.Info("Servidor iniciado y servicios levantados.");
 
@@ -155,6 +162,7 @@ internal static class Program
             Console.WriteLine(" - " + typeof(ShopService).FullName);
             Console.WriteLine(" - " + typeof(InventoryService).FullName);
             Console.WriteLine(" - " + typeof(MatchInvitationService).FullName);
+            Console.WriteLine(" - " + typeof(SocialProfileService).FullName);
             Console.WriteLine("Presiona Enter para detener…");
             Console.ReadLine();
         }
@@ -208,6 +216,7 @@ internal static class Program
             CloseSafely(shopHost, "ShopService");
             CloseSafely(inventoryHost, "InventoryService");
             CloseSafely(matchInvitationHost, "MatchInvitationService");
+            CloseSafely(socialProfileHost, "SocialProfileService");
 
             Log.Info("Servidor detenido.");
         }
