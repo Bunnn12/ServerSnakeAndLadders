@@ -229,10 +229,8 @@ namespace SnakesAndLadders.Services.Logic
                     };
                 }
 
-                // Primero resolvemos posición final respetando el escudo
                 int finalTarget = ApplyJumpEffectsIfAny(playerState, tentativeTarget);
 
-                // Luego calculamos el extraInfo solo para el mensaje
                 string extraInfo = string.Empty;
 
                 if (jumpDestinationsByStartIndex.TryGetValue(tentativeTarget, out int jumpDestination))
