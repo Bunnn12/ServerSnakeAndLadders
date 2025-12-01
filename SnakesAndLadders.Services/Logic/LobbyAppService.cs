@@ -8,7 +8,7 @@ namespace SnakesAndLadders.Services.Logic
 {
     public sealed class LobbyAppService : ILobbyAppService
     {
-        private const int DEFAULT_TTL_MINUTES = 5;
+        private const int DEFAULT_TTL_MINUTES = 30;
         private const int GAME_CODE_LENGTH = 6;
         private const int GAME_CODE_MAX_ATTEMPTS = 10;
         private const int GAME_CODE_MAX_VALUE_EXCLUSIVE = 1_000_000;

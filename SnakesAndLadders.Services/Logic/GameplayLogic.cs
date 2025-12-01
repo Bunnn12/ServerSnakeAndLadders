@@ -1,4 +1,4 @@
-﻿// SnakesAndLadders.Services.Logic/GameplayLogic.cs
+﻿
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
 using SnakesAndLadders.Services.Logic.Gameplay;
@@ -229,7 +229,10 @@ namespace SnakesAndLadders.Services.Logic
                     };
                 }
 
-                int finalTarget = tentativeTarget;
+                // Primero resolvemos posición final respetando el escudo
+                int finalTarget = ApplyJumpEffectsIfAny(playerState, tentativeTarget);
+
+                // Luego calculamos el extraInfo solo para el mensaje
                 string extraInfo = string.Empty;
 
                 if (jumpDestinationsByStartIndex.TryGetValue(tentativeTarget, out int jumpDestination))
@@ -239,25 +242,20 @@ namespace SnakesAndLadders.Services.Logic
 
                     if (isSnake && playerState.HasShield)
                     {
-                        finalTarget = tentativeTarget;
+                        // Aquí sabemos que la serpiente fue bloqueada
                         extraInfo = EXTRA_INFO_SNAKE_BLOCKED_BY_SHIELD;
+                    }
+                    else if (isLadder)
+                    {
+                        extraInfo = EXTRA_INFO_LADDER;
+                    }
+                    else if (isSnake)
+                    {
+                        extraInfo = EXTRA_INFO_SNAKE;
                     }
                     else
                     {
-                        finalTarget = jumpDestination;
-
-                        if (isLadder)
-                        {
-                            extraInfo = EXTRA_INFO_LADDER;
-                        }
-                        else if (isSnake)
-                        {
-                            extraInfo = EXTRA_INFO_SNAKE;
-                        }
-                        else
-                        {
-                            extraInfo = EXTRA_INFO_JUMP_SAME;
-                        }
+                        extraInfo = EXTRA_INFO_JUMP_SAME;
                     }
                 }
 
@@ -393,31 +391,30 @@ namespace SnakesAndLadders.Services.Logic
                 switch (normalizedCode)
                 {
                     case ITEM_CODE_ROCKET:
-                        // 🚀 Rocket solo a uno mismo
+                        
                         EnsureSelfTargetOnly("Rocket", userId, targetUserId);
                         result = ApplyRocket(currentPlayer);
                         break;
 
                     case ITEM_CODE_ANCHOR:
-                        // ⚓ Anchor puede ser a uno mismo u otro jugador
-                        // (las validaciones finas ya las hace ApplyAnchor, incluido escudo y casilla)
+                        
                         result = ApplyAnchor(currentPlayer, targetUserId);
                         break;
 
                     case ITEM_CODE_SWAP:
-                        // 🔄 Swap siempre requiere OTRO jugador
+                        
                         EnsureOtherPlayerTargetRequired("Intercambio", userId, targetUserId);
                         result = ApplySwap(currentPlayer, targetUserId);
                         break;
 
                     case ITEM_CODE_FREEZE:
-                        // ❄ Freeze siempre requiere OTRO jugador
+                        
                         EnsureOtherPlayerTargetRequired("Congelar", userId, targetUserId);
                         result = ApplyFreeze(currentPlayer, targetUserId);
                         break;
 
                     case ITEM_CODE_SHIELD:
-                        // 🛡 Shield solo a uno mismo
+                        
                         EnsureSelfTargetOnly("Escudo", userId, targetUserId);
                         result = ApplyShield(currentPlayer);
                         break;
@@ -426,7 +423,6 @@ namespace SnakesAndLadders.Services.Logic
                         throw new InvalidOperationException("Código de ítem no soportado.");
                 }
 
-                // 🔹 Solo marcamos que ya usó ítem si NO fue bloqueado por escudo
                 if (!result.WasBlockedByShield)
                 {
                     currentPlayer.ItemUsedThisTurn = true;
@@ -494,28 +490,22 @@ namespace SnakesAndLadders.Services.Logic
                 throw new InvalidOperationException("Target player is not part of this game.");
             }
 
-            // 🚫 No se puede usar Ancla contra escudo
             if (targetPlayer.HasShield)
             {
                 throw new InvalidOperationException("No puedes usar Ancla contra un jugador que tiene un escudo activo.");
             }
 
             int originalPosition = targetPlayer.Position;
-
-            // 🔹 Solo queremos permitir Ancla si está EXACTAMENTE a 3 casillas de la inicial
-            //     (ej. MIN_BOARD_CELL = 1, ANCHOR_BACKWARD_STEPS = 3 => solo casilla 4)
             int minimumCellForAnchor = MIN_BOARD_CELL + ANCHOR_BACKWARD_STEPS;
 
-            if (originalPosition != minimumCellForAnchor)
+            if (originalPosition <= minimumCellForAnchor)
             {
                 throw new InvalidOperationException(
                     "Solo puedes usar Ancla cuando estás exactamente a 3 casillas de la casilla inicial.");
             }
 
-            // En este punto sabemos que sí se puede retroceder 3 casillas sin salirnos del tablero
             int candidatePosition = originalPosition - ANCHOR_BACKWARD_STEPS;
 
-            // Por construcción, candidatePosition == MIN_BOARD_CELL, pero por seguridad:
             if (candidatePosition < MIN_BOARD_CELL)
             {
                 candidatePosition = MIN_BOARD_CELL;
@@ -669,22 +659,25 @@ namespace SnakesAndLadders.Services.Logic
         {
             int finalPosition = candidatePosition;
 
-            if (jumpDestinationsByStartIndex.TryGetValue(candidatePosition, out int jumpDestination))
+            if (!jumpDestinationsByStartIndex.TryGetValue(candidatePosition, out int jumpDestination))
             {
-                bool isSnake = jumpDestination < candidatePosition;
-
-                if (isSnake && targetPlayer.HasShield)
-                {
-                    finalPosition = candidatePosition;
-                }
-                else
-                {
-                    finalPosition = jumpDestination;
-                }
+                return finalPosition;
             }
+
+            bool isSnake = jumpDestination < candidatePosition;
+
+            if (isSnake && targetPlayer.HasShield)
+            {
+                // Serpiente bloqueada por escudo: no se mueve
+                return candidatePosition;
+            }
+
+            // No hay escudo o es escalera: se aplica el salto normal
+            finalPosition = jumpDestination;
 
             return finalPosition;
         }
+
 
         private void AdvanceTurnAndResetFlags(int currentUserId)
         {

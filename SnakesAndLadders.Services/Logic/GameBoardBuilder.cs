@@ -42,7 +42,7 @@ namespace SnakesAndLadders.Services.Logic
 
         private const int SNAKES_8_EASY = 4;
         private const int SNAKES_8_MEDIUM = 5;
-        private const int SNAKES_8_HARD = 6;
+        private const int SNAKES_8_HARD = 20; //6
 
         private const int SNAKES_10_EASY = 5;
         private const int SNAKES_10_MEDIUM = 6;
