@@ -17,5 +17,8 @@ namespace SnakeAndLadders.Contracts.Services
 
         [OperationContract]
         void DeactivateAccount(int userId);
+
+        [OperationContract]
+        AvatarProfileOptionsDto GetAvatarOptions(int userId);
     }
 }

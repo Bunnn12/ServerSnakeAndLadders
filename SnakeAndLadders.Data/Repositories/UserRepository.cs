@@ -1,6 +1,8 @@
 ﻿using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Server.Helpers;
 using System;
+using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
 
@@ -13,9 +15,7 @@ namespace SnakesAndLadders.Data.Repositories
         private const int MAX_LAST_NAME = 255;
         private const int MAX_DESCRIPTION = 500;
 
-        private const string DEFAULT_PROFILE_PHOTO_ID = "DEF";
         private const byte STATUS_ACTIVE = 0x01;
-        private const byte STATUS_INACTIVE = 0x00;
 
         private static bool IsActive(byte[] estado)
         {
@@ -196,59 +196,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        public static string GetAvatarIdByUserId(int userId)
-        {
-            if (userId <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(userId));
-            }
-
-            using (var db = new SnakeAndLaddersDBEntities1())
-            {
-                var user = db.Usuario
-                    .AsNoTracking()
-                    .SingleOrDefault(u => u.IdUsuario == userId);
-
-                if (user == null)
-                {
-                    return DEFAULT_PROFILE_PHOTO_ID;
-                }
-
-                AvatarDesbloqueado avatarUnlocked = null;
-                Avatar avatar = null;
-
-                if (user.IdAvatarDesbloqueadoActual.HasValue)
-                {
-                    int unlockedId = user.IdAvatarDesbloqueadoActual.Value;
-
-                    avatarUnlocked = db.AvatarDesbloqueado
-                        .AsNoTracking()
-                        .Where(ad => ad.IdAvatarDesbloqueado == unlockedId)
-                        .OrderByDescending(ad => ad.IdAvatarDesbloqueado)
-                        .FirstOrDefault();
-
-                    if (avatarUnlocked != null)
-                    {
-                        avatar = db.Avatar
-                            .AsNoTracking()
-                            .Where(av => av.IdAvatar == avatarUnlocked.AvatarIdAvatar)
-                            .OrderByDescending(av => av.IdAvatar)
-                            .FirstOrDefault();
-                    }
-                }
-
-                if (avatar != null &&
-                    !string.IsNullOrWhiteSpace(avatar.CodigoAvatar))
-                {
-                    return avatar.CodigoAvatar
-                        .Trim()
-                        .ToUpperInvariant();
-                }
-
-                return NormalizePhotoId(user.FotoPerfil);
-            }
-        }
-
         public AccountDto GetByUserId(int userId)
         {
             if (userId <= 0)
@@ -295,17 +242,25 @@ namespace SnakesAndLadders.Data.Repositories
         }
 
 
-        private static AccountDto MapToAccountDto(
-            Usuario usuario,
-            AvatarDesbloqueado avatarDesbloqueado,
-            Avatar avatar)
+        private static AccountDto MapToAccountDto( Usuario usuario, 
+            AvatarDesbloqueado avatarDesbloqueado, Avatar avatar)
         {
             if (usuario == null)
             {
                 return null;
             }
 
-            string normalizedPhotoId = NormalizePhotoId(usuario.FotoPerfil);
+            string profilePhotoId;
+
+            if (avatar != null &&
+                AvatarSpecialMapping.TryGetAvatarCode(avatar.IdAvatar, out string mappedCode))
+            {
+                profilePhotoId = mappedCode;
+            }
+            else
+            {
+                profilePhotoId = NormalizePhotoId(usuario.FotoPerfil);
+            }
 
             string currentSkinCode = null;
 
@@ -326,22 +281,187 @@ namespace SnakesAndLadders.Data.Repositories
                 ProfileDescription = usuario.DescripcionPerfil,
                 Coins = usuario.Monedas,
 
-                HasProfilePhoto = !string.IsNullOrWhiteSpace(usuario.FotoPerfil),
-                ProfilePhotoId = normalizedPhotoId,
+                HasProfilePhoto = !string.IsNullOrWhiteSpace(profilePhotoId),
+                ProfilePhotoId = profilePhotoId,
 
                 CurrentSkinUnlockedId = usuario.IdAvatarDesbloqueadoActual,
                 CurrentSkinId = currentSkinCode
             };
         }
 
+
         private static string NormalizePhotoId(string rawPhotoId)
         {
-            if (string.IsNullOrWhiteSpace(rawPhotoId))
+            return AvatarIdHelper.MapFromDb(rawPhotoId);
+        }
+
+        public AvatarProfileOptionsDto GetAvatarOptions(int userId)
+        {
+            ValidateUserId(userId);
+
+            using (var db = new SnakeAndLaddersDBEntities1())
             {
-                return DEFAULT_PROFILE_PHOTO_ID;
+                Usuario user = GetActiveUser(db, userId);
+
+                AvatarOptionsContext context = BuildAvatarOptionsContext(db, user);
+
+                IList<AvatarProfileOptionDto> options = BuildAvatarOptions(context);
+
+                return new AvatarProfileOptionsDto
+                {
+                    UserId = user.IdUsuario,
+                    Avatars = options
+                };
+            }
+        }
+
+        private static void ValidateUserId(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+        }
+
+        private static Usuario GetActiveUser(
+            SnakeAndLaddersDBEntities1 db,
+            int userId)
+        {
+            Usuario user = db.Usuario
+                .AsNoTracking()
+                .SingleOrDefault(u => u.IdUsuario == userId);
+
+            if (user == null || !IsActive(user.Estado))
+            {
+                throw new InvalidOperationException("User not found or inactive.");
             }
 
-            return rawPhotoId.Trim().ToUpperInvariant();
+            return user;
+        }
+
+        private static AvatarOptionsContext BuildAvatarOptionsContext(
+            SnakeAndLaddersDBEntities1 db,
+            Usuario user)
+        {
+            IList<int> unlockedAvatarIds = GetUnlockedAvatarIds(db, user.IdUsuario);
+            int currentAvatarEntityId = GetCurrentAvatarEntityId(db, user);
+            IList<Avatar> avatarEntities = GetAvatarEntities(db);
+            string normalizedPhotoId = NormalizePhotoId(user.FotoPerfil);
+
+            return new AvatarOptionsContext
+            {
+                NormalizedPhotoId = normalizedPhotoId,
+                UnlockedAvatarIds = unlockedAvatarIds,
+                CurrentAvatarEntityId = currentAvatarEntityId,
+                AvatarEntities = avatarEntities
+            };
+        }
+
+        private static IList<int> GetUnlockedAvatarIds(
+            SnakeAndLaddersDBEntities1 db,
+            int userId)
+        {
+            return db.AvatarDesbloqueado
+                .AsNoTracking()
+                .Where(ad => ad.UsuarioIdUsuario == userId)
+                .Select(ad => ad.AvatarIdAvatar)
+                .ToList();
+        }
+
+        private static int GetCurrentAvatarEntityId(
+            SnakeAndLaddersDBEntities1 db,
+            Usuario user)
+        {
+            if (!user.IdAvatarDesbloqueadoActual.HasValue)
+            {
+                return 0;
+            }
+
+            int unlockedId = user.IdAvatarDesbloqueadoActual.Value;
+
+            return db.AvatarDesbloqueado
+                .AsNoTracking()
+                .Where(ad => ad.IdAvatarDesbloqueado == unlockedId)
+                .Select(ad => ad.AvatarIdAvatar)
+                .SingleOrDefault();
+        }
+
+        private static IList<Avatar> GetAvatarEntities(SnakeAndLaddersDBEntities1 db)
+        {
+            return db.Avatar
+                .AsNoTracking()
+                .OrderBy(a => a.IdAvatar)
+                .ToList();
+        }
+
+        private static IList<AvatarProfileOptionDto> BuildAvatarOptions(
+            AvatarOptionsContext context)
+        {
+            var options = new List<AvatarProfileOptionDto>();
+
+            AddDefaultAvatarOptions(options, context.NormalizedPhotoId);
+            AddSpecialAvatarOptions(
+                options,
+                context.AvatarEntities,
+                context.UnlockedAvatarIds,
+                context.CurrentAvatarEntityId);
+
+            return options;
+        }
+
+        private static void AddDefaultAvatarOptions(
+            IList<AvatarProfileOptionDto> options,
+            string normalizedPhotoId)
+        {
+            foreach (string defaultCode in AvatarDefaults.DefaultAvatarCodes)
+            {
+                bool isCurrentDefault = string.Equals(
+                    normalizedPhotoId,
+                    defaultCode,
+                    StringComparison.OrdinalIgnoreCase);
+
+                options.Add(new AvatarProfileOptionDto
+                {
+                    AvatarCode = defaultCode,
+                    DisplayName = defaultCode,
+                    IsUnlocked = true,
+                    IsCurrent = isCurrentDefault
+                });
+            }
+        }
+
+        private static void AddSpecialAvatarOptions( IList<AvatarProfileOptionDto> options,
+            IList<Avatar> avatarEntities, IList<int> unlockedAvatarIds, int currentAvatarEntityId)
+        {
+            foreach (Avatar avatar in avatarEntities)
+            {
+                if (!AvatarSpecialMapping.TryGetAvatarCode(avatar.IdAvatar, out string avatarCode))
+                {
+                    continue;
+                }
+
+                bool isUnlocked = unlockedAvatarIds.Contains(avatar.IdAvatar);
+                bool isCurrent = currentAvatarEntityId == avatar.IdAvatar;
+
+                options.Add(new AvatarProfileOptionDto
+                {
+                    AvatarCode = avatarCode,              
+                    DisplayName = avatar.NombreAvatar,    
+                    IsUnlocked = isUnlocked,
+                    IsCurrent = isCurrent
+                });
+            }
+        }
+
+        private sealed class AvatarOptionsContext
+        {
+            public string NormalizedPhotoId { get; set; }
+
+            public IList<int> UnlockedAvatarIds { get; set; }
+
+            public int CurrentAvatarEntityId { get; set; }
+
+            public IList<Avatar> AvatarEntities { get; set; }
         }
     }
 }

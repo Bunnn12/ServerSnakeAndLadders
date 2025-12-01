@@ -9,5 +9,6 @@ namespace SnakeAndLadders.Contracts.Interfaces
         AccountDto UpdateProfile(UpdateProfileRequestDto request);
 
         AccountDto GetByUserId(int userId);
+        AvatarProfileOptionsDto GetAvatarOptions(int userId);
     }
 }

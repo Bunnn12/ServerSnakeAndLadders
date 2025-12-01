@@ -12,7 +12,8 @@ namespace SnakesAndLadders.Services.Logic
         public UserAppService(IUserRepository users, IAccountStatusRepository accountStatusRepository)
         {
             this.users = users ?? throw new ArgumentNullException(nameof(users));
-            this.accountStatusRepository = accountStatusRepository ?? throw new ArgumentNullException(nameof(accountStatusRepository));
+            this.accountStatusRepository = accountStatusRepository 
+                ?? throw new ArgumentNullException(nameof(accountStatusRepository));
         }
 
         public AccountDto GetProfileByUsername(string username)
@@ -48,6 +49,15 @@ namespace SnakesAndLadders.Services.Logic
             }
 
             accountStatusRepository.SetUserAndAccountActiveState(userId, isActive: false);
+        }
+        public AvatarProfileOptionsDto GetAvatarOptions(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            return users.GetAvatarOptions(userId);
         }
     }
 }

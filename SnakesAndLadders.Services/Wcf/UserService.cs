@@ -43,5 +43,9 @@ namespace SnakesAndLadders.Services.Wcf
         {
             app.DeactivateAccount(userId);
         }
+        public AvatarProfileOptionsDto GetAvatarOptions(int userId)
+        {
+            return app.GetAvatarOptions(userId);
+        }
     }
 }

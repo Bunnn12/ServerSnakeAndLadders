@@ -13,5 +13,6 @@ namespace SnakeAndLadders.Contracts.Interfaces
         ProfilePhotoDto GetProfilePhoto(int userId);
         AccountDto UpdateProfile(UpdateProfileRequestDto request);
         void DeactivateAccount(int userId);
+        AvatarProfileOptionsDto GetAvatarOptions(int userId);
     }
 }
