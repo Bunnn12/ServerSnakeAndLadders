@@ -58,7 +58,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-
         public SocialProfileDto Upsert(LinkSocialProfileRequestDto request)
         {
             if (request == null)
@@ -106,7 +105,7 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        public void Delete(UnlinkSocialProfileRequestDto request)
+        public void DeleteSocialNetwork(UnlinkSocialProfileRequestDto request)
         {
             if (request == null)
             {

@@ -217,20 +217,6 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
-        private static void NormalizePair(int valueA, int valueB, out int minValue, out int maxValue)
-        {
-            if (valueA < valueB)
-            {
-                minValue = valueA;
-                maxValue = valueB;
-            }
-            else
-            {
-                minValue = valueB;
-                maxValue = valueA;
-            }
-        }
-
         private static FriendLinkDto Map(ListaAmigos entity)
         {
             if (entity == null)

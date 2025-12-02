@@ -46,7 +46,7 @@ namespace SnakesAndLadders.Services.Logic
             }
 
             EnsureUserExists(request.UserId);
-            socialProfiles.Delete(request);
+            socialProfiles.DeleteSocialNetwork(request);
         }
 
         private void EnsureUserExists(int userId)

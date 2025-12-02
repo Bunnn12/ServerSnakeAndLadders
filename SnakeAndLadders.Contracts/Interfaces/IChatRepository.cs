@@ -5,7 +5,7 @@ namespace SnakeAndLadders.Contracts.Interfaces
 {
     public interface IChatRepository
     {
-        void Append(int lobbyId, ChatMessageDto message);
+        void SaveMessage(int lobbyId, ChatMessageDto message);
         IList<ChatMessageDto> ReadLast(int lobbyId, int take);
     }
 }

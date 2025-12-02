@@ -34,7 +34,7 @@ namespace SnakesAndLadders.Services.Logic
 
             message.SenderAvatarId = AvatarIdHelper.MapFromDb(message.SenderAvatarId);
 
-            _chatRepository.Append(lobbyId, message);
+            _chatRepository.SaveMessage(lobbyId, message);
         }
         public IList<ChatMessageDto> GetRecent(int lobbyId, int take)
         {

@@ -13,6 +13,6 @@ namespace SnakeAndLadders.Contracts.Interfaces
 
         SocialProfileDto Upsert(LinkSocialProfileRequestDto request);
 
-        void Delete(UnlinkSocialProfileRequestDto request);
+        void DeleteSocialNetwork(UnlinkSocialProfileRequestDto request);
     }
 }

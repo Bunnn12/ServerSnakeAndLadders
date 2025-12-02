@@ -21,7 +21,7 @@ namespace SnakesAndLadders.Data.Repositories
         private const string APP_FOLDER_NAME = "SnakesAndLadders";
         private const string CHAT_FOLDER_NAME = "Chat";
 
-        private const int MAX_LOBBY_ID = 1_000_000_000;
+        private const int MAX_LOBBY_CODE = 6;
         private const int DEFAULT_TAKE_MESSAGES = 50;
         private const int FILE_BUFFER_SIZE = 4096;
 
@@ -65,7 +65,7 @@ namespace SnakesAndLadders.Data.Repositories
                 throw new ArgumentOutOfRangeException(nameof(lobbyId));
             }
 
-            if (lobbyId > MAX_LOBBY_ID)
+            if (lobbyId > MAX_LOBBY_CODE)
             {
                 throw new ArgumentOutOfRangeException(nameof(lobbyId));
             }
@@ -94,7 +94,7 @@ namespace SnakesAndLadders.Data.Repositories
 
             return fullPath;
         }
-        public void Append(int lobbyId, ChatMessageDto message)
+        public void SaveMessage(int lobbyId, ChatMessageDto message)
         {
             ValidateLobbyId(lobbyId);
 

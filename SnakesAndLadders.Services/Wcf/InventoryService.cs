@@ -37,7 +37,7 @@ namespace SnakesAndLadders.Services.Wcf
 
         public void UpdateSelectedItems(
             int userId,
-            int? slot1ObjectId,
+            int? slot1ObjectId, //Cambiar a slot1Item, cambiar a array 
             int? slot2ObjectId,
             int? slot3ObjectId)
         {
