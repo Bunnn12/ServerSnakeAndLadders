@@ -14,6 +14,9 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 
         [DataMember(Order = 3)]
         public int CurrentCellIndex { get; set; }
+
+        [DataMember(Order = 4)]
+        public byte? DiceSlotNumber { get; set; }
     }
 
     

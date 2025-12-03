@@ -16,6 +16,8 @@ namespace SnakeAndLadders.Contracts.Interfaces
 
         void ConsumeItem(int userId, int objectId);
 
+        void ConsumeDice(int userId, int diceId);
+
         void UpdateSelectedItems(
             int userId,
             int? slot1ObjectId,

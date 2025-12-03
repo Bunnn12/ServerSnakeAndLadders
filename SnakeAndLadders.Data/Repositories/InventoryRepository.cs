@@ -61,6 +61,7 @@ namespace ServerSnakesAndLadders
                             into selectedJoin
                         from selected in selectedJoin.DefaultIfEmpty()
                         where userObject.UsuarioIdUsuario == userId
+                              && userObject.CantidadObjeto > 0      // 👈 SOLO > 0
                         select new InventoryItemDto
                         {
                             ObjectId = obj.IdObjeto,
@@ -88,6 +89,7 @@ namespace ServerSnakesAndLadders
                 }
             }
         }
+
 
         public IList<InventoryDiceDto> GetUserDice(int userId)
         {
@@ -121,6 +123,7 @@ namespace ServerSnakesAndLadders
                             into selectedJoin
                         from selected in selectedJoin.DefaultIfEmpty()
                         where userDice.UsuarioIdUsuario == userId
+                              && userDice.CantidadDado > 0        // 👈 SOLO > 0
                         select new InventoryDiceDto
                         {
                             DiceId = dice.IdDado,
@@ -148,6 +151,7 @@ namespace ServerSnakesAndLadders
                 }
             }
         }
+
 
         public void UpdateSelectedItems(
             int userId,
@@ -436,6 +440,22 @@ namespace ServerSnakesAndLadders
 
                     userObject.CantidadObjeto -= 1;
 
+                    // 🔥 Si queda en 0, quitar el objeto del slot (igual que con los dados)
+                    if (userObject.CantidadObjeto <= 0)
+                    {
+                        userObject.CantidadObjeto = 0;
+
+                        var selectedEntries = context.ObjetoUsuarioSeleccionado
+                            .Where(s => s.UsuarioIdUsuario == userId
+                                        && s.ObjetoIdObjeto == objectId)
+                            .ToList();
+
+                        foreach (var entry in selectedEntries)
+                        {
+                            context.ObjetoUsuarioSeleccionado.Remove(entry);
+                        }
+                    }
+
                     context.Entry(userObject).State = EntityState.Modified;
                     context.SaveChanges();
                 }
@@ -451,6 +471,80 @@ namespace ServerSnakesAndLadders
                 }
             }
         }
+
+
+        public void ConsumeDice(int userId, int diceId)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            if (diceId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(diceId));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var userDice = context.DadoUsuario
+                        .SingleOrDefault(
+                            d => d.UsuarioIdUsuario == userId
+                                 && d.DadoIdDado == diceId);
+
+                    if (userDice == null)
+                    {
+                        throw new InvalidOperationException(
+                            "El usuario no posee el dado especificado en su inventario.");
+                    }
+
+                    if (userDice.CantidadDado <= 0)
+                    {
+                        throw new InvalidOperationException(
+                            "El usuario no tiene cantidad disponible del dado especificado.");
+                    }
+
+                    // 👇 Consumimos una unidad
+                    userDice.CantidadDado -= 1;
+
+                    if (userDice.CantidadDado < 0)
+                    {
+                        userDice.CantidadDado = 0;
+                    }
+
+                    // 👇 SIEMPRE limpiamos la selección de slots
+                    var selectedEntries = context.DadoUsuarioSeleccionado
+                        .Where(s => s.UsuarioIdUsuario == userId
+                                    && s.DadoIdDado == diceId)
+                        .ToList();
+
+                    foreach (var entry in selectedEntries)
+                    {
+                        context.DadoUsuarioSeleccionado.Remove(entry);
+                    }
+
+                    context.Entry(userDice).State = EntityState.Modified;
+                    context.SaveChanges();
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al consumir un dado del inventario del usuario.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al consumir un dado del inventario del usuario.", ex);
+                    throw;
+                }
+            }
+        }
+
+
+
 
 
         private void ConfigureContext(SnakeAndLaddersDBEntities1 context)

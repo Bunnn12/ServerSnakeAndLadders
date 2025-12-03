@@ -1,5 +1,5 @@
-﻿
-using log4net;
+﻿using log4net;
+using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
@@ -32,6 +32,10 @@ namespace SnakesAndLadders.Services.Wcf
         private const string ERROR_USE_ITEM_NO_ITEM_IN_SLOT = "No item is equipped in the selected slot.";
         private const string ERROR_USE_ITEM_NO_QUANTITY = "User does not have any remaining units of the selected item.";
 
+        private const string ERROR_USE_DICE_INVALID_SLOT = "Dice slot number is invalid.";
+        private const string ERROR_USE_DICE_NO_DICE_IN_SLOT = "No dice is equipped in the selected slot.";
+        private const string ERROR_USE_DICE_NO_QUANTITY = "User does not have any remaining units of the selected dice.";
+
         private const string TURN_REASON_NORMAL = "NORMAL";
         private const string TURN_REASON_PLAYER_LEFT = "PLAYER_LEFT";
 
@@ -47,6 +51,9 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const byte MIN_ITEM_SLOT = 1;
         private const byte MAX_ITEM_SLOT = 3;
+
+        private const byte MIN_DICE_SLOT = 1;
+        private const byte MAX_DICE_SLOT = 2;
 
         private readonly IGameSessionStore gameSessionStore;
         private readonly IInventoryRepository inventoryRepository;
@@ -64,16 +71,15 @@ namespace SnakesAndLadders.Services.Wcf
             new ConcurrentDictionary<int, ConcurrentDictionary<int, PendingRocketUsage>>();
 
         public GameplayService(
-       IGameSessionStore gameSessionStore,
-       IInventoryRepository inventoryRepository,
-       IAppLogger appLogger)
+            IGameSessionStore gameSessionStore,
+            IInventoryRepository inventoryRepository,
+            IAppLogger appLogger)
         {
             this.gameSessionStore = gameSessionStore
                 ?? throw new ArgumentNullException(nameof(gameSessionStore));
 
             this.inventoryRepository = inventoryRepository
                 ?? throw new ArgumentNullException(nameof(inventoryRepository));
-
         }
 
         public RollDiceResponseDto RollDice(RollDiceRequestDto request)
@@ -83,18 +89,56 @@ namespace SnakesAndLadders.Services.Wcf
             GameSession session = GetSessionOrThrow(request.GameId);
             GameplayLogic logic = GetOrCreateGameplayLogic(session);
 
+            InventoryDiceDto equippedDice = null;
+            string diceCode = null;
+            int? diceIdToConsume = null;
+
+            if (request.DiceSlotNumber.HasValue)
+            {
+                equippedDice = ResolveEquippedDiceForSlot(
+                    request.PlayerUserId,
+                    request.DiceSlotNumber.Value);
+
+                diceCode = equippedDice.DiceCode;
+                diceIdToConsume = equippedDice.DiceId;
+            }
+
             try
             {
-                RollDiceResult moveResult = logic.RollDice(request.PlayerUserId);
+                RollDiceResult moveResult = logic.RollDice(
+                    request.PlayerUserId,
+                    diceCode);
 
-                HandlePendingRocketConsumption(session.GameId, request.PlayerUserId, moveResult);
+                if (diceIdToConsume.HasValue && !string.IsNullOrWhiteSpace(diceCode))
+                {
+                    try
+                    {
+                        inventoryRepository.ConsumeDice(
+                            request.PlayerUserId,
+                            diceIdToConsume.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error("Error while consuming dice after roll.", ex);
+                    }
+                }
+
+                HandlePendingRocketConsumption(
+                    session.GameId,
+                    request.PlayerUserId,
+                    moveResult);
 
                 session.IsFinished = moveResult.IsGameOver;
                 gameSessionStore.UpdateSession(session);
 
-                RollDiceResponseDto rollResponse = BuildRollDiceResponse(request, moveResult);
+                RollDiceResponseDto rollResponse = BuildRollDiceResponse(
+                    request,
+                    moveResult);
 
-                BroadcastMoveAndTurn(session, request.PlayerUserId, moveResult);
+                BroadcastMoveAndTurn(
+                    session,
+                    request.PlayerUserId,
+                    moveResult);
 
                 return rollResponse;
             }
@@ -288,9 +332,6 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
-
-
-
         public void JoinGame(int gameId, int userId, string userName)
         {
             if (gameId <= 0 || userId == INVALID_USER_ID)
@@ -355,6 +396,16 @@ namespace SnakesAndLadders.Services.Wcf
             if (request.PlayerUserId == INVALID_USER_ID)
             {
                 throw new FaultException(ERROR_USER_ID_INVALID);
+            }
+
+            if (request.DiceSlotNumber.HasValue)
+            {
+                byte slot = request.DiceSlotNumber.Value;
+
+                if (slot < MIN_DICE_SLOT || slot > MAX_DICE_SLOT)
+                {
+                    throw new FaultException(ERROR_USE_DICE_INVALID_SLOT);
+                }
             }
         }
 
@@ -430,7 +481,10 @@ namespace SnakesAndLadders.Services.Wcf
                 return;
             }
 
-            PlayerMoveResultDto moveDto = BuildPlayerMoveResultDto(previousTurnUserId, moveResult);
+            PlayerMoveResultDto moveDto = BuildPlayerMoveResultDto(
+                previousTurnUserId,
+                moveResult);
+
             NotifyPlayerMoved(session.GameId, moveDto);
 
             GameStateSnapshot stateAfterMove = GetCurrentStateSafe(session);
@@ -512,6 +566,26 @@ namespace SnakesAndLadders.Services.Wcf
             }
 
             return equippedItem;
+        }
+
+        private InventoryDiceDto ResolveEquippedDiceForSlot(int userId, byte slotNumber)
+        {
+            var diceList = inventoryRepository.GetUserDice(userId);
+
+            InventoryDiceDto equippedDice = diceList
+                .FirstOrDefault(d => d.SlotNumber.HasValue && d.SlotNumber.Value == slotNumber);
+
+            if (equippedDice == null)
+            {
+                throw new FaultException(ERROR_USE_DICE_NO_DICE_IN_SLOT);
+            }
+
+            if (equippedDice.Quantity <= 0)
+            {
+                throw new FaultException(ERROR_USE_DICE_NO_QUANTITY);
+            }
+
+            return equippedDice;
         }
 
         private void TrackPendingRocket(

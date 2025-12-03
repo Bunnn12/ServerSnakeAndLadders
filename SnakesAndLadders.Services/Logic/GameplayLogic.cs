@@ -38,6 +38,13 @@ namespace SnakesAndLadders.Services.Logic
         private const string ITEM_CODE_FREEZE = "IT_FREEZE";
         private const string ITEM_CODE_SHIELD = "IT_SHIELD";
 
+        private const string DICE_CODE_NEGATIVE = "DICE_NEG";
+        private const string DICE_CODE_ONE_TWO_THREE = "DICE_123";
+        private const string DICE_CODE_FOUR_FIVE_SIX = "DICE_456";
+
+        private const int NEGATIVE_DICE_MIN_POSITION = 7;
+
+
         private readonly List<int> turnOrder;
         private readonly Dictionary<int, PlayerRuntimeState> playersByUserId;
         private readonly Dictionary<int, int> jumpDestinationsByStartIndex;
@@ -131,7 +138,42 @@ namespace SnakesAndLadders.Services.Logic
             return result;
         }
 
-        public RollDiceResult RollDice(int userId)
+        private int GetDiceValueForCode(PlayerRuntimeState playerState, string diceCode)
+        {
+            if (string.IsNullOrWhiteSpace(diceCode))
+            {
+                return random.Next(DICE_MIN_VALUE, DICE_MAX_VALUE + 1);
+            }
+
+            string normalizedCode = diceCode.Trim().ToUpperInvariant();
+
+            if (normalizedCode == DICE_CODE_NEGATIVE)
+            {
+                if (playerState.Position < NEGATIVE_DICE_MIN_POSITION)
+                {
+                    throw new InvalidOperationException(
+                        "No puedes usar el dado negativo tan cerca de la casilla inicial.");
+                }
+
+                int absoluteValue = random.Next(DICE_MIN_VALUE, DICE_MAX_VALUE + 1);
+                return -absoluteValue;
+            }
+
+            if (normalizedCode == DICE_CODE_ONE_TWO_THREE)
+            {
+                return random.Next(1, 3 + 1);
+            }
+
+            if (normalizedCode == DICE_CODE_FOUR_FIVE_SIX)
+            {
+                return random.Next(4, 6 + 1);
+            }
+
+            return random.Next(DICE_MIN_VALUE, DICE_MAX_VALUE + 1);
+        }
+
+
+        public RollDiceResult RollDice(int userId, string diceCode)
         {
             lock (syncRoot)
             {
@@ -180,7 +222,8 @@ namespace SnakesAndLadders.Services.Logic
 
                 playerState.HasRolledThisTurn = true;
 
-                int diceValue = random.Next(DICE_MIN_VALUE, DICE_MAX_VALUE + 1);
+                // 🔹 Aquí usamos el dado según el código
+                int diceValue = GetDiceValueForCode(playerState, diceCode);
 
                 int fromCellIndex = playerState.Position;
 
@@ -188,6 +231,12 @@ namespace SnakesAndLadders.Services.Logic
                 bool rocketIgnored = false;
 
                 int tentativeTarget = fromCellIndex + diceValue;
+
+                // No permitir que se vaya antes de la primera casilla
+                if (tentativeTarget < MIN_BOARD_CELL)
+                {
+                    tentativeTarget = MIN_BOARD_CELL;
+                }
 
                 if (playerState.PendingRocketBonus > 0)
                 {
@@ -240,7 +289,6 @@ namespace SnakesAndLadders.Services.Logic
 
                     if (isSnake && playerState.HasShield)
                     {
-                        
                         extraInfo = EXTRA_INFO_SNAKE_BLOCKED_BY_SHIELD;
                     }
                     else if (isLadder)
@@ -303,6 +351,7 @@ namespace SnakesAndLadders.Services.Logic
                 };
             }
         }
+
 
         public GameStateSnapshot GetCurrentState()
         {
