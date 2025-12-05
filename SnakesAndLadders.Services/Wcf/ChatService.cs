@@ -17,47 +17,79 @@ namespace SnakesAndLadders.Services.Wcf
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(ChatService));
 
-        private readonly ChatAppService _chatAppService;
+        private const string LOG_CONTEXT_SEND = "ChatService.SendMessage";
+        private const string LOG_CONTEXT_GET_RECENT = "ChatService.GetRecent";
 
-        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, IChatClient>> _subscribedClients =
+        private readonly ChatAppService chatAppService;
+
+        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, IChatClient>> subscribedClients =
             new ConcurrentDictionary<int, ConcurrentDictionary<int, IChatClient>>();
 
-        public ChatService(ChatAppService chatAppService)
+        public ChatService(ChatAppService chatAppServiceValue)
         {
-            _chatAppService = chatAppService ?? throw new ArgumentNullException(nameof(chatAppService));
+            chatAppService = chatAppServiceValue
+                             ?? throw new ArgumentNullException(nameof(chatAppServiceValue));
         }
 
         public SendMessageResponse2 SendMessage(SendMessageRequest2 request)
         {
-            if (request == null || request.Message == null)
+            if (!IsValidRequest(request))
             {
-                return new SendMessageResponse2 { Ok = false };
+                return new SendMessageResponse2
+                {
+                    Ok = false
+                };
             }
 
-            _chatAppService.Send(request.LobbyId, request.Message);
-            BroadcastMessageToSubscribers(request.LobbyId, request.Message);
+            try
+            {
+                chatAppService.Send(request.LobbyId, request.Message);
+                BroadcastMessageToSubscribers(request.LobbyId, request.Message);
 
-            return new SendMessageResponse2 { Ok = true };
+                return new SendMessageResponse2
+                {
+                    Ok = true
+                };
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(LOG_CONTEXT_SEND + " failed.", ex);
+
+                return new SendMessageResponse2
+                {
+                    Ok = false
+                };
+            }
         }
 
         public IList<ChatMessageDto> GetRecent(int lobbyId, int take)
         {
-            return _chatAppService.GetRecent(lobbyId, take);
+            try
+            {
+                IList<ChatMessageDto> messages = chatAppService.GetRecent(lobbyId, take);
+
+                return messages ?? new List<ChatMessageDto>(0);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(LOG_CONTEXT_GET_RECENT + " failed.", ex);
+                return new List<ChatMessageDto>(0);
+            }
         }
 
         public void Subscribe(int lobbyId, int userId)
         {
-            IChatClient clientCallbackChannel = OperationContext.Current?.GetCallbackChannel<IChatClient>();
-            if (clientCallbackChannel == null)
+            IChatClient callbackChannel = TryGetCallbackChannel();
+            if (callbackChannel == null)
             {
                 return;
             }
 
-            ConcurrentDictionary<int, IChatClient> lobbySubscribers = _subscribedClients.GetOrAdd(
+            ConcurrentDictionary<int, IChatClient> lobbySubscribers = subscribedClients.GetOrAdd(
                 lobbyId,
                 _ => new ConcurrentDictionary<int, IChatClient>());
 
-            lobbySubscribers[userId] = clientCallbackChannel;
+            lobbySubscribers[userId] = callbackChannel;
 
             IContextChannel communicationChannel = OperationContext.Current.Channel;
             communicationChannel.Closed += (_, __) => RemoveSubscriber(lobbyId, userId);
@@ -69,22 +101,54 @@ namespace SnakesAndLadders.Services.Wcf
             RemoveSubscriber(lobbyId, userId);
         }
 
+        private static bool IsValidRequest(SendMessageRequest2 request)
+        {
+            if (request == null)
+            {
+                return false;
+            }
+
+            if (request.Message == null)
+            {
+                return false;
+            }
+
+            if (request.LobbyId <= 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static IChatClient TryGetCallbackChannel()
+        {
+            if (OperationContext.Current == null)
+            {
+                return null;
+            }
+
+            return OperationContext.Current.GetCallbackChannel<IChatClient>();
+        }
+
         private void RemoveSubscriber(int lobbyId, int userId)
         {
-            if (_subscribedClients.TryGetValue(lobbyId, out ConcurrentDictionary<int, IChatClient> lobbySubscribers))
+            if (!subscribedClients.TryGetValue(lobbyId, out ConcurrentDictionary<int, IChatClient> lobbySubscribers))
             {
-                lobbySubscribers.TryRemove(userId, out _);
+                return;
+            }
 
-                if (lobbySubscribers.IsEmpty)
-                {
-                    _subscribedClients.TryRemove(lobbyId, out _);
-                }
+            lobbySubscribers.TryRemove(userId, out _);
+
+            if (lobbySubscribers.IsEmpty)
+            {
+                subscribedClients.TryRemove(lobbyId, out _);
             }
         }
 
         private void BroadcastMessageToSubscribers(int lobbyId, ChatMessageDto message)
         {
-            if (!_subscribedClients.TryGetValue(lobbyId, out ConcurrentDictionary<int, IChatClient> lobbySubscribers))
+            if (!subscribedClients.TryGetValue(lobbyId, out ConcurrentDictionary<int, IChatClient> lobbySubscribers))
             {
                 return;
             }

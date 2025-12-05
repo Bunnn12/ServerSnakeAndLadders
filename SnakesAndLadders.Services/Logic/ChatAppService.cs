@@ -9,23 +9,25 @@ namespace SnakesAndLadders.Services.Logic
     public sealed class ChatAppService
     {
         private const int DEFAULT_RECENT_MESSAGES_COUNT = 100;
+        private const int MAX_MESSAGE_LENGTH = 500;
 
-        private readonly IChatRepository _chatRepository;
+        private readonly IChatRepository chatRepository;
 
-        public ChatAppService(IChatRepository chatRepository)
+        public ChatAppService(IChatRepository chatRepositoryValue)
         {
-            _chatRepository = chatRepository ?? throw new ArgumentNullException(nameof(chatRepository));
+            chatRepository = chatRepositoryValue
+                             ?? throw new ArgumentNullException(nameof(chatRepositoryValue));
         }
 
         public void Send(int lobbyId, ChatMessageDto message)
         {
-            if (message == null || string.IsNullOrWhiteSpace(message.Text))
+            if (!IsValidMessage(message))
             {
                 return;
             }
 
             message.TimestampUtc = DateTime.UtcNow;
-            message.Text = message.Text.Trim();
+            message.Text = NormalizeMessageText(message.Text);
 
             if (string.IsNullOrEmpty(message.Text))
             {
@@ -34,13 +36,22 @@ namespace SnakesAndLadders.Services.Logic
 
             message.SenderAvatarId = AvatarIdHelper.MapFromDb(message.SenderAvatarId);
 
-            _chatRepository.SaveMessage(lobbyId, message);
+            chatRepository.SaveMessage(lobbyId, message);
         }
+
         public IList<ChatMessageDto> GetRecent(int lobbyId, int take)
         {
-            int effectiveTake = take <= 0 ? DEFAULT_RECENT_MESSAGES_COUNT : take;
+            int effectiveTake = take <= 0
+                ? DEFAULT_RECENT_MESSAGES_COUNT
+                : take;
 
-            IList<ChatMessageDto> messages = _chatRepository.ReadLast(lobbyId, effectiveTake);
+            IList<ChatMessageDto> messages = chatRepository.ReadLast(lobbyId, effectiveTake);
+
+            if (messages == null)
+            {
+                // Defensa extra, aunque repo ya nunca devuelve null.
+                return new List<ChatMessageDto>(0);
+            }
 
             foreach (ChatMessageDto message in messages)
             {
@@ -48,6 +59,38 @@ namespace SnakesAndLadders.Services.Logic
             }
 
             return messages;
+        }
+
+        private static bool IsValidMessage(ChatMessageDto message)
+        {
+            if (message == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(message.Text))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static string NormalizeMessageText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = text.Trim();
+
+            if (trimmed.Length > MAX_MESSAGE_LENGTH)
+            {
+                return trimmed.Substring(0, MAX_MESSAGE_LENGTH);
+            }
+
+            return trimmed;
         }
     }
 }

@@ -13,43 +13,44 @@ using SnakeAndLadders.Contracts.Interfaces;
 
 namespace SnakesAndLadders.Data.Repositories
 {
-   
     public sealed class FileChatRepository : IChatRepository
     {
-        private static readonly object _syncLock = new object();
-
         private const string APP_FOLDER_NAME = "SnakesAndLadders";
         private const string CHAT_FOLDER_NAME = "Chat";
 
-        private const int MAX_LOBBY_CODE = 6;
         private const int DEFAULT_TAKE_MESSAGES = 50;
         private const int FILE_BUFFER_SIZE = 4096;
+        private const int MIN_VALID_LOBBY_ID = 1;
 
-        private static readonly string[] NEW_LINE_SEPARATORS = { "\r\n", "\n" };
+        private static readonly object SyncLock = new object();
 
-        private readonly string _chatStorageDirectory;
-        private readonly JsonSerializerOptions _jsonOptions;
+        private static readonly string[] NewLineSeparators = { "\r\n", "\n" };
+
+        private static readonly Encoding Utf8WithoutBom = new UTF8Encoding(false);
+        private static readonly Encoding Utf8WithBom = new UTF8Encoding(true);
+
+        private readonly string chatStorageDirectory;
+        private readonly JsonSerializerOptions jsonOptions;
 
         public FileChatRepository(string templatePathOrDir)
         {
-            string safeRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            string baseAppFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+            string rootDirectory = Path.Combine(
+                baseAppFolder,
                 APP_FOLDER_NAME,
                 CHAT_FOLDER_NAME);
 
-            string subDirectoryName = string.IsNullOrWhiteSpace(templatePathOrDir)
-                ? null
-                : Path.GetFileName(templatePathOrDir.Trim());
-
+            string subDirectoryName = GetSafeSubDirectoryName(templatePathOrDir);
             string baseDirectory = string.IsNullOrEmpty(subDirectoryName)
-                ? safeRoot
-                : Path.Combine(safeRoot, subDirectoryName);
+                ? rootDirectory
+                : Path.Combine(rootDirectory, subDirectoryName);
 
             Directory.CreateDirectory(baseDirectory);
 
-            _chatStorageDirectory = Path.GetFullPath(baseDirectory);
+            chatStorageDirectory = Path.GetFullPath(baseDirectory);
 
-            _jsonOptions = new JsonSerializerOptions
+            jsonOptions = new JsonSerializerOptions
             {
                 Encoder = JavaScriptEncoder.Create(
                     UnicodeRanges.BasicLatin,
@@ -58,17 +59,72 @@ namespace SnakesAndLadders.Data.Repositories
             };
         }
 
-        private static void ValidateLobbyId(int lobbyId)
+        public void SaveMessage(int lobbyId, ChatMessageDto message)
         {
-            if (lobbyId <= 0)
+            ValidateLobbyId(lobbyId);
+            ValidateMessage(message);
+
+            string filePath = GetFilePathForLobby(lobbyId);
+            string serializedLine = SerializeMessage(message);
+
+            AppendLineToFile(filePath, serializedLine);
+        }
+
+        public IList<ChatMessageDto> ReadLast(int lobbyId, int take)
+        {
+            ValidateLobbyId(lobbyId);
+
+            int effectiveTake = take <= 0
+                ? DEFAULT_TAKE_MESSAGES
+                : take;
+
+            string filePath = GetFilePathForLobby(lobbyId);
+
+            if (!File.Exists(filePath))
             {
-                throw new ArgumentOutOfRangeException(nameof(lobbyId));
+                return new List<ChatMessageDto>(0);
             }
 
-            if (lobbyId > MAX_LOBBY_CODE)
+            string[] lines = ReadAllLines(filePath);
+            IList<ChatMessageDto> lastMessages = ReadLastMessagesFromLines(lines, effectiveTake);
+
+            return lastMessages;
+        }
+
+        private static void ValidateLobbyId(int lobbyId)
+        {
+            if (lobbyId < MIN_VALID_LOBBY_ID)
             {
-                throw new ArgumentOutOfRangeException(nameof(lobbyId));
+                throw new ArgumentOutOfRangeException(
+                    nameof(lobbyId),
+                    string.Format(
+                        "LobbyId must be greater than or equal to {0}.",
+                        MIN_VALID_LOBBY_ID));
             }
+        }
+
+        private static void ValidateMessage(ChatMessageDto message)
+        {
+            if (message == null)
+            {
+                throw new ArgumentNullException(nameof(message));
+            }
+
+            if (string.IsNullOrWhiteSpace(message.Text))
+            {
+                throw new ArgumentException("Message text cannot be empty.", nameof(message));
+            }
+        }
+
+        private static string GetSafeSubDirectoryName(string templatePathOrDir)
+        {
+            if (string.IsNullOrWhiteSpace(templatePathOrDir))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = templatePathOrDir.Trim();
+            return Path.GetFileName(trimmed) ?? string.Empty;
         }
 
         private string GetFilePathForLobby(int lobbyId)
@@ -78,200 +134,115 @@ namespace SnakesAndLadders.Data.Repositories
                 "{0:D10}.jsonl",
                 lobbyId);
 
-            string combinedPath = Path.Combine(_chatStorageDirectory, fileName);
+            string combinedPath = Path.Combine(chatStorageDirectory, fileName);
             string fullPath = Path.GetFullPath(combinedPath);
 
-            string baseWithSeparator = _chatStorageDirectory.EndsWith(
+            string baseWithSeparator = chatStorageDirectory.EndsWith(
                     Path.DirectorySeparatorChar.ToString(),
                     StringComparison.Ordinal)
-                ? _chatStorageDirectory
-                : _chatStorageDirectory + Path.DirectorySeparatorChar;
+                ? chatStorageDirectory
+                : chatStorageDirectory + Path.DirectorySeparatorChar;
 
             if (!fullPath.StartsWith(baseWithSeparator, StringComparison.OrdinalIgnoreCase))
             {
-                throw new SecurityException("Intento de escape de directorio en FileChatRepository.");
+                throw new SecurityException("Directory traversal attempt in FileChatRepository.");
             }
 
             return fullPath;
         }
-        public void SaveMessage(int lobbyId, ChatMessageDto message)
+
+        private string SerializeMessage(ChatMessageDto message)
         {
-            ValidateLobbyId(lobbyId);
+            return JsonSerializer.Serialize(message, jsonOptions);
+        }
 
-            if (message == null)
+        private static void AppendLineToFile(string filePath, string line)
+        {
+            string lineWithNewLine = line + Environment.NewLine;
+
+            lock (SyncLock)
             {
-                throw new ArgumentNullException(nameof(message));
-            }
-
-            string filePath = GetFilePathForLobby(lobbyId);
-
-            try
-            {
-                string line = JsonSerializer.Serialize(message, _jsonOptions) + Environment.NewLine;
-                var utf8EncodingWithoutBom = new UTF8Encoding(false);
-
-                lock (_syncLock)
+                using (var fileStream = new FileStream(
+                           filePath,
+                           FileMode.Append,
+                           FileAccess.Write,
+                           FileShare.Read,
+                           FILE_BUFFER_SIZE))
+                using (var streamWriter = new StreamWriter(fileStream, Utf8WithoutBom))
                 {
-                    FileStream chatFileStream = null;
-                    StreamWriter chatStreamWriter = null;
-
-                    try
-                    {
-                        chatFileStream = new FileStream(
-                            filePath,
-                            FileMode.OpenOrCreate,
-                            FileAccess.Write,
-                            FileShare.Read,
-                            FILE_BUFFER_SIZE,
-                            FileOptions.WriteThrough);
-
-                        chatFileStream.Seek(0, SeekOrigin.End);
-
-                        chatStreamWriter = new StreamWriter(chatFileStream, utf8EncodingWithoutBom);
-                        chatStreamWriter.Write(line);
-                        chatStreamWriter.Flush();
-
-                        chatFileStream.Flush(true);
-                    }
-                    finally
-                    {
-                        chatStreamWriter?.Dispose();
-                        chatFileStream?.Dispose();
-                    }
+                    streamWriter.Write(lineWithNewLine);
                 }
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                throw new InvalidOperationException(
-                    $"No se tienen permisos para escribir el archivo '{filePath}'.",
-                    ex);
-            }
-            catch (DirectoryNotFoundException ex)
-            {
-                try
-                {
-                    Directory.CreateDirectory(_chatStorageDirectory);
-                }
-                catch
-                {
-                    throw new IOException(
-                        $"El directorio '{_chatStorageDirectory}' no existe y no se pudo crear.",
-                        ex);
-                }
-            }
-            catch (IOException ex)
-            {
-                throw new IOException(
-                    $"Error de E/S al escribir el chat '{filePath}': {ex.Message}",
-                    ex);
-            }
-            catch (SecurityException ex)
-            {
-                throw new UnauthorizedAccessException(
-                    $"Error de seguridad al acceder a '{filePath}': {ex.Message}",
-                    ex);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(
-                    $"Error inesperado al escribir el chat '{filePath}': {ex.Message}",
-                    ex);
             }
         }
 
-        public IList<ChatMessageDto> ReadLast(int lobbyId, int take)
+        private static string[] ReadAllLines(string filePath)
         {
-            ValidateLobbyId(lobbyId);
-
-            if (take <= 0)
+            using (var fileStream = new FileStream(
+                       filePath,
+                       FileMode.Open,
+                       FileAccess.Read,
+                       FileShare.ReadWrite))
+            using (var streamReader = new StreamReader(fileStream, Utf8WithBom, true))
             {
-                take = DEFAULT_TAKE_MESSAGES;
+                string fileContent = streamReader.ReadToEnd();
+
+                string[] lines = fileContent.Split(
+                    NewLineSeparators,
+                    StringSplitOptions.None);
+
+                return lines;
+            }
+        }
+
+        private IList<ChatMessageDto> ReadLastMessagesFromLines(string[] lines, int take)
+        {
+            var result = new List<ChatMessageDto>();
+
+            if (lines == null || lines.Length == 0)
+            {
+                return result;
             }
 
-            string filePath = GetFilePathForLobby(lobbyId);
-
-            if (!File.Exists(filePath))
+            foreach (string lineText in lines
+                         .Reverse()
+                         .Where(line => !string.IsNullOrWhiteSpace(line)))
             {
-                return new List<ChatMessageDto>(0);
+                if (TryDeserializeMessage(lineText, out ChatMessageDto message))
+                {
+                    result.Add(message);
+                }
+
+                if (result.Count >= take)
+                {
+                    break;
+                }
             }
+
+            result.Reverse();
+            return result;
+        }
+
+        private bool TryDeserializeMessage(string jsonLine, out ChatMessageDto message)
+        {
+            message = new ChatMessageDto();
 
             try
             {
-                string[] lines;
-                var utf8EncodingWithBom = new UTF8Encoding(true);
+                ChatMessageDto deserialized = JsonSerializer.Deserialize<ChatMessageDto>(
+                    jsonLine,
+                    jsonOptions);
 
-                using (var chatFileStream = new FileStream(
-                           filePath,
-                           FileMode.Open,
-                           FileAccess.Read,
-                           FileShare.ReadWrite))
-                using (var chatStreamReader = new StreamReader(
-                           chatFileStream,
-                           utf8EncodingWithBom,
-                           true))
+                if (deserialized == null)
                 {
-                    string fileContent = chatStreamReader.ReadToEnd();
-                    lines = fileContent.Split(
-                        NEW_LINE_SEPARATORS,
-                        StringSplitOptions.None);
+                    return false;
                 }
 
-                var result = new List<ChatMessageDto>(Math.Min(take, lines.Length));
-
-                foreach (string lineText in lines
-                             .Reverse()
-                             .Where(line => !string.IsNullOrWhiteSpace(line)))
-                {
-                    try
-                    {
-                        ChatMessageDto message = JsonSerializer.Deserialize<ChatMessageDto>(
-                            lineText,
-                            _jsonOptions);
-
-                        if (message != null)
-                        {
-                            result.Add(message);
-                        }
-
-                        if (result.Count >= take)
-                        {
-                            break;
-                        }
-                    }
-                    catch (JsonException ex)
-                    {
-                        throw new JsonException(
-                            "Hubo un problema con el archivo JSON: " + ex.Message,
-                            ex);
-                    }
-                }
-
-                result.Reverse();
-                return result;
+                message = deserialized;
+                return true;
             }
-            catch (UnauthorizedAccessException ex)
+            catch (JsonException)
             {
-                throw new InvalidOperationException(
-                    $"No se tienen permisos para leer el archivo '{filePath}'.",
-                    ex);
-            }
-            catch (IOException ex)
-            {
-                throw new IOException(
-                    $"Error de E/S al leer el chat '{filePath}': {ex.Message}",
-                    ex);
-            }
-            catch (SecurityException ex)
-            {
-                throw new UnauthorizedAccessException(
-                    $"Error de seguridad al acceder a '{filePath}': {ex.Message}",
-                    ex);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(
-                    $"Error inesperado al leer el chat '{filePath}': {ex.Message}",
-                    ex);
+                return false;
             }
         }
     }
