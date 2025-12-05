@@ -20,5 +20,10 @@ namespace SnakeAndLadders.Contracts.Services
 
         [OperationContract]
         void LeaveGame(int gameId, int userId, string reason);
+
+        [OperationContract]
+        void RegisterTurnTimeout(int gameId);
+
+
     }
 }

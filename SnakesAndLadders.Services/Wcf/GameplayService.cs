@@ -47,6 +47,11 @@ namespace SnakesAndLadders.Services.Wcf
         private const string EFFECT_TOKEN_ROCKET_USED = "ROCKET_USED";
         private const string EFFECT_TOKEN_ROCKET_IGNORED = "ROCKET_IGNORED";
 
+        private const string TURN_REASON_TIMEOUT_SKIP = "TIMEOUT_SKIP";
+        private const string TURN_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
+        private const string LEAVE_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
+
+
         private const int INVALID_USER_ID = 0;
 
         private const byte MIN_ITEM_SLOT = 1;
@@ -129,7 +134,15 @@ namespace SnakesAndLadders.Services.Wcf
                     moveResult);
 
                 session.IsFinished = moveResult.IsGameOver;
+
+                if (moveResult.IsGameOver)
+                {
+                    session.WinnerUserId = request.PlayerUserId;
+                    session.EndReason = "BOARD_WIN";
+                }
+
                 gameSessionStore.UpdateSession(session);
+
 
                 RollDiceResponseDto rollResponse = BuildRollDiceResponse(
                     request,
@@ -158,6 +171,100 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
+        internal void ProcessTurnTimeout(int gameId)
+        {
+            GameSession session;
+
+            try
+            {
+                session = GetSessionOrThrow(gameId);
+            }
+            catch (FaultException)
+            {
+                return;
+            }
+
+            GameplayLogic logic = GetOrCreateGameplayLogic(session);
+
+            TurnTimeoutResult result;
+
+            try
+            {
+                result = logic.HandleTurnTimeout();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Warn("Business validation error while processing turn timeout.", ex);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unexpected error while processing turn timeout.", ex);
+                return;
+            }
+
+            if (result.PlayerKicked && result.KickedUserId != INVALID_USER_ID)
+            {
+                var updatedPlayers = session.PlayerUserIds
+                    .Where(id => id != result.KickedUserId)
+                    .ToList();
+
+                session.PlayerUserIds = updatedPlayers;
+            }
+
+            session.IsFinished = result.GameFinished;
+
+            if (result.WinnerUserId != INVALID_USER_ID)
+            {
+                session.WinnerUserId = result.WinnerUserId;
+                session.EndReason = "TIMEOUT_KICK";
+            }
+
+            if (!session.IsFinished && result.CurrentTurnUserId != INVALID_USER_ID)
+            {
+                session.CurrentTurnUserId = result.CurrentTurnUserId;
+            }
+
+            gameSessionStore.UpdateSession(session);
+
+            if (result.PlayerKicked && result.KickedUserId != INVALID_USER_ID)
+            {
+                string userName = GetUserNameOrDefault(gameId, result.KickedUserId);
+
+                var leftDto = new PlayerLeftDto
+                {
+                    GameId = gameId,
+                    UserId = result.KickedUserId,
+                    UserName = userName,
+                    WasCurrentTurnPlayer = true,
+                    NewCurrentTurnUserId = session.IsFinished
+                        ? (int?)null
+                        : (int?)result.CurrentTurnUserId,
+                    Reason = LEAVE_REASON_TIMEOUT_KICK
+                };
+
+                NotifyPlayerLeft(leftDto);
+            }
+
+            if (!session.IsFinished && result.CurrentTurnUserId != INVALID_USER_ID)
+            {
+                var turnDto = new TurnChangedDto
+                {
+                    GameId = gameId,
+                    PreviousTurnUserId = result.PreviousTurnUserId,
+                    CurrentTurnUserId = result.CurrentTurnUserId,
+                    IsExtraTurn = false,
+                    Reason = result.PlayerKicked
+                        ? TURN_REASON_TIMEOUT_KICK
+                        : TURN_REASON_TIMEOUT_SKIP
+                };
+
+                NotifyTurnChanged(turnDto);
+            }
+
+        }
+
+
         public GetGameStateResponseDto GetGameState(GetGameStateRequestDto request)
         {
             if (request == null)
@@ -185,6 +292,7 @@ namespace SnakesAndLadders.Services.Wcf
                     GameId = session.GameId,
                     CurrentTurnUserId = state.CurrentTurnUserId,
                     IsFinished = state.IsFinished,
+                    WinnerUserId = session.WinnerUserId,   // 🔹 importante
                     Tokens = state.Tokens.ToList()
                 };
             }
@@ -194,6 +302,7 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_UNEXPECTED_STATE);
             }
         }
+
 
         public UseItemResponseDto UseItem(UseItemRequestDto request)
         {
@@ -567,6 +676,29 @@ namespace SnakesAndLadders.Services.Wcf
 
             return equippedItem;
         }
+
+        public void RegisterTurnTimeout(int gameId)
+        {
+            if (gameId <= 0)
+            {
+                throw new FaultException(ERROR_GAME_ID_INVALID);
+            }
+
+            try
+            {
+                ProcessTurnTimeout(gameId);
+            }
+            catch (FaultException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unexpected error while registering turn timeout.", ex);
+                throw new FaultException("Unexpected error while registering turn timeout.");
+            }
+        }
+
 
         private InventoryDiceDto ResolveEquippedDiceForSlot(int userId, byte slotNumber)
         {

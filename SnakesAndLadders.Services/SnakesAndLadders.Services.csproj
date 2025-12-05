@@ -57,6 +57,7 @@
     <Compile Include="Logic\Gameplay\PendingRocketUsage.cs" />
     <Compile Include="Logic\Gameplay\PlayerRuntimeState.cs" />
     <Compile Include="Logic\Gameplay\RollDiceResult.cs" />
+    <Compile Include="Logic\Gameplay\TurnTimeoutResult.cs" />
     <Compile Include="Logic\InMemoryGameSessionStore.cs" />
     <Compile Include="Logic\InventoryAppService.cs" />
     <Compile Include="Logic\LobbyAppService.cs" />

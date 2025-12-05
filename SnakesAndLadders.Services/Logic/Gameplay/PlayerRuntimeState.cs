@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SnakesAndLadders.Services.Logic.Gameplay
 {
-    internal class PlayerRuntimeState
+    internal sealed class PlayerRuntimeState
     {
         public int UserId { get; set; }
 
@@ -23,5 +19,7 @@ namespace SnakesAndLadders.Services.Logic.Gameplay
         public bool ItemUsedThisTurn { get; set; }
 
         public bool HasRolledThisTurn { get; set; }
+
+        public int ConsecutiveTimeouts { get; set; }
     }
 }

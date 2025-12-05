@@ -42,6 +42,8 @@ namespace SnakesAndLadders.Services.Logic
         private const string DICE_CODE_ONE_TWO_THREE = "DICE_123";
         private const string DICE_CODE_FOUR_FIVE_SIX = "DICE_456";
 
+        private const int MAX_CONSECUTIVE_TIMEOUTS = 3;
+
         private const int NEGATIVE_DICE_MIN_POSITION = 7;
 
 
@@ -83,18 +85,20 @@ namespace SnakesAndLadders.Services.Logic
 
             playersByUserId = turnOrder
                 .ToDictionary(
-                    id => id,
-                    id => new PlayerRuntimeState
-                    {
-                        UserId = id,
-                        Position = MIN_CELL_INDEX,
-                        RemainingFrozenTurns = 0,
-                        HasShield = false,
-                        RemainingShieldTurns = 0,
-                        PendingRocketBonus = 0,
-                        ItemUsedThisTurn = false,
-                        HasRolledThisTurn = false
-                    });
+                id => id,
+                id => new PlayerRuntimeState
+                {
+                    UserId = id,
+                    Position = MIN_CELL_INDEX,
+                    RemainingFrozenTurns = 0,
+                    HasShield = false,
+                    RemainingShieldTurns = 0,
+                    PendingRocketBonus = 0,
+                    ItemUsedThisTurn = false,
+                    HasRolledThisTurn = false,
+                    ConsecutiveTimeouts = 0
+                });
+
 
             currentTurnIndex = 0;
             isFinished = false;
@@ -173,6 +177,89 @@ namespace SnakesAndLadders.Services.Logic
         }
 
 
+        public TurnTimeoutResult HandleTurnTimeout()
+        {
+            lock (syncRoot)
+            {
+                if (isFinished)
+                {
+                    throw new InvalidOperationException("The game has already finished.");
+                }
+
+                if (turnOrder.Count == 0)
+                {
+                    throw new InvalidOperationException("There are no players in this game.");
+                }
+
+                int previousTurnUserId = turnOrder[currentTurnIndex];
+
+                if (!playersByUserId.TryGetValue(previousTurnUserId, out PlayerRuntimeState currentPlayer))
+                {
+                    throw new InvalidOperationException("Current player state was not found.");
+                }
+
+                currentPlayer.ConsecutiveTimeouts++;
+
+                bool playerKicked = false;
+                int kickedUserId = INVALID_USER_ID;
+                int winnerUserId = INVALID_USER_ID;
+
+                if (currentPlayer.ConsecutiveTimeouts >= MAX_CONSECUTIVE_TIMEOUTS)
+                {
+                    playerKicked = true;
+                    kickedUserId = previousTurnUserId;
+
+                    playersByUserId.Remove(previousTurnUserId);
+                    turnOrder.Remove(previousTurnUserId);
+
+                    if (turnOrder.Count <= 1)
+                    {
+                        isFinished = true;
+
+                        if (turnOrder.Count == 1)
+                        {
+                            winnerUserId = turnOrder[0];
+                        }
+
+                        return new TurnTimeoutResult
+                        {
+                            PreviousTurnUserId = previousTurnUserId,
+                            CurrentTurnUserId = INVALID_USER_ID,
+                            PlayerKicked = true,
+                            KickedUserId = kickedUserId,
+                            GameFinished = true,
+                            WinnerUserId = winnerUserId
+                        };
+                    }
+
+                    if (currentTurnIndex >= turnOrder.Count)
+                    {
+                        currentTurnIndex = currentTurnIndex % turnOrder.Count;
+                    }
+                }
+                else
+                {
+                    AdvanceTurnAndResetFlags(previousTurnUserId);
+                }
+
+                int currentTurnUserId = isFinished || turnOrder.Count == 0
+                    ? INVALID_USER_ID
+                    : turnOrder[currentTurnIndex];
+
+                return new TurnTimeoutResult
+                {
+                    PreviousTurnUserId = previousTurnUserId,
+                    CurrentTurnUserId = currentTurnUserId,
+                    PlayerKicked = playerKicked,
+                    KickedUserId = kickedUserId,
+                    GameFinished = isFinished,
+                    WinnerUserId = winnerUserId
+                };
+            }
+        }
+
+
+
         public RollDiceResult RollDice(int userId, string diceCode)
         {
             lock (syncRoot)
@@ -194,6 +281,9 @@ namespace SnakesAndLadders.Services.Logic
                 }
 
                 PlayerRuntimeState playerState = playersByUserId[userId];
+
+                // 🔹 El jugador sí respondió a su turno, así que limpiamos los timeouts seguidos.
+                playerState.ConsecutiveTimeouts = 0;
 
                 if (playerState.RemainingFrozenTurns > 0)
                 {
@@ -222,7 +312,6 @@ namespace SnakesAndLadders.Services.Logic
 
                 playerState.HasRolledThisTurn = true;
 
-                // 🔹 Aquí usamos el dado según el código
                 int diceValue = GetDiceValueForCode(playerState, diceCode);
 
                 int fromCellIndex = playerState.Position;
@@ -232,7 +321,6 @@ namespace SnakesAndLadders.Services.Logic
 
                 int tentativeTarget = fromCellIndex + diceValue;
 
-                // No permitir que se vaya antes de la primera casilla
                 if (tentativeTarget < MIN_BOARD_CELL)
                 {
                     tentativeTarget = MIN_BOARD_CELL;
@@ -351,6 +439,7 @@ namespace SnakesAndLadders.Services.Logic
                 };
             }
         }
+
 
 
         public GameStateSnapshot GetCurrentState()

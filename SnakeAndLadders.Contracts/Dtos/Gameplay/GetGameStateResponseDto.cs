@@ -8,7 +8,6 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
     [DataContract]
     public sealed class GetGameStateResponseDto
     {
-
         [DataMember]
         public int GameId { get; set; }
 
@@ -19,6 +18,10 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
         public bool IsFinished { get; set; }
 
         [DataMember]
+        public int WinnerUserId { get; set; }
+
+        [DataMember]
         public List<TokenStateDto> Tokens { get; set; } = new List<TokenStateDto>();
     }
+
 }

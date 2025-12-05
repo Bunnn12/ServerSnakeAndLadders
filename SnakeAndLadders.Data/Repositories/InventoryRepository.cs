@@ -61,7 +61,7 @@ namespace ServerSnakesAndLadders
                             into selectedJoin
                         from selected in selectedJoin.DefaultIfEmpty()
                         where userObject.UsuarioIdUsuario == userId
-                              && userObject.CantidadObjeto > 0      // 👈 SOLO > 0
+                              && userObject.CantidadObjeto > 0      
                         select new InventoryItemDto
                         {
                             ObjectId = obj.IdObjeto,
@@ -123,7 +123,7 @@ namespace ServerSnakesAndLadders
                             into selectedJoin
                         from selected in selectedJoin.DefaultIfEmpty()
                         where userDice.UsuarioIdUsuario == userId
-                              && userDice.CantidadDado > 0        // 👈 SOLO > 0
+                              && userDice.CantidadDado > 0       
                         select new InventoryDiceDto
                         {
                             DiceId = dice.IdDado,
@@ -440,7 +440,7 @@ namespace ServerSnakesAndLadders
 
                     userObject.CantidadObjeto -= 1;
 
-                    // 🔥 Si queda en 0, quitar el objeto del slot (igual que con los dados)
+                    
                     if (userObject.CantidadObjeto <= 0)
                     {
                         userObject.CantidadObjeto = 0;
@@ -508,7 +508,7 @@ namespace ServerSnakesAndLadders
                             "El usuario no tiene cantidad disponible del dado especificado.");
                     }
 
-                    // 👇 Consumimos una unidad
+                
                     userDice.CantidadDado -= 1;
 
                     if (userDice.CantidadDado < 0)
@@ -516,7 +516,6 @@ namespace ServerSnakesAndLadders
                         userDice.CantidadDado = 0;
                     }
 
-                    // 👇 SIEMPRE limpiamos la selección de slots
                     var selectedEntries = context.DadoUsuarioSeleccionado
                         .Where(s => s.UsuarioIdUsuario == userId
                                     && s.DadoIdDado == diceId)

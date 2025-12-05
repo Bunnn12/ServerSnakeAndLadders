@@ -45,13 +45,16 @@ namespace SnakesAndLadders.Services.Logic
                 Board = boardDefinition,
                 PlayerUserIds = players,
                 CurrentTurnUserId = players[0],
-                IsFinished = false
+                IsFinished = false,
+                WinnerUserId = INVALID_USER_ID,
+                EndReason = null
             };
 
             sessions.AddOrUpdate(gameId, session, (_, __) => session);
 
             return session;
         }
+
 
         public bool TryGetSession(int gameId, out GameSession session)
         {
