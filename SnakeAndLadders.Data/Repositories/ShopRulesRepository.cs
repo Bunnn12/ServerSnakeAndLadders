@@ -55,6 +55,7 @@ namespace SnakesAndLadders.Data.Repositories
 
         public const int STICKER_PACK_WEIGHT_DEFAULT = 10;
 
+        public const string STICKER_PACK_DEFAULT = "STP00";
         public const string STICKER_PACK_REVO = "STP01";
         public const string STICKER_PACK_OCHARAN = "STP02";
         public const string STICKER_PACK_LIZ = "STP03";

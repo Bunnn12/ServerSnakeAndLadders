@@ -13,5 +13,7 @@ namespace SnakeAndLadders.Contracts.Dtos
         public int SenderId { get; set; }
 
         public string SenderAvatarId { get; set; } = string.Empty;
+        public int StickerId { get; set; }
+        public string StickerCode { get; set; } = string.Empty;
     }
 }

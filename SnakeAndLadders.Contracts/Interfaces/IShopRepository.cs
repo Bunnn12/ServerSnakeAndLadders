@@ -15,5 +15,6 @@ namespace SnakeAndLadders.Contracts.Interfaces
         OperationResult<ShopRewardDto> PurchaseDice(DicePurchaseDto request);
         OperationResult<ShopRewardDto> PurchaseItemChest(ItemChestPurchaseDto request);
         OperationResult<int> GetCurrentCoins(int userId);
+        OperationResult<List<StickerDto>> GetUserStickers(int userId);
     }
 }

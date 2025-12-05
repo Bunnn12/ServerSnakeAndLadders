@@ -11,12 +11,12 @@ namespace SnakesAndLadders.Services.Logic
         private const int DEFAULT_RECENT_MESSAGES_COUNT = 100;
         private const int MAX_MESSAGE_LENGTH = 500;
 
-        private readonly IChatRepository chatRepository;
+        private readonly IChatRepository _chatRepository;
 
-        public ChatAppService(IChatRepository chatRepositoryValue)
+        public ChatAppService(IChatRepository chatRepository)
         {
-            chatRepository = chatRepositoryValue
-                             ?? throw new ArgumentNullException(nameof(chatRepositoryValue));
+            _chatRepository = chatRepository
+                              ?? throw new ArgumentNullException(nameof(chatRepository));
         }
 
         public void Send(int lobbyId, ChatMessageDto message)
@@ -28,15 +28,9 @@ namespace SnakesAndLadders.Services.Logic
 
             message.TimestampUtc = DateTime.UtcNow;
             message.Text = NormalizeMessageText(message.Text);
-
-            if (string.IsNullOrEmpty(message.Text))
-            {
-                return;
-            }
-
             message.SenderAvatarId = AvatarIdHelper.MapFromDb(message.SenderAvatarId);
 
-            chatRepository.SaveMessage(lobbyId, message);
+            _chatRepository.SaveMessage(lobbyId, message);
         }
 
         public IList<ChatMessageDto> GetRecent(int lobbyId, int take)
@@ -45,11 +39,10 @@ namespace SnakesAndLadders.Services.Logic
                 ? DEFAULT_RECENT_MESSAGES_COUNT
                 : take;
 
-            IList<ChatMessageDto> messages = chatRepository.ReadLast(lobbyId, effectiveTake);
+            IList<ChatMessageDto> messages = _chatRepository.ReadLast(lobbyId, effectiveTake);
 
             if (messages == null)
             {
-                // Defensa extra, aunque repo ya nunca devuelve null.
                 return new List<ChatMessageDto>(0);
             }
 
@@ -68,7 +61,16 @@ namespace SnakesAndLadders.Services.Logic
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(message.Text))
+            bool hasText = !string.IsNullOrWhiteSpace(message.Text);
+            bool hasSticker = message.StickerId > 0
+                              && !string.IsNullOrWhiteSpace(message.StickerCode);
+
+            if (!hasText && !hasSticker)
+            {
+                return false;
+            }
+
+            if (hasText && message.Text.Length > MAX_MESSAGE_LENGTH)
             {
                 return false;
             }

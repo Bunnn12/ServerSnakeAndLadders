@@ -110,9 +110,15 @@ namespace SnakesAndLadders.Data.Repositories
                 throw new ArgumentNullException(nameof(message));
             }
 
-            if (string.IsNullOrWhiteSpace(message.Text))
+            bool hasText = !string.IsNullOrWhiteSpace(message.Text);
+            bool hasSticker = message.StickerId > 0
+                              && !string.IsNullOrWhiteSpace(message.StickerCode);
+
+            if (!hasText && !hasSticker)
             {
-                throw new ArgumentException("Message text cannot be empty.", nameof(message));
+                throw new ArgumentException(
+                    "Message must have text or a sticker.",
+                    nameof(message));
             }
         }
 

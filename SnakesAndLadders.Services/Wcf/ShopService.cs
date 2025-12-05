@@ -44,5 +44,9 @@ namespace SnakesAndLadders.Services.Wcf
         {
             return shopAppService.GetCurrentCoins(token);
         }
+        public List<StickerDto> GetUserStickers(string token)
+        {
+            return shopAppService.GetUserStickers(token);
+        }
     }
 }

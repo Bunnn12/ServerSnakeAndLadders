@@ -15,5 +15,6 @@ namespace SnakeAndLadders.Contracts.Interfaces
         ShopRewardDto PurchaseDice(string token, int diceId);
         ShopRewardDto PurchaseItemChest(string token);
         int GetCurrentCoins(string token);
+        List<StickerDto> GetUserStickers(string token);
     }
 }

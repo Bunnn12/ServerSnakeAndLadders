@@ -18,6 +18,7 @@ namespace SnakesAndLadders.Data.Repositories
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(ShopRepository));
         private static readonly Random RandomInstance = new Random();
+        private const byte STATUS_ACTIVE = 0x01;
 
         private readonly Func<SnakeAndLaddersDBEntities1> contextFactory;
 
@@ -780,5 +781,86 @@ namespace SnakesAndLadders.Data.Repositories
 
             return packs[packs.Count - 1];
         }
+        public OperationResult<List<StickerDto>> GetUserStickers(int userId)
+        {
+            if (userId < ShopRulesRepository.MIN_USER_ID)
+            {
+                return OperationResult<List<StickerDto>>.Failure(ShopRulesRepository.ERROR_INVALID_USER_ID);
+            }
+
+            try
+            {
+                using (SnakeAndLaddersDBEntities1 context = contextFactory())
+                {
+                    int? defaultPackId = context.PaqueteStickers
+                        .Where(p => p.CodigoPaqueteStickers == ShopRulesRepository.STICKER_PACK_DEFAULT)
+                        .Select(p => (int?)p.IdPaqueteStickers)
+                        .SingleOrDefault();
+
+                    List<int> ownedPackIds = context.StickersUsuario
+                        .Where(su => su.UsuarioIdUsuario == userId
+                                     && su.PaqueteStickersIdPaqueteStickers.HasValue)
+                        .Select(su => su.PaqueteStickersIdPaqueteStickers.Value)
+                        .Distinct()
+                        .ToList();
+
+                    if (defaultPackId.HasValue && !ownedPackIds.Contains(defaultPackId.Value))
+                    {
+                        ownedPackIds.Add(defaultPackId.Value);
+                    }
+
+                    if (ownedPackIds.Count == 0)
+                    {
+                        return OperationResult<List<StickerDto>>.Success(new List<StickerDto>());
+                    }
+
+                    List<Sticker> dbStickers = context.Sticker
+                        .Where(s => ownedPackIds.Contains(s.PaqueteStickersIdPaqueteStickers))
+                        .ToList();
+
+                    List<Sticker> activeStickers = dbStickers
+                        .Where(s =>
+                            s.Estado != null &&
+                            s.Estado.Length > 0 &&
+                            s.Estado[0] == STATUS_ACTIVE)
+                        .ToList();
+
+                    if (activeStickers.Count == 0)
+                    {
+                        return OperationResult<List<StickerDto>>.Success(new List<StickerDto>());
+                    }
+
+                    List<StickerDto> stickers = activeStickers
+                        .GroupBy(s => s.CodigoSticker)
+                        .Select(group => group.First())
+                        .OrderBy(s => s.CodigoSticker)
+                        .Select(s => new StickerDto
+                        {
+                            StickerId = s.IdSticker,
+                            StickerCode = s.CodigoSticker,
+                            StickerName = s.Nombre
+                        })
+                        .ToList();
+
+                    return OperationResult<List<StickerDto>>.Success(stickers);
+                }
+            }
+            catch (SqlException ex)
+            {
+                Logger.Error("SQL error while getting stickers for user.", ex);
+                return OperationResult<List<StickerDto>>.Failure(ShopRulesRepository.ERROR_DB);
+            }
+            catch (DbUpdateException ex)
+            {
+                Logger.Error("EF error while getting stickers for user.", ex);
+                return OperationResult<List<StickerDto>>.Failure(ShopRulesRepository.ERROR_PERSISTENCE);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unexpected error while getting stickers for user.", ex);
+                return OperationResult<List<StickerDto>>.Failure(ShopRulesRepository.ERROR_UNEXPECTED);
+            }
+        }
     }
+
 }

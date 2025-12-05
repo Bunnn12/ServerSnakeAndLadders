@@ -97,6 +97,7 @@
     <Compile Include="Dtos\ShopRewardDto.cs" />
     <Compile Include="Dtos\SocialProfileDto.cs" />
     <Compile Include="Dtos\StickerChestPurchaseDto.cs" />
+    <Compile Include="Dtos\StickerDto.cs" />
     <Compile Include="Dtos\UnlinkSocialProfileRequestDto.cs" />
     <Compile Include="Dtos\UpdateProfileRequestDto.cs" />
     <Compile Include="Dtos\UserContactInfoDto.cs" />

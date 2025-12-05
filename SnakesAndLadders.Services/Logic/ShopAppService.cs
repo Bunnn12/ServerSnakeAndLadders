@@ -215,6 +215,36 @@ namespace SnakesAndLadders.Services.Logic
 
             return result.Data;
         }
+        public List<StickerDto> GetUserStickers(string token)
+        {
+            int userId = EnsureUser(token);
+
+            Logger.InfoFormat("GetUserStickers. UserId={0}", userId);
+
+            OperationResult<List<StickerDto>> result = shopRepository.GetUserStickers(userId);
+
+            if (result == null)
+            {
+                throw new FaultException(ERROR_NULL_RESULT);
+            }
+
+            if (!result.IsSuccess)
+            {
+                string code = string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? ERROR_NULL_RESULT
+                    : result.ErrorMessage;
+
+                throw new FaultException(code);
+            }
+
+            if (result.Data == null)
+            {
+                throw new FaultException(ERROR_NULL_DATA);
+            }
+
+            return result.Data;
+        }
+
 
     }
 }
