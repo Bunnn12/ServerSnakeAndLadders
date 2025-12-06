@@ -17,5 +17,8 @@ namespace SnakeAndLadders.Contracts.Services
 
         [OperationContract(IsOneWay = true)]
         void OnPlayerLeft(PlayerLeftDto playerLeftInfo);
+
+        [OperationContract(IsOneWay = true)]
+        void OnTurnTimerUpdated(TurnTimerUpdateDto timerInfo);
     }
 }

@@ -84,6 +84,7 @@
     <Compile Include="Dtos\Gameplay\PlayerLeftDto.cs" />
     <Compile Include="Dtos\Gameplay\TokenStateDto.cs" />
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
+    <Compile Include="Dtos\Gameplay\TurnTimerUpdateDto.cs" />
     <Compile Include="Dtos\Gameplay\UseItemRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\UseItemResponseDto.cs" />
     <Compile Include="Dtos\InviteFriendToGameRequestDto.cs" />

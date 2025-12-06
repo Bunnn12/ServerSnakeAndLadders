@@ -4,7 +4,6 @@ using System.Runtime.Serialization;
 
 namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 {
-
     [DataContract]
     public sealed class GetGameStateResponseDto
     {
@@ -22,6 +21,9 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 
         [DataMember]
         public List<TokenStateDto> Tokens { get; set; } = new List<TokenStateDto>();
-    }
 
+        // 👇 NUEVO: segundos restantes del turno, calculados en el servidor
+        [DataMember]
+        public int RemainingTurnSeconds { get; set; }
+    }
 }

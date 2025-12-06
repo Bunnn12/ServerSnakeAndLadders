@@ -10,6 +10,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.ServiceModel;
+using System.Timers;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -51,7 +52,6 @@ namespace SnakesAndLadders.Services.Wcf
         private const string TURN_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
         private const string LEAVE_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
 
-
         private const int INVALID_USER_ID = 0;
 
         private const byte MIN_ITEM_SLOT = 1;
@@ -59,6 +59,8 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const byte MIN_DICE_SLOT = 1;
         private const byte MAX_DICE_SLOT = 2;
+
+        private const int TURN_TIME_SECONDS = 30;
 
         private readonly IGameSessionStore gameSessionStore;
         private readonly IInventoryRepository inventoryRepository;
@@ -74,6 +76,12 @@ namespace SnakesAndLadders.Services.Wcf
 
         private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, PendingRocketUsage>> pendingRocketsByGameId =
             new ConcurrentDictionary<int, ConcurrentDictionary<int, PendingRocketUsage>>();
+
+        private readonly ConcurrentDictionary<int, TurnTimerState> turnTimersByGameId =
+            new ConcurrentDictionary<int, TurnTimerState>();
+
+        private readonly ConcurrentDictionary<int, Timer> timersByGameId =
+            new ConcurrentDictionary<int, Timer>();
 
         public GameplayService(
             IGameSessionStore gameSessionStore,
@@ -139,10 +147,12 @@ namespace SnakesAndLadders.Services.Wcf
                 {
                     session.WinnerUserId = request.PlayerUserId;
                     session.EndReason = "BOARD_WIN";
+                    session.CurrentTurnStartUtc = DateTime.MinValue;
+
+                    StopTurnTimer(session.GameId);
                 }
 
                 gameSessionStore.UpdateSession(session);
-
 
                 RollDiceResponseDto rollResponse = BuildRollDiceResponse(
                     request,
@@ -223,6 +233,11 @@ namespace SnakesAndLadders.Services.Wcf
             if (!session.IsFinished && result.CurrentTurnUserId != INVALID_USER_ID)
             {
                 session.CurrentTurnUserId = result.CurrentTurnUserId;
+                session.CurrentTurnStartUtc = DateTime.UtcNow;
+            }
+            else
+            {
+                session.CurrentTurnStartUtc = DateTime.MinValue;
             }
 
             gameSessionStore.UpdateSession(session);
@@ -260,10 +275,14 @@ namespace SnakesAndLadders.Services.Wcf
                 };
 
                 NotifyTurnChanged(turnDto);
+
+                StartOrResetTurnTimer(session);
             }
-
+            else
+            {
+                StopTurnTimer(gameId);
+            }
         }
-
 
         public GetGameStateResponseDto GetGameState(GetGameStateRequestDto request)
         {
@@ -287,13 +306,31 @@ namespace SnakesAndLadders.Services.Wcf
                 GameplayLogic logic = GetOrCreateGameplayLogic(session);
                 GameStateSnapshot state = logic.GetCurrentState();
 
+                int remainingSeconds = 0;
+
+                if (!session.IsFinished && state.CurrentTurnUserId != INVALID_USER_ID)
+                {
+                    if (turnTimersByGameId.TryGetValue(session.GameId, out TurnTimerState timerState) &&
+                        timerState.CurrentTurnUserId == state.CurrentTurnUserId)
+                    {
+                        remainingSeconds = timerState.RemainingSeconds;
+                    }
+                    else
+                    {
+                        // Primer turno o cambio de turno sin timer todavía -> crea timer y manda 30
+                        StartOrResetTurnTimer(session);
+                        remainingSeconds = TURN_TIME_SECONDS;
+                    }
+                }
+
                 return new GetGameStateResponseDto
                 {
                     GameId = session.GameId,
                     CurrentTurnUserId = state.CurrentTurnUserId,
                     IsFinished = state.IsFinished,
-                    WinnerUserId = session.WinnerUserId,   // 🔹 importante
-                    Tokens = state.Tokens.ToList()
+                    WinnerUserId = session.WinnerUserId,
+                    Tokens = state.Tokens.ToList(),
+                    RemainingTurnSeconds = remainingSeconds
                 };
             }
             catch (Exception ex)
@@ -302,7 +339,6 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_UNEXPECTED_STATE);
             }
         }
-
 
         public UseItemResponseDto UseItem(UseItemRequestDto request)
         {
@@ -616,7 +652,28 @@ namespace SnakesAndLadders.Services.Wcf
                 Reason = TURN_REASON_NORMAL
             };
 
+            if (!session.IsFinished && currentTurnUserId != INVALID_USER_ID)
+            {
+                session.CurrentTurnUserId = currentTurnUserId;
+                session.CurrentTurnStartUtc = DateTime.UtcNow;
+            }
+            else
+            {
+                session.CurrentTurnStartUtc = DateTime.MinValue;
+            }
+
+            gameSessionStore.UpdateSession(session);
+
             NotifyTurnChanged(turnDto);
+
+            if (!session.IsFinished && currentTurnUserId != INVALID_USER_ID)
+            {
+                StartOrResetTurnTimer(session);
+            }
+            else
+            {
+                StopTurnTimer(session.GameId);
+            }
         }
 
         private static PlayerMoveResultDto BuildPlayerMoveResultDto(
@@ -677,6 +734,7 @@ namespace SnakesAndLadders.Services.Wcf
             return equippedItem;
         }
 
+        // Mantengo el método para compatibilidad, pero ya no se usa: el timeout lo maneja el timer del server.
         public void RegisterTurnTimeout(int gameId)
         {
             if (gameId <= 0)
@@ -684,21 +742,10 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_GAME_ID_INVALID);
             }
 
-            try
-            {
-                ProcessTurnTimeout(gameId);
-            }
-            catch (FaultException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Unexpected error while registering turn timeout.", ex);
-                throw new FaultException("Unexpected error while registering turn timeout.");
-            }
+            Logger.InfoFormat(
+                "RegisterTurnTimeout called for GameId={0}, but timeouts are handled by server timer.",
+                gameId);
         }
-
 
         private InventoryDiceDto ResolveEquippedDiceForSlot(int userId, byte slotNumber)
         {
@@ -820,9 +867,11 @@ namespace SnakesAndLadders.Services.Wcf
             bool wasCurrentTurn = false;
             int? newCurrentTurnUserId = null;
 
+            GameSession session = null;
+
             try
             {
-                if (gameSessionStore.TryGetSession(gameId, out GameSession session))
+                if (gameSessionStore.TryGetSession(gameId, out session))
                 {
                     GameStateSnapshot state = GetCurrentStateSafe(session);
                     if (state != null)
@@ -850,6 +899,15 @@ namespace SnakesAndLadders.Services.Wcf
             };
 
             NotifyPlayerLeft(leftDto);
+
+            if (wasCurrentTurn && newCurrentTurnUserId.HasValue && session != null)
+            {
+                session.CurrentTurnUserId = newCurrentTurnUserId.Value;
+                session.CurrentTurnStartUtc = DateTime.UtcNow;
+                gameSessionStore.UpdateSession(session);
+
+                StartOrResetTurnTimer(session);
+            }
 
             if (wasCurrentTurn && newCurrentTurnUserId.HasValue)
             {
@@ -902,6 +960,8 @@ namespace SnakesAndLadders.Services.Wcf
             callbacksByGameId.TryRemove(gameId, out _);
             userNamesByGameId.TryRemove(gameId, out _);
             pendingRocketsByGameId.TryRemove(gameId, out _);
+
+            StopTurnTimer(gameId);
         }
 
         private string GetUserNameOrDefault(int gameId, int userId)
@@ -987,6 +1047,28 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
+        private void NotifyTurnTimerUpdated(TurnTimerUpdateDto timerInfo)
+        {
+            if (timerInfo == null)
+            {
+                return;
+            }
+
+            if (!callbacksByGameId.TryGetValue(timerInfo.GameId, out var callbacksForGame))
+            {
+                return;
+            }
+
+            foreach (var callbackEntry in callbacksForGame.ToArray())
+            {
+                InvokeCallbackSafely(
+                    timerInfo.GameId,
+                    callbackEntry.Key,
+                    callbackEntry.Value,
+                    callback => callback.OnTurnTimerUpdated(timerInfo));
+            }
+        }
+
         private void InvokeCallbackSafely(
             int gameId,
             int userId,
@@ -1007,6 +1089,118 @@ namespace SnakesAndLadders.Services.Wcf
 
                 RemoveCallback(gameId, userId, LEAVE_REASON_DISCONNECTED);
             }
+        }
+
+        private void StartOrResetTurnTimer(GameSession session)
+        {
+            if (session == null)
+            {
+                return;
+            }
+
+            int gameId = session.GameId;
+
+            if (session.IsFinished || session.CurrentTurnUserId == INVALID_USER_ID)
+            {
+                StopTurnTimer(gameId);
+                return;
+            }
+
+            TurnTimerState state = turnTimersByGameId.AddOrUpdate(
+                gameId,
+                _ => new TurnTimerState(gameId, session.CurrentTurnUserId, TURN_TIME_SECONDS),
+                (_, existing) =>
+                {
+                    existing.CurrentTurnUserId = session.CurrentTurnUserId;
+                    existing.RemainingSeconds = TURN_TIME_SECONDS;
+                    existing.LastUpdatedUtc = DateTime.UtcNow;
+                    return existing;
+                });
+
+            Timer timer = timersByGameId.GetOrAdd(
+                gameId,
+                _ =>
+                {
+                    var newTimer = new Timer(1000);
+                    newTimer.AutoReset = true;
+                    newTimer.Elapsed += (s, e) => OnServerTurnTimerTick(gameId);
+                    return newTimer;
+                });
+
+            if (!timer.Enabled)
+            {
+                timer.Start();
+            }
+
+            Logger.InfoFormat(
+                "StartOrResetTurnTimer: GameId={0}, CurrentTurnUserId={1}, Remaining={2}",
+                gameId,
+                state.CurrentTurnUserId,
+                state.RemainingSeconds);
+
+            NotifyTurnTimerUpdated(
+                new TurnTimerUpdateDto
+                {
+                    GameId = gameId,
+                    CurrentTurnUserId = state.CurrentTurnUserId,
+                    RemainingSeconds = state.RemainingSeconds
+                });
+        }
+
+        private void StopTurnTimer(int gameId)
+        {
+            turnTimersByGameId.TryRemove(gameId, out _);
+
+            if (!timersByGameId.TryRemove(gameId, out Timer timer))
+            {
+                return;
+            }
+
+            try
+            {
+                timer.Stop();
+                timer.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Error while stopping turn timer.", ex);
+            }
+        }
+
+        private void OnServerTurnTimerTick(int gameId)
+        {
+            if (!turnTimersByGameId.TryGetValue(gameId, out TurnTimerState state))
+            {
+                return;
+            }
+
+            int newRemaining = state.RemainingSeconds - 1;
+            state.RemainingSeconds = newRemaining;
+            state.LastUpdatedUtc = DateTime.UtcNow;
+
+            if (newRemaining <= 0)
+            {
+                StopTurnTimer(gameId);
+
+                try
+                {
+                    ProcessTurnTimeout(gameId);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error while processing turn timeout from server timer.", ex);
+                }
+
+                return;
+            }
+
+            NotifyTurnTimerUpdated(
+                new TurnTimerUpdateDto
+                {
+                    GameId = gameId,
+                    CurrentTurnUserId = state.CurrentTurnUserId,
+                    RemainingSeconds = newRemaining
+                });
         }
     }
 }

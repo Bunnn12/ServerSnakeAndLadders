@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 {
@@ -17,5 +18,7 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
         public int WinnerUserId { get; set; }
 
         public string EndReason { get; set; }
+
+        public DateTime CurrentTurnStartUtc { get; set; }
     }
 }
