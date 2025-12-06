@@ -1,6 +1,5 @@
-﻿using SnakeAndLadders.Contracts.Dtos;
-using SnakeAndLadders.Contracts.Services;
-using System.ServiceModel;
+﻿using System.ServiceModel;
+using SnakeAndLadders.Contracts.Dtos;
 
 namespace SnakeAndLadders.Contracts
 {

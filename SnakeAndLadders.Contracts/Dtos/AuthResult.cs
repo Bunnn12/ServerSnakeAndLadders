@@ -1,10 +1,18 @@
-﻿using System.Collections.Generic;
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace SnakeAndLadders.Contracts.Dtos
 {
     public sealed class AuthResult
     {
+        public AuthResult()
+        {
+            Meta = new Dictionary<string, string>();
+            DisplayName = string.Empty;
+            ProfilePhotoId = string.Empty;
+            CurrentSkinId = string.Empty;
+        }
+
         public bool Success { get; set; }
 
         public string Code { get; set; }
@@ -14,10 +22,6 @@ namespace SnakeAndLadders.Contracts.Dtos
         public int? UserId { get; set; }
 
         public string DisplayName { get; set; }
-
-        public string TechnicalMessage { get; set; }
-
-        public string Message { get; set; }
 
         public string ProfilePhotoId { get; set; }
 

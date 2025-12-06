@@ -19,6 +19,9 @@ namespace SnakesAndLadders.Data.Repositories
         private const byte STATUS_INACTIVE_VALUE = 0x00;
 
         private const int COMMAND_TIMEOUT_SECONDS = 30;
+        private const string DELETED_USERNAME_PREFIX = "deleted_";
+        private const string DELETED_EMAIL_DOMAIN = "invalid.local";
+
         public void SetUserAndAccountActiveState(int userId, bool isActive)
         {
             if (userId < 1)

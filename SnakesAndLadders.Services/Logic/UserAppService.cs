@@ -20,7 +20,7 @@ namespace SnakesAndLadders.Services.Logic
         {
             if (string.IsNullOrWhiteSpace(username))
             {
-                throw new ArgumentException("Username is required.", nameof(username));
+                throw new ArgumentException("UserName is required.", nameof(username));
             }
 
             return users.GetByUsername(username);

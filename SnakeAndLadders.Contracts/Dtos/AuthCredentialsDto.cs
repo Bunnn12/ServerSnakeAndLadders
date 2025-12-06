@@ -9,8 +9,11 @@ namespace SnakeAndLadders.Contracts.Dtos
     public sealed class AuthCredentialsDto
     {
         public int UserId { get; set; }
-        public string PasswordHash { get; set; }
-        public string DisplayName { get; set; }
-        public string ProfilePhotoId { get; set; }
+
+        public string PasswordHash { get; set; } = string.Empty;
+
+        public string DisplayName { get; set; } = string.Empty;
+
+        public string ProfilePhotoId { get; set; } = string.Empty;
     }
 }

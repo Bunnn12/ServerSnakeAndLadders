@@ -275,7 +275,7 @@ namespace SnakesAndLadders.Data.Repositories
             return new AccountDto
             {
                 UserId = usuario.IdUsuario,
-                Username = usuario.NombreUsuario,
+                UserName = usuario.NombreUsuario,
                 FirstName = usuario.Nombre,
                 LastName = usuario.Apellidos,
                 ProfileDescription = usuario.DescripcionPerfil,

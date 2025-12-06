@@ -105,7 +105,7 @@ namespace SnakesAndLadders.Services.Logic
                 PasswordHash = passwordHash
             };
 
-            var createResult = _accountsRepository.CreateUserWithAccountAndPassword(requestDto);
+            OperationResult<int> createResult = _accountsRepository.CreateUserWithAccountAndPassword(requestDto);
 
             if (!createResult.IsSuccess)
             {
@@ -114,7 +114,7 @@ namespace SnakesAndLadders.Services.Logic
 
             int newUserId = createResult.Data;
 
-            return Ok(userId: newUserId, displayName: registration.UserName);
+            return OkWithUser(newUserId, registration.UserName);
         }
 
         public AuthResult Login(LoginDto request)
@@ -126,7 +126,8 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_INVALID_REQUEST);
             }
 
-            var authResult = _accountsRepository.GetAuthByIdentifier(request.Email);
+            OperationResult<AuthCredentialsDto> authResult =
+                _accountsRepository.GetAuthByIdentifier(request.Email);
 
             if (!authResult.IsSuccess || authResult.Data == null)
             {
@@ -213,36 +214,19 @@ namespace SnakesAndLadders.Services.Logic
                 return Fail(AUTH_CODE_SERVER_ERROR);
             }
 
-            var result = Ok(
-                userId: userId,
-                displayName: displayName,
-                profilePhotoId: profilePhotoId);
+            AuthResult result = OkWithUserProfile(
+                userId,
+                displayName,
+                profilePhotoId);
 
             result.CurrentSkinId = account.CurrentSkinId;
             result.CurrentSkinUnlockedId = account.CurrentSkinUnlockedId;
-
             result.Token = token;
             result.ExpiresAtUtc = expiresAtUtc;
 
             return result;
         }
 
-        private static string IssueToken(int userId, DateTime expiresAtUtc)
-        {
-            string secret = ConfigurationManager.AppSettings[APP_KEY_SECRET];
-
-            if (string.IsNullOrWhiteSpace(secret))
-            {
-                throw new InvalidOperationException("Auth secret is not configured (Auth:Secret).");
-            }
-
-            long expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
-            string payload = $"{userId}|{expUnix}";
-            string signatureHex = ComputeHmacHex(secret, payload);
-            string raw = $"{payload}|{signatureHex}";
-
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
-        }
         public AuthResult RequestEmailVerification(string email)
         {
             email = (email ?? string.Empty).Trim().ToLowerInvariant();
@@ -263,9 +247,12 @@ namespace SnakesAndLadders.Services.Logic
                 if (elapsed < RESEND_WINDOW)
                 {
                     int secondsToWait = (int)(RESEND_WINDOW - elapsed).TotalSeconds;
-                    return Fail(
-                        AUTH_CODE_THROTTLE_WAIT,
-                        new Dictionary<string, string> { [META_KEY_SECONDS] = secondsToWait.ToString() });
+                    var meta = new Dictionary<string, string>
+                    {
+                        [META_KEY_SECONDS] = secondsToWait.ToString()
+                    };
+
+                    return Fail(AUTH_CODE_THROTTLE_WAIT, meta);
                 }
             }
 
@@ -283,11 +270,16 @@ namespace SnakesAndLadders.Services.Logic
             {
                 Logger.Error("Error while sending email verification code.", ex);
                 _verificationCodesCache.TryRemove(email, out _);
-                return Fail(
-                    AUTH_CODE_EMAIL_SEND_FAILED,
-                    new Dictionary<string, string> { [META_KEY_REASON] = ex.GetType().Name });
+
+                var meta = new Dictionary<string, string>
+                {
+                    [META_KEY_REASON] = ex.GetType().Name
+                };
+
+                return Fail(AUTH_CODE_EMAIL_SEND_FAILED, meta);
             }
         }
+
         public AuthResult ConfirmEmailVerification(string email, string code)
         {
             email = (email ?? string.Empty).Trim().ToLowerInvariant();
@@ -318,64 +310,115 @@ namespace SnakesAndLadders.Services.Logic
             return Ok();
         }
 
-        private static string GenerateCode(int digits)
+        public AuthResult RequestPasswordChangeCode(string email)
         {
-            var bytes = new byte[RANDOM_BYTES_LENGTH];
+            email = (email ?? string.Empty).Trim().ToLowerInvariant();
 
-            using (var randomNumberGenerator = RandomNumberGenerator.Create())
+            if (string.IsNullOrWhiteSpace(email))
             {
-                randomNumberGenerator.GetBytes(bytes);
+                return Fail(AUTH_CODE_EMAIL_REQUIRED);
             }
 
-            uint value = BitConverter.ToUInt32(bytes, 0);
-            uint mod = (uint)Math.Pow(10, digits);
-            uint number = value % mod;
+            bool isRegistered;
 
-            return number.ToString(new string('0', digits));
-        }
-
-        private static AuthResult Ok(
-            string code = AUTH_CODE_OK,
-            Dictionary<string, string> meta = null,
-            int? userId = null,
-            string displayName = null,
-            string profilePhotoId = null)
-        {
-            return new AuthResult
+            try
             {
-                Success = true,
-                Code = code,
-                Meta = meta,
-                UserId = userId,
-                DisplayName = displayName,
-                ProfilePhotoId = profilePhotoId
-            };
-        }
-
-        private static AuthResult Fail(string code, Dictionary<string, string> meta = null)
-        {
-            return new AuthResult
+                isRegistered = _accountsRepository.IsEmailRegistered(email);
+            }
+            catch (Exception ex)
             {
-                Success = false,
-                Code = code,
-                Meta = meta
-            };
-        }
+                Logger.Error("Error while checking email for password change.", ex);
+                return Fail(AUTH_CODE_SERVER_ERROR);
+            }
 
-        private static string ComputeHmacHex(string secret, string data)
-        {
-            using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+            if (!isRegistered)
             {
-                byte[] bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
-                var stringBuilder = new StringBuilder(bytes.Length * 2);
+                return Fail(AUTH_CODE_EMAIL_NOT_FOUND);
+            }
 
-                for (int index = 0; index < bytes.Length; index++)
+            if (_verificationCodesCache.TryGetValue(email, out var entry))
+            {
+                TimeSpan elapsed = DateTime.UtcNow - entry.LastSentUtc;
+
+                if (elapsed < RESEND_WINDOW)
                 {
-                    stringBuilder.Append(bytes[index].ToString("x2"));
-                }
+                    int secondsToWait = (int)(RESEND_WINDOW - elapsed).TotalSeconds;
 
-                return stringBuilder.ToString();
+                    var meta = new Dictionary<string, string>
+                    {
+                        [META_KEY_SECONDS] = secondsToWait.ToString()
+                    };
+
+                    return Fail(AUTH_CODE_THROTTLE_WAIT, meta);
+                }
             }
+
+            string code = GenerateCode(VERIFICATION_CODE_DIGITS);
+            DateTime nowUtc = DateTime.UtcNow;
+
+            _verificationCodesCache[email] = (code, nowUtc.Add(VERIFICATION_TTL), nowUtc);
+
+            try
+            {
+                _emailSender.SendVerificationCode(email, code);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error while sending password change verification code.", ex);
+                _verificationCodesCache.TryRemove(email, out _);
+
+                var meta = new Dictionary<string, string>
+                {
+                    [META_KEY_REASON] = ex.GetType().Name
+                };
+
+                return Fail(AUTH_CODE_EMAIL_SEND_FAILED, meta);
+            }
+        }
+
+        public AuthResult ChangePassword(ChangePasswordRequestDto request)
+        {
+            ChangePasswordValidationContext validationContext = ValidateChangePasswordRequest(request);
+
+            if (validationContext.Error != null)
+            {
+                return validationContext.Error;
+            }
+
+            EmailCodeValidationResult emailResult = ValidateEmailAndCode(
+                validationContext.Email,
+                validationContext.VerificationCode);
+
+            if (!emailResult.IsValid)
+            {
+                return emailResult.Error;
+            }
+
+            PasswordHistoryResult historyResult = LoadPasswordHistory(validationContext.UserId);
+
+            if (!historyResult.IsValid)
+            {
+                return historyResult.Error;
+            }
+
+            IReadOnlyList<string> passwordHistory = historyResult.History;
+
+            if (IsPasswordReused(validationContext.NewPassword, passwordHistory))
+            {
+                return Fail(AUTH_CODE_PASSWORD_REUSED);
+            }
+
+            PersistPasswordResult persistResult = PersistNewPassword(
+                validationContext.UserId,
+                validationContext.NewPassword);
+
+            if (!persistResult.IsSuccess)
+            {
+                return persistResult.Error;
+            }
+
+            return OkWithCustomCode(AUTH_CODE_OK, validationContext.UserId);
         }
 
         public int GetUserIdFromToken(string token)
@@ -434,116 +477,110 @@ namespace SnakesAndLadders.Services.Logic
                 return 0;
             }
         }
-        public AuthResult RequestPasswordChangeCode(string email)
+
+        private static string IssueToken(int userId, DateTime expiresAtUtc)
         {
-            email = (email ?? string.Empty).Trim().ToLowerInvariant();
+            string secret = ConfigurationManager.AppSettings[APP_KEY_SECRET];
 
-            if (string.IsNullOrWhiteSpace(email))
+            if (string.IsNullOrWhiteSpace(secret))
             {
-                return Fail(AUTH_CODE_EMAIL_REQUIRED);
+                throw new InvalidOperationException("Auth secret is not configured (Auth:Secret).");
             }
 
-            bool isRegistered;
+            long expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
+            string payload = $"{userId}|{expUnix}";
+            string signatureHex = ComputeHmacHex(secret, payload);
+            string raw = $"{payload}|{signatureHex}";
 
-            try
-            {
-                isRegistered = _accountsRepository.IsEmailRegistered(email);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error while checking email for password change.", ex);
-                return Fail(AUTH_CODE_SERVER_ERROR);
-            }
-
-            if (!isRegistered)
-            {
-                return Fail(AUTH_CODE_EMAIL_NOT_FOUND);
-            }
-
-            if (_verificationCodesCache.TryGetValue(email, out var entry))
-            {
-                TimeSpan elapsed = DateTime.UtcNow - entry.LastSentUtc;
-
-                if (elapsed < RESEND_WINDOW)
-                {
-                    int secondsToWait = (int)(RESEND_WINDOW - elapsed).TotalSeconds;
-
-                    return Fail(
-                        AUTH_CODE_THROTTLE_WAIT,
-                        new Dictionary<string, string>
-                        {
-                            [META_KEY_SECONDS] = secondsToWait.ToString()
-                        });
-                }
-            }
-
-            string code = GenerateCode(VERIFICATION_CODE_DIGITS);
-            DateTime nowUtc = DateTime.UtcNow;
-
-            _verificationCodesCache[email] = (code, nowUtc.Add(VERIFICATION_TTL), nowUtc);
-
-            try
-            {
-                _emailSender.SendVerificationCode(email, code);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error while sending password change verification code.", ex);
-                _verificationCodesCache.TryRemove(email, out _);
-
-                return Fail(
-                    AUTH_CODE_EMAIL_SEND_FAILED,
-                    new Dictionary<string, string>
-                    {
-                        [META_KEY_REASON] = ex.GetType().Name
-                    });
-            }
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
         }
-        public AuthResult ChangePassword(ChangePasswordRequestDto request)
+
+        private static string GenerateCode(int digits)
         {
-            ChangePasswordValidationContext validationContext = ValidateChangePasswordRequest(request);
+            var bytes = new byte[RANDOM_BYTES_LENGTH];
 
-            if (validationContext.Error != null)
+            using (var randomNumberGenerator = RandomNumberGenerator.Create())
             {
-                return validationContext.Error;
+                randomNumberGenerator.GetBytes(bytes);
             }
 
-            EmailCodeValidationResult emailResult = ValidateEmailAndCode(
-                validationContext.Email,
-                validationContext.VerificationCode);
+            uint value = BitConverter.ToUInt32(bytes, 0);
+            uint mod = (uint)Math.Pow(10, digits);
+            uint number = value % mod;
 
-            if (!emailResult.IsValid)
+            return number.ToString(new string('0', digits));
+        }
+
+        private static AuthResult Ok()
+        {
+            return new AuthResult
             {
-                return emailResult.Error;
-            }
+                Success = true,
+                Code = AUTH_CODE_OK,
+                Meta = new Dictionary<string, string>()
+            };
+        }
 
-            PasswordHistoryResult historyResult = LoadPasswordHistory(validationContext.UserId);
-
-            if (!historyResult.IsValid)
+        private static AuthResult OkWithUser(int userId, string displayName)
+        {
+            return new AuthResult
             {
-                return historyResult.Error;
-            }
+                Success = true,
+                Code = AUTH_CODE_OK,
+                Meta = new Dictionary<string, string>(),
+                UserId = userId,
+                DisplayName = displayName
+            };
+        }
 
-            IReadOnlyList<string> passwordHistory = historyResult.History;
-
-            if (IsPasswordReused(validationContext.NewPassword, passwordHistory))
+        private static AuthResult OkWithUserProfile(int userId, string displayName, string profilePhotoId)
+        {
+            return new AuthResult
             {
-                return Fail(AUTH_CODE_PASSWORD_REUSED);
-            }
+                Success = true,
+                Code = AUTH_CODE_OK,
+                Meta = new Dictionary<string, string>(),
+                UserId = userId,
+                DisplayName = displayName,
+                ProfilePhotoId = profilePhotoId
+            };
+        }
 
-            PersistPasswordResult persistResult = PersistNewPassword(
-                validationContext.UserId,
-                validationContext.NewPassword);
-
-            if (!persistResult.IsSuccess)
+        private static AuthResult OkWithCustomCode(string code, int userId)
+        {
+            return new AuthResult
             {
-                return persistResult.Error;
-            }
+                Success = true,
+                Code = code,
+                Meta = new Dictionary<string, string>(),
+                UserId = userId
+            };
+        }
 
-            return Ok(
-                code: AUTH_CODE_OK,
-                userId: validationContext.UserId);
+        private static AuthResult Fail(string code, Dictionary<string, string> meta = null)
+        {
+            return new AuthResult
+            {
+                Success = false,
+                Code = code,
+                Meta = meta ?? new Dictionary<string, string>()
+            };
+        }
+
+        private static string ComputeHmacHex(string secret, string data)
+        {
+            using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+            {
+                byte[] bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+                var stringBuilder = new StringBuilder(bytes.Length * 2);
+
+                for (int index = 0; index < bytes.Length; index++)
+                {
+                    stringBuilder.Append(bytes[index].ToString("x2"));
+                }
+
+                return stringBuilder.ToString();
+            }
         }
 
         private ChangePasswordValidationContext ValidateChangePasswordRequest(ChangePasswordRequestDto request)
@@ -761,6 +798,5 @@ namespace SnakesAndLadders.Services.Logic
             result.IsSuccess = true;
             return result;
         }
-
     }
 }

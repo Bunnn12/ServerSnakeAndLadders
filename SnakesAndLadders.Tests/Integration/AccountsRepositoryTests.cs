@@ -91,7 +91,7 @@ namespace SnakesAndLadders.Tests.Integration
             OperationResult<int> result = repository.CreateUserWithAccountAndPassword(requestDto);
 
             Assert.False(result.IsSuccess);
-            Assert.Contains("Username", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("UserName", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]

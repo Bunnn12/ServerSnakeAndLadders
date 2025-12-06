@@ -74,11 +74,13 @@ namespace SnakesAndLadders.Services.Logic
                 return BuildFailure(ERROR_NOT_FRIENDS);
             }
 
-            string friendEmail = accountsRepository.GetEmailByUserId(request.FriendUserId);
-            if (string.IsNullOrWhiteSpace(friendEmail))
+            var emailResult = accountsRepository.GetEmailByUserId(request.FriendUserId);
+            if (!emailResult.IsSuccess || string.IsNullOrWhiteSpace(emailResult.Data))
             {
                 return BuildFailure(ERROR_FRIEND_EMAIL_NOT_FOUND);
             }
+
+            string friendEmail = emailResult.Data;
 
             AccountDto inviterAccount = userRepository.GetByUserId(inviterUserId);
             AccountDto friendAccount = userRepository.GetByUserId(request.FriendUserId);
@@ -129,9 +131,9 @@ namespace SnakesAndLadders.Services.Logic
                 return false;
             }
 
-            foreach (char c in gameCode)
+            foreach (char character in gameCode)
             {
-                if (!char.IsDigit(c))
+                if (!char.IsDigit(character))
                 {
                     return false;
                 }
@@ -150,9 +152,9 @@ namespace SnakesAndLadders.Services.Logic
 
         private static string ResolveUserName(AccountDto account, int userIdFallback)
         {
-            if (account != null && !string.IsNullOrWhiteSpace(account.Username))
+            if (account != null && !string.IsNullOrWhiteSpace(account.UserName))
             {
-                return account.Username;
+                return account.UserName;
             }
 
             return $"User-{userIdFallback}";
