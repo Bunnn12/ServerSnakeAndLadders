@@ -73,6 +73,8 @@
     <Compile Include="Dtos\Gameplay\BoardLinkDto.cs" />
     <Compile Include="Dtos\Gameplay\CreateBoardRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\CreateBoardResponseDto.cs" />
+    <Compile Include="Dtos\Gameplay\GameFinishedDto.cs" />
+    <Compile Include="Dtos\Gameplay\GameFinishedPlayerDto.cs" />
     <Compile Include="Dtos\Gameplay\GameSession.cs" />
     <Compile Include="Dtos\Gameplay\GetGameStateRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\GetGameStateResponseDto.cs" />
@@ -143,6 +145,7 @@
     <Compile Include="Interfaces\IEmailSender.cs" />
     <Compile Include="Interfaces\IFriendsAppService.cs" />
     <Compile Include="Interfaces\IFriendsRepository.cs" />
+    <Compile Include="Interfaces\IGameResultsRepository.cs" />
     <Compile Include="Interfaces\IGameSessionStore.cs" />
     <Compile Include="Interfaces\IInventoryAppService.cs" />
     <Compile Include="Interfaces\IInventoryRepository.cs" />

@@ -84,6 +84,7 @@ internal static class Program
             IAppLogger appLogger = new AppLogger(Log);
 
             ILobbyRepository lobbyRepository = new LobbyRepository();
+            IGameResultsRepository gameResultsRepository = new GameResultsRepository();
             ILobbyAppService lobbyAppService = new LobbyAppService(lobbyRepository, appLogger);
             var lobbySvc = new LobbyService(lobbyAppService);
 
@@ -113,7 +114,7 @@ internal static class Program
             var playerReportSvc = new PlayerReportService(playerReportApp);
             var statsSvc = new StatsService(statsApp);
             var friendsSvc = new FriendsService(friendsApp);
-            var gameplaySvc = new GameplayService(gameSessionStore,inventoryRepo,appLogger);
+            var gameplaySvc = new GameplayService(gameSessionStore,inventoryRepo,gameResultsRepository,appLogger);
             var shopSvc = new ShopService(shopApp);
             var inventorySvc = new InventoryService(inventoryApp);
             var matchInvitationSvc = new MatchInvitationService(matchInvitationApp);

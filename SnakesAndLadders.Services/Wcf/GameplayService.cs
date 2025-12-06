@@ -1,16 +1,18 @@
-﻿using log4net;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.ServiceModel;
+using System.Timers;
+using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
+using ServerSnakesAndLadders.Common;
 using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Logic.Gameplay;
-using System;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.ServiceModel;
-using System.Timers;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -52,6 +54,9 @@ namespace SnakesAndLadders.Services.Wcf
         private const string TURN_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
         private const string LEAVE_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
 
+        private const string END_REASON_BOARD_WIN = "BOARD_WIN";
+        private const string END_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
+
         private const int INVALID_USER_ID = 0;
 
         private const byte MIN_ITEM_SLOT = 1;
@@ -62,8 +67,13 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const int TURN_TIME_SECONDS = 30;
 
+        private const int COINS_FIRST_PLACE = 50;
+        private const int COINS_SECOND_PLACE = 30;
+        private const int COINS_THIRD_PLACE = 10;
+
         private readonly IGameSessionStore gameSessionStore;
         private readonly IInventoryRepository inventoryRepository;
+        private readonly IGameResultsRepository gameResultsRepository;
 
         private readonly ConcurrentDictionary<int, GameplayLogic> gameplayByGameId =
             new ConcurrentDictionary<int, GameplayLogic>();
@@ -86,6 +96,7 @@ namespace SnakesAndLadders.Services.Wcf
         public GameplayService(
             IGameSessionStore gameSessionStore,
             IInventoryRepository inventoryRepository,
+            IGameResultsRepository gameResultsRepository,
             IAppLogger appLogger)
         {
             this.gameSessionStore = gameSessionStore
@@ -93,6 +104,9 @@ namespace SnakesAndLadders.Services.Wcf
 
             this.inventoryRepository = inventoryRepository
                 ?? throw new ArgumentNullException(nameof(inventoryRepository));
+
+            this.gameResultsRepository = gameResultsRepository
+                ?? throw new ArgumentNullException(nameof(gameResultsRepository));
         }
 
         public RollDiceResponseDto RollDice(RollDiceRequestDto request)
@@ -145,14 +159,22 @@ namespace SnakesAndLadders.Services.Wcf
 
                 if (moveResult.IsGameOver)
                 {
+                    session.HasWinner = true;
                     session.WinnerUserId = request.PlayerUserId;
-                    session.EndReason = "BOARD_WIN";
+                    session.WinnerUserName = GetUserNameOrDefault(session.GameId, request.PlayerUserId);
+                    session.EndReason = END_REASON_BOARD_WIN;
+                    session.FinishedAtUtc = DateTime.UtcNow;
                     session.CurrentTurnStartUtc = DateTime.MinValue;
 
                     StopTurnTimer(session.GameId);
-                }
 
-                gameSessionStore.UpdateSession(session);
+                    gameSessionStore.UpdateSession(session);
+                    FinalizeGame(session);
+                }
+                else
+                {
+                    gameSessionStore.UpdateSession(session);
+                }
 
                 RollDiceResponseDto rollResponse = BuildRollDiceResponse(
                     request,
@@ -226,11 +248,22 @@ namespace SnakesAndLadders.Services.Wcf
 
             if (result.WinnerUserId != INVALID_USER_ID)
             {
+                session.HasWinner = true;
                 session.WinnerUserId = result.WinnerUserId;
-                session.EndReason = "TIMEOUT_KICK";
+                session.WinnerUserName = GetUserNameOrDefault(gameId, result.WinnerUserId);
+                session.EndReason = END_REASON_TIMEOUT_KICK;
             }
 
-            if (!session.IsFinished && result.CurrentTurnUserId != INVALID_USER_ID)
+            if (session.IsFinished)
+            {
+                if (session.FinishedAtUtc == DateTime.MinValue)
+                {
+                    session.FinishedAtUtc = DateTime.UtcNow;
+                }
+
+                session.CurrentTurnStartUtc = DateTime.MinValue;
+            }
+            else if (result.CurrentTurnUserId != INVALID_USER_ID)
             {
                 session.CurrentTurnUserId = result.CurrentTurnUserId;
                 session.CurrentTurnStartUtc = DateTime.UtcNow;
@@ -241,6 +274,11 @@ namespace SnakesAndLadders.Services.Wcf
             }
 
             gameSessionStore.UpdateSession(session);
+
+            if (session.IsFinished)
+            {
+                FinalizeGame(session);
+            }
 
             if (result.PlayerKicked && result.KickedUserId != INVALID_USER_ID)
             {
@@ -317,7 +355,6 @@ namespace SnakesAndLadders.Services.Wcf
                     }
                     else
                     {
-                        // Primer turno o cambio de turno sin timer todavía -> crea timer y manda 30
                         StartOrResetTurnTimer(session);
                         remainingSeconds = TURN_TIME_SECONDS;
                     }
@@ -489,7 +526,8 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_SESSION_NOT_FOUND);
             }
 
-            IGameplayCallback callbackChannel = OperationContext.Current.GetCallbackChannel<IGameplayCallback>();
+            IGameplayCallback callbackChannel = OperationContext.Current
+                .GetCallbackChannel<IGameplayCallback>();
 
             RegisterCallback(gameId, userId, userName, callbackChannel);
 
@@ -616,6 +654,148 @@ namespace SnakesAndLadders.Services.Wcf
             return MoveEffectType.None;
         }
 
+        private static int GetCoinsForPosition(int position)
+        {
+            switch (position)
+            {
+                case 1:
+                    return COINS_FIRST_PLACE;
+
+                case 2:
+                    return COINS_SECOND_PLACE;
+
+                case 3:
+                    return COINS_THIRD_PLACE;
+
+                default:
+                    return 0;
+            }
+        }
+
+        private IDictionary<int, int> BuildCoinsDistribution(GameSession session)
+        {
+            var coinsByUserId = new Dictionary<int, int>();
+
+            if (session == null)
+            {
+                return coinsByUserId;
+            }
+
+            GameStateSnapshot state = GetCurrentStateSafe(session);
+            if (state == null || state.Tokens == null || state.Tokens.Count == 0)
+            {
+                return coinsByUserId;
+            }
+
+            var activeUserIds = new HashSet<int>();
+
+            if (callbacksByGameId.TryGetValue(session.GameId, out var callbacksForGame))
+            {
+                foreach (var entry in callbacksForGame)
+                {
+                    activeUserIds.Add(entry.Key);
+                }
+            }
+
+            List<TokenStateDto> candidateTokens = state.Tokens.ToList();
+
+            if (activeUserIds.Count > 0)
+            {
+                candidateTokens = state.Tokens
+                    .Where(token => activeUserIds.Contains(token.UserId))
+                    .ToList();
+            }
+
+            if (candidateTokens.Count == 0)
+            {
+                return coinsByUserId;
+            }
+
+            List<TokenStateDto> orderedTokens = candidateTokens
+                .OrderByDescending(token => token.CellIndex)
+                .ToList();
+
+            for (int index = 0; index < orderedTokens.Count && index < 3; index++)
+            {
+                int position = index + 1;
+                int coins = GetCoinsForPosition(position);
+
+                if (coins <= 0)
+                {
+                    continue;
+                }
+
+                int userId = orderedTokens[index].UserId;
+
+                if (!coinsByUserId.ContainsKey(userId))
+                {
+                    coinsByUserId[userId] = coins;
+                }
+            }
+
+            return coinsByUserId;
+        }
+
+        private void FinalizeGame(GameSession session)
+        {
+            if (session == null)
+            {
+                return;
+            }
+
+            if (session.FinishedAtUtc == DateTime.MinValue)
+            {
+                session.FinishedAtUtc = DateTime.UtcNow;
+            }
+
+            session.HasWinner = session.WinnerUserId != INVALID_USER_ID;
+
+            if (session.HasWinner &&
+                string.IsNullOrWhiteSpace(session.WinnerUserName))
+            {
+                session.WinnerUserName = GetUserNameOrDefault(session.GameId, session.WinnerUserId);
+            }
+
+            if (session.RewardsGranted)
+            {
+                return;
+            }
+
+            try
+            {
+                IDictionary<int, int> coinsByUserId = BuildCoinsDistribution(session);
+
+                OperationResult<bool> result = gameResultsRepository.FinalizeGame(
+                    session.GameId,
+                    session.WinnerUserId,
+                    coinsByUserId);
+
+                if (!result.IsSuccess)
+                {
+                    Logger.ErrorFormat(
+                        "FinalizeGame failed. GameId={0}, WinnerUserId={1}, Reason={2}",
+                        session.GameId,
+                        session.WinnerUserId,
+                        result.ErrorMessage);
+
+                    return;
+                }
+
+                session.RewardsGranted = true;
+                gameSessionStore.UpdateSession(session);
+
+                Logger.InfoFormat(
+                    "Game finalized successfully. GameId={0}, WinnerUserId={1}, RewardedUsers={2}",
+                    session.GameId,
+                    session.WinnerUserId,
+                    coinsByUserId.Count);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Unexpected error while finalizing game.", ex);
+            }
+        }
+
         private void BroadcastMoveAndTurn(
             GameSession session,
             int previousTurnUserId,
@@ -734,7 +914,6 @@ namespace SnakesAndLadders.Services.Wcf
             return equippedItem;
         }
 
-        // Mantengo el método para compatibilidad, pero ya no se usa: el timeout lo maneja el timer del server.
         public void RegisterTurnTimeout(int gameId)
         {
             if (gameId <= 0)

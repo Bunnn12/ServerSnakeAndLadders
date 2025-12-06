@@ -165,6 +165,7 @@
     <Compile Include="Repositories\AvatarSpecialMapping.cs" />
     <Compile Include="Repositories\FileChatRepository.cs" />
     <Compile Include="Repositories\FriendsRepository.cs" />
+    <Compile Include="Repositories\GameResultsRepository.cs" />
     <Compile Include="Repositories\InventoryRepository.cs" />
     <Compile Include="Repositories\LobbyRepository.cs" />
     <Compile Include="Repositories\ReportRepository.cs" />
