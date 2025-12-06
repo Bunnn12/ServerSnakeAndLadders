@@ -582,15 +582,15 @@ namespace SnakesAndLadders.Services.Logic
                 }
             }
 
-            int bonusCount = cells.Count(c => c.SpecialType == SpecialCellType.Bonus);
-            int trapCount = cells.Count(c => c.SpecialType == SpecialCellType.Trap);
-            int teleportCount = cells.Count(c => c.SpecialType == SpecialCellType.Teleport);
+            int diceCount = cells.Count(c => c.SpecialType == SpecialCellType.Dice);
+            int itemCount = cells.Count(c => c.SpecialType == SpecialCellType.Item);
+            int messageCount = cells.Count(c => c.SpecialType == SpecialCellType.Message);
 
             Logger.InfoFormat(
-                "Special cells assigned with validations. Bonus={0}, Trap={1}, Teleport={2}",
-                bonusCount,
-                trapCount,
-                teleportCount);
+                "Special cells assigned with validations. Dice={0}, Item={1}, Message={2}",
+                diceCount,
+                itemCount,
+                messageCount);
         }
 
         private static int GetRowsForBoardSize(BoardSizeOption boardSize)
@@ -728,19 +728,19 @@ namespace SnakesAndLadders.Services.Logic
 
         private static IEnumerable<SpecialCellType> GetEnabledSpecialTypes(CreateBoardRequestDto request)
         {
-            if (request.EnableBonusCells)
+            if (request.EnableDiceCells)
             {
-                yield return SpecialCellType.Bonus;
+                yield return SpecialCellType.Dice;
             }
 
-            if (request.EnableTrapCells)
+            if (request.EnableItemCells)
             {
-                yield return SpecialCellType.Trap;
+                yield return SpecialCellType.Item;
             }
 
-            if (request.EnableTeleportCells)
+            if (request.EnableMessageCells)
             {
-                yield return SpecialCellType.Teleport;
+                yield return SpecialCellType.Message;
             }
         }
 

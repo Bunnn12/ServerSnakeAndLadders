@@ -48,12 +48,12 @@ namespace SnakesAndLadders.Services.Wcf
             try
             {
                 Logger.InfoFormat(
-                    "Creating board. GameId={0}, BoardSize={1}, EnableBonusCells={2}, EnableTrapCells={3}, EnableTeleportCells={4}, Difficulty={5}",
+                    "Creating board. GameId={0}, BoardSize={1}, EnableDiceCells={2}, EnableItemCells={3}, EnableMessageCells={4}, Difficulty={5}",
                     request.GameId,
                     request.BoardSize,
-                    request.EnableBonusCells,
-                    request.EnableTrapCells,
-                    request.EnableTeleportCells,
+                    request.EnableDiceCells,
+                    request.EnableItemCells,
+                    request.EnableMessageCells,
                     request.Difficulty);
 
                 BoardDefinitionDto board = gameBoardBuilder.BuildBoard(request);

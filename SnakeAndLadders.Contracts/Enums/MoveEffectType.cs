@@ -7,8 +7,8 @@ namespace SnakeAndLadders.Contracts.Enums
         None = 0,
         Snake = 1,
         Ladder = 2,
-        Bonus = 3,
-        Trap = 4,
-        Teleport = 5
+        Dice = 3,
+        Item = 4,
+        Message = 5
     }
 }

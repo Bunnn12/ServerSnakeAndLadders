@@ -14,11 +14,11 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 
         public BoardSizeOption BoardSize { get; set; }
 
-        public bool EnableBonusCells { get; set; }
+        public bool EnableDiceCells { get; set; }
 
-        public bool EnableTrapCells { get; set; }
+        public bool EnableItemCells { get; set; }
 
-        public bool EnableTeleportCells { get; set; }
+        public bool EnableMessageCells { get; set; }
 
         [DataMember]
         public string Difficulty { get; set; }
