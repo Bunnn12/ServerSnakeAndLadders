@@ -58,6 +58,8 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const string END_REASON_BOARD_WIN = "BOARD_WIN";
         private const string END_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
+        private const string END_REASON_LAST_PLAYER_REMAINING = "LAST_PLAYER_REMAINING";
+
 
         private const int INVALID_USER_ID = 0;
 
@@ -366,11 +368,13 @@ namespace SnakesAndLadders.Services.Wcf
                     }
                 }
 
+                bool isFinished = state.IsFinished || session.IsFinished;
+
                 return new GetGameStateResponseDto
                 {
                     GameId = session.GameId,
                     CurrentTurnUserId = state.CurrentTurnUserId,
-                    IsFinished = state.IsFinished,
+                    IsFinished = isFinished,
                     WinnerUserId = session.WinnerUserId,
                     Tokens = state.Tokens.ToList(),
                     RemainingTurnSeconds = remainingSeconds
@@ -382,6 +386,7 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_UNEXPECTED_STATE);
             }
         }
+
 
         public UseItemResponseDto UseItem(UseItemRequestDto request)
         {
@@ -1058,6 +1063,7 @@ namespace SnakesAndLadders.Services.Wcf
 
             bool wasCurrentTurn = false;
             int? newCurrentTurnUserId = null;
+            bool gameFinishedByLastPlayer = false;
 
             GameSession session = null;
 
@@ -1065,19 +1071,62 @@ namespace SnakesAndLadders.Services.Wcf
             {
                 if (gameSessionStore.TryGetSession(gameId, out session))
                 {
+                    // 1) Sacar al jugador de la lista de jugadores activos de la partida
+                    var updatedPlayers = session.PlayerUserIds
+                        .Where(id => id != userId && id != INVALID_USER_ID)
+                        .ToList();
+
+                    session.PlayerUserIds = updatedPlayers;
+
                     GameStateSnapshot state = GetCurrentStateSafe(session);
                     if (state != null)
                     {
                         wasCurrentTurn = state.CurrentTurnUserId == userId;
-                        newCurrentTurnUserId = wasCurrentTurn
-                            ? (int?)FindNextPlayerId(session, userId)
-                            : null;
+
+                        if (wasCurrentTurn)
+                        {
+                            newCurrentTurnUserId = FindNextPlayerId(session, userId);
+                            if (newCurrentTurnUserId == INVALID_USER_ID)
+                            {
+                                newCurrentTurnUserId = null;
+                            }
+                        }
+                    }
+
+                    // 2) Regla: si solo queda 1 jugador en la partida, la partida termina
+                    int activePlayersCount = session.PlayerUserIds
+                        .Where(id => id != INVALID_USER_ID)
+                        .Count();
+
+                    if (activePlayersCount == 1 && !session.IsFinished)
+                    {
+                        int winnerUserId = session.PlayerUserIds
+                            .First(id => id != INVALID_USER_ID);
+
+                        session.IsFinished = true;
+                        session.HasWinner = true;
+                        session.WinnerUserId = winnerUserId;
+                        session.WinnerUserName = GetUserNameOrDefault(gameId, winnerUserId);
+                        session.EndReason = END_REASON_LAST_PLAYER_REMAINING;
+
+                        if (session.FinishedAtUtc == DateTime.MinValue)
+                        {
+                            session.FinishedAtUtc = DateTime.UtcNow;
+                        }
+
+                        session.CurrentTurnStartUtc = DateTime.MinValue;
+
+                        gameFinishedByLastPlayer = true;
+
+                        gameSessionStore.UpdateSession(session);
+                        StopTurnTimer(gameId);
+                        FinalizeGame(session);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Warn("Error computing new turn after player left.", ex);
+                Logger.Warn("Error computing new turn or last-player rule after player left.", ex);
             }
 
             var leftDto = new PlayerLeftDto
@@ -1086,13 +1135,19 @@ namespace SnakesAndLadders.Services.Wcf
                 UserId = userId,
                 UserName = userName,
                 WasCurrentTurnPlayer = wasCurrentTurn,
-                NewCurrentTurnUserId = newCurrentTurnUserId,
+                NewCurrentTurnUserId = gameFinishedByLastPlayer
+                    ? (int?)null
+                    : newCurrentTurnUserId,
                 Reason = leaveReason
             };
 
             NotifyPlayerLeft(leftDto);
 
-            if (wasCurrentTurn && newCurrentTurnUserId.HasValue && session != null)
+            // Si la partida terminó por quedar solo uno, no hay nuevo turno.
+            if (!gameFinishedByLastPlayer &&
+                wasCurrentTurn &&
+                newCurrentTurnUserId.HasValue &&
+                session != null)
             {
                 session.CurrentTurnUserId = newCurrentTurnUserId.Value;
                 session.CurrentTurnStartUtc = DateTime.UtcNow;
@@ -1101,7 +1156,9 @@ namespace SnakesAndLadders.Services.Wcf
                 StartOrResetTurnTimer(session);
             }
 
-            if (wasCurrentTurn && newCurrentTurnUserId.HasValue)
+            if (!gameFinishedByLastPlayer &&
+                wasCurrentTurn &&
+                newCurrentTurnUserId.HasValue)
             {
                 var turnDto = new TurnChangedDto
                 {
@@ -1117,6 +1174,7 @@ namespace SnakesAndLadders.Services.Wcf
 
             CleanupDictionariesIfEmpty(gameId, callbacksForGame);
         }
+
 
         private static int FindNextPlayerId(GameSession session, int leavingUserId)
         {
