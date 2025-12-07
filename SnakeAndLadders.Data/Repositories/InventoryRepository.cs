@@ -1,10 +1,12 @@
 ﻿using log4net;
+using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data;
 using System;
 using System.Collections.Generic;
+using ServerSnakesAndLadders.Common;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.SqlClient;
@@ -541,11 +543,6 @@ namespace ServerSnakesAndLadders
                 }
             }
         }
-
-
-
-
-
         private void ConfigureContext(SnakeAndLaddersDBEntities1 context)
         {
             ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = CommandTimeoutSeconds;
@@ -565,5 +562,234 @@ namespace ServerSnakesAndLadders
         {
             return slotNumber >= MinSlotNumber && slotNumber <= MaxDiceSlots;
         }
+
+        public OperationResult<bool> GrantItemToUser(int userId, string itemCode)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            if (string.IsNullOrWhiteSpace(itemCode))
+            {
+                throw new ArgumentException("itemCode es obligatorio.", nameof(itemCode));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var item = context.Objeto
+                        .SingleOrDefault(o => o.CodigoObjeto == itemCode);
+
+                    if (item == null)
+                    {
+                        return OperationResult<bool>.Failure(
+                            $"No existe un objeto configurado con el código '{itemCode}'.");
+                    }
+
+                    var userItem = context.ObjetoUsuario
+                        .SingleOrDefault(ou =>
+                            ou.UsuarioIdUsuario == userId &&
+                            ou.ObjetoIdObjeto == item.IdObjeto);
+
+                    if (userItem == null)
+                    {
+                        userItem = new ObjetoUsuario
+                        {
+                            UsuarioIdUsuario = userId,
+                            ObjetoIdObjeto = item.IdObjeto,
+                            CantidadObjeto = 1
+                        };
+
+                        context.ObjetoUsuario.Add(userItem);
+                    }
+                    else
+                    {
+                        userItem.CantidadObjeto += 1;
+                        context.Entry(userItem).State = EntityState.Modified;
+                    }
+
+                    // auto-equipar si hay slot libre
+                    TryEquipItemIfSlotAvailable(context, userId, item.IdObjeto);
+
+                    context.SaveChanges();
+
+                    return OperationResult<bool>.Success(true);
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al otorgar un objeto al usuario.", ex);
+                    return OperationResult<bool>.Failure("Database error while granting item to user.");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al otorgar un objeto al usuario.", ex);
+                    return OperationResult<bool>.Failure("Unexpected error while granting item to user.");
+                }
+            }
+        }
+
+        public OperationResult<bool> GrantDiceToUser(int userId, string diceCode)
+        {
+            if (!IsValidUserId(userId))
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId));
+            }
+
+            if (string.IsNullOrWhiteSpace(diceCode))
+            {
+                throw new ArgumentException("diceCode es obligatorio.", nameof(diceCode));
+            }
+
+            using (var context = _contextFactory())
+            {
+                ConfigureContext(context);
+
+                try
+                {
+                    var dice = context.Dado
+                        .SingleOrDefault(d => d.CodigoDado == diceCode);
+
+                    if (dice == null)
+                    {
+                        return OperationResult<bool>.Failure(
+                            $"No existe un dado configurado con el código '{diceCode}'.");
+                    }
+
+                    var userDice = context.DadoUsuario
+                        .SingleOrDefault(du =>
+                            du.UsuarioIdUsuario == userId &&
+                            du.DadoIdDado == dice.IdDado);
+
+                    if (userDice == null)
+                    {
+                        userDice = new DadoUsuario
+                        {
+                            UsuarioIdUsuario = userId,
+                            DadoIdDado = dice.IdDado,
+                            CantidadDado = 1
+                        };
+
+                        context.DadoUsuario.Add(userDice);
+                    }
+                    else
+                    {
+                        userDice.CantidadDado += 1;
+                        context.Entry(userDice).State = EntityState.Modified;
+                    }
+
+                    // auto-equipar si hay slot libre
+                    TryEquipDiceIfSlotAvailable(context, userId, dice.IdDado);
+
+                    context.SaveChanges();
+
+                    return OperationResult<bool>.Success(true);
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("Error SQL al otorgar un dado al usuario.", ex);
+                    return OperationResult<bool>.Failure("Database error while granting dice to user.");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Error inesperado al otorgar un dado al usuario.", ex);
+                    return OperationResult<bool>.Failure("Unexpected error while granting dice to user.");
+                }
+            }
+        }
+
+
+        private void TryEquipItemIfSlotAvailable(
+    SnakeAndLaddersDBEntities1 context,
+    int userId,
+    int objectId)
+        {
+            // 1) Si este tipo de objeto YA está equipado en algún slot, no hacer nada.
+            bool alreadyEquipped = context.ObjetoUsuarioSeleccionado
+                .Any(s =>
+                    s.UsuarioIdUsuario == userId &&
+                    s.ObjetoIdObjeto == objectId);
+
+            if (alreadyEquipped)
+            {
+                // Ya tiene un escudo (o el item que sea) en algún slot.
+                // Solo aumentamos la cantidad en ObjetoUsuario, pero no tocamos slots.
+                return;
+            }
+
+            // 2) Buscar un slot libre
+            var usedSlots = context.ObjetoUsuarioSeleccionado
+                .Where(s => s.UsuarioIdUsuario == userId)
+                .Select(s => s.NumeroSlot)
+                .ToList();
+
+            for (byte slot = MinSlotNumber; slot <= MaxItemSlots; slot++)
+            {
+                if (!usedSlots.Contains(slot))
+                {
+                    var selected = new ObjetoUsuarioSeleccionado
+                    {
+                        UsuarioIdUsuario = userId,
+                        NumeroSlot = slot,
+                        ObjetoIdObjeto = objectId
+                    };
+
+                    context.ObjetoUsuarioSeleccionado.Add(selected);
+                    break;
+                }
+            }
+        }
+
+
+        private void TryEquipDiceIfSlotAvailable(
+    SnakeAndLaddersDBEntities1 context,
+    int userId,
+    int diceId)
+        {
+            // 1) Si este tipo de dado YA está equipado en algún slot, no hacer nada.
+            bool alreadyEquipped = context.DadoUsuarioSeleccionado
+                .Any(s =>
+                    s.UsuarioIdUsuario == userId &&
+                    s.DadoIdDado == diceId);
+
+            if (alreadyEquipped)
+            {
+                // Ya tiene ese dado equipado en algún slot.
+                // Solo aumentamos la cantidad en DadoUsuario, no tocamos slots.
+                return;
+            }
+
+            // 2) Buscar un slot libre
+            var usedSlots = context.DadoUsuarioSeleccionado
+                .Where(s => s.UsuarioIdUsuario == userId)
+                .Select(s => s.NumeroSlot)
+                .ToList();
+
+            for (byte slot = MinSlotNumber; slot <= MaxDiceSlots; slot++)
+            {
+                if (!usedSlots.Contains(slot))
+                {
+                    var selected = new DadoUsuarioSeleccionado
+                    {
+                        UsuarioIdUsuario = userId,
+                        NumeroSlot = slot,
+                        DadoIdDado = diceId
+                    };
+
+                    context.DadoUsuarioSeleccionado.Add(selected);
+                    break;
+                }
+            }
+        }
+
+
+
+
+
+
+
     }
 }

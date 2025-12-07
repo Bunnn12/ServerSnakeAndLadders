@@ -39,6 +39,8 @@ namespace SnakesAndLadders.Services.Wcf
         private const string ERROR_USE_DICE_NO_DICE_IN_SLOT = "No dice is equipped in the selected slot.";
         private const string ERROR_USE_DICE_NO_QUANTITY = "User does not have any remaining units of the selected dice.";
 
+        private const string ERROR_GRANT_REWARD_FAILED = "Error while granting special cell reward.";
+
         private const string TURN_REASON_NORMAL = "NORMAL";
         private const string TURN_REASON_PLAYER_LEFT = "PLAYER_LEFT";
 
@@ -135,6 +137,10 @@ namespace SnakesAndLadders.Services.Wcf
                 RollDiceResult moveResult = logic.RollDice(
                     request.PlayerUserId,
                     diceCode);
+
+                GrantRewardsFromSpecialCells(
+                    request.PlayerUserId,
+                    moveResult);
 
                 if (diceIdToConsume.HasValue && !string.IsNullOrWhiteSpace(diceCode))
                 {
@@ -603,8 +609,8 @@ namespace SnakesAndLadders.Services.Wcf
         }
 
         private static RollDiceResponseDto BuildRollDiceResponse(
-    RollDiceRequestDto request,
-    RollDiceResult moveResult)
+            RollDiceRequestDto request,
+            RollDiceResult moveResult)
         {
             if (request == null)
             {
@@ -628,11 +634,12 @@ namespace SnakesAndLadders.Services.Wcf
                 DiceValue = moveResult.DiceValue,
                 MoveResult = effectType,
                 ExtraInfo = moveResult.ExtraInfo,
-                MessageIndex = moveResult.MessageIndex,   // ⬅️ NUEVO
-                UpdatedTokens = null
+                MessageIndex = moveResult.MessageIndex,
+                UpdatedTokens = null,
+                GrantedItemCode = moveResult.GrantedItemCode,
+                GrantedDiceCode = moveResult.GrantedDiceCode
             };
         }
-
 
         private static MoveEffectType MapMoveEffectType(string extraInfo)
         {
@@ -787,7 +794,8 @@ namespace SnakesAndLadders.Services.Wcf
                 gameSessionStore.UpdateSession(session);
 
                 Logger.InfoFormat(
-                    "Game finalized successfully. GameId={0}, WinnerUserId={1}, RewardedUsers={2}",
+                    "Game finalized successfully. GameId={0}, WinnerUserId={1}, RewardedUsers={2}" +
+                    string.Empty,
                     session.GameId,
                     session.WinnerUserId,
                     coinsByUserId.Count);
@@ -859,8 +867,8 @@ namespace SnakesAndLadders.Services.Wcf
         }
 
         private static PlayerMoveResultDto BuildPlayerMoveResultDto(
-    int userId,
-    RollDiceResult moveResult)
+            int userId,
+            RollDiceResult moveResult)
         {
             if (moveResult == null)
             {
@@ -879,10 +887,11 @@ namespace SnakesAndLadders.Services.Wcf
                 HasWon = moveResult.IsGameOver,
                 Message = moveResult.ExtraInfo,
                 EffectType = effectType,
-                MessageIndex = moveResult.MessageIndex   // ⬅️ NUEVO
+                MessageIndex = moveResult.MessageIndex,
+                GrantedItemCode = moveResult.GrantedItemCode,
+                GrantedDiceCode = moveResult.GrantedDiceCode
             };
         }
-
 
         private GameStateSnapshot GetCurrentStateSafe(GameSession session)
         {
@@ -1384,6 +1393,57 @@ namespace SnakesAndLadders.Services.Wcf
                     CurrentTurnUserId = state.CurrentTurnUserId,
                     RemainingSeconds = newRemaining
                 });
+        }
+
+        private void GrantRewardsFromSpecialCells(
+            int userId,
+            RollDiceResult moveResult)
+        {
+            if (moveResult == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(moveResult.GrantedItemCode))
+                {
+                    OperationResult<bool> itemResult = inventoryRepository.GrantItemToUser(
+                        userId,
+                        moveResult.GrantedItemCode);
+
+                    if (!itemResult.IsSuccess)
+                    {
+                        Logger.WarnFormat(
+                            "{0} ItemCode={1}, UserId={2}, Reason={3}",
+                            ERROR_GRANT_REWARD_FAILED,
+                            moveResult.GrantedItemCode,
+                            userId,
+                            itemResult.ErrorMessage);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(moveResult.GrantedDiceCode))
+                {
+                    OperationResult<bool> diceResult = inventoryRepository.GrantDiceToUser(
+                        userId,
+                        moveResult.GrantedDiceCode);
+
+                    if (!diceResult.IsSuccess)
+                    {
+                        Logger.WarnFormat(
+                            "{0} DiceCode={1}, UserId={2}, Reason={3}",
+                            ERROR_GRANT_REWARD_FAILED,
+                            moveResult.GrantedDiceCode,
+                            userId,
+                            diceResult.ErrorMessage);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ERROR_GRANT_REWARD_FAILED, ex);
+            }
         }
     }
 }

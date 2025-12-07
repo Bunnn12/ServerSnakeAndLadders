@@ -1,4 +1,5 @@
 ﻿using SnakeAndLadders.Contracts.Enums;
+using SnakeAndLadders.Contracts.Helpers;
 using System;
 using System.Runtime.Serialization;
 
@@ -21,6 +22,10 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
         public string Message { get; set; }
 
         public MoveEffectType EffectType { get; set; }
+
+        public SpecialCellType SpecialCellType { get; set; }
+        public string GrantedItemCode { get; set; }
+        public string GrantedDiceCode { get; set; }
 
         public int? MessageIndex { get; set; }
     }

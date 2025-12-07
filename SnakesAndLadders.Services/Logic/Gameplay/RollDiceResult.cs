@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SnakeAndLadders.Contracts.Helpers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,6 +16,9 @@ namespace SnakesAndLadders.Services.Logic.Gameplay
         public string ExtraInfo { get; set; }
         public bool UsedRocket { get; set; }
         public bool RocketIgnored { get; set; }
+
+        public string GrantedItemCode { get; set; }
+        public string GrantedDiceCode { get; set; }
 
         public int? MessageIndex { get; set; }
     }

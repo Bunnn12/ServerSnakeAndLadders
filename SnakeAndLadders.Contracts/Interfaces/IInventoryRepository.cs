@@ -1,4 +1,5 @@
-﻿using SnakeAndLadders.Contracts.Dtos;
+﻿using ServerSnakesAndLadders.Common;
+using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using System.Collections.Generic;
 
@@ -28,5 +29,9 @@ namespace SnakeAndLadders.Contracts.Interfaces
             int userId,
             int? slot1DiceId,
             int? slot2DiceId);
+
+        OperationResult<bool> GrantItemToUser(int userId, string itemCode);
+
+        OperationResult<bool> GrantDiceToUser(int userId, string diceCode);
     }
 }

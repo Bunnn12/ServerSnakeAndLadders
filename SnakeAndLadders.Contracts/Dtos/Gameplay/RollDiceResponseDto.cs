@@ -1,4 +1,5 @@
 ﻿using SnakeAndLadders.Contracts.Enums;
+using SnakeAndLadders.Contracts.Helpers;
 using System;
 using System.Runtime.Serialization;
 
@@ -36,5 +37,11 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 
         [DataMember(Order = 10)]
         public int? MessageIndex { get; set; }
+
+        [DataMember(Order = 11)]
+        public string GrantedItemCode { get; set; }
+
+        [DataMember(Order = 12)]
+        public string GrantedDiceCode { get; set; }
     }
 }

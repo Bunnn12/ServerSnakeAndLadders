@@ -58,6 +58,26 @@ namespace SnakesAndLadders.Services.Logic
         private const string EXTRA_INFO_MESSAGE_REROLL = "MSG_REROLL";
         private const string EXTRA_INFO_MESSAGE_SKIP_TURN = "MSG_SKIP_NEXT";
 
+        // Tokens para casillas de item y dado
+        private const string EXTRA_INFO_ITEM_GRANTED = "ITEM_GRANTED";
+        private const string EXTRA_INFO_DICE_GRANTED = "DICE_GRANTED";
+
+        private static readonly string[] ITEM_CODES_POOL =
+        {
+            ITEM_CODE_ROCKET,
+            ITEM_CODE_ANCHOR,
+            ITEM_CODE_SWAP,
+            ITEM_CODE_FREEZE,
+            ITEM_CODE_SHIELD
+        };
+
+        private static readonly string[] DICE_CODES_POOL =
+        {
+            DICE_CODE_NEGATIVE,
+            DICE_CODE_ONE_TWO_THREE,
+            DICE_CODE_FOUR_FIVE_SIX
+        };
+
         private readonly BoardDefinitionDto boardDefinition;
 
         private readonly List<int> turnOrder;
@@ -320,7 +340,9 @@ namespace SnakesAndLadders.Services.Logic
                         ExtraInfo = frozenExtraInfo,
                         UsedRocket = false,
                         RocketIgnored = false,
-                        MessageIndex = null
+                        MessageIndex = null,
+                        GrantedItemCode = null,
+                        GrantedDiceCode = null
                     };
                 }
 
@@ -381,7 +403,9 @@ namespace SnakesAndLadders.Services.Logic
                         ExtraInfo = extraTooHighInfo,
                         UsedRocket = false,
                         RocketIgnored = rocketIgnored,
-                        MessageIndex = null
+                        MessageIndex = null,
+                        GrantedItemCode = null,
+                        GrantedDiceCode = null
                     };
                 }
 
@@ -414,13 +438,17 @@ namespace SnakesAndLadders.Services.Logic
 
                 int? messageIndex;
                 bool shouldGrantExtraRoll;
+                string grantedItemCode;
+                string grantedDiceCode;
 
                 ApplySpecialCellIfAny(
                     playerState,
                     ref finalTarget,
                     ref extraInfo,
                     out messageIndex,
-                    out shouldGrantExtraRoll);
+                    out shouldGrantExtraRoll,
+                    out grantedItemCode,
+                    out grantedDiceCode);
 
                 playerState.Position = finalTarget;
 
@@ -465,7 +493,9 @@ namespace SnakesAndLadders.Services.Logic
                     ExtraInfo = finalExtraInfo,
                     UsedRocket = usedRocket,
                     RocketIgnored = rocketIgnored,
-                    MessageIndex = messageIndex
+                    MessageIndex = messageIndex,
+                    GrantedItemCode = grantedItemCode,
+                    GrantedDiceCode = grantedDiceCode
                 };
             }
         }
@@ -849,14 +879,18 @@ namespace SnakesAndLadders.Services.Logic
         }
 
         private void ApplySpecialCellIfAny(
-    PlayerRuntimeState playerState,
-    ref int finalTarget,
-    ref string extraInfo,
-    out int? messageIndex,
-    out bool shouldGrantExtraRoll)
+            PlayerRuntimeState playerState,
+            ref int finalTarget,
+            ref string extraInfo,
+            out int? messageIndex,
+            out bool shouldGrantExtraRoll,
+            out string grantedItemCode,
+            out string grantedDiceCode)
         {
             messageIndex = null;
             shouldGrantExtraRoll = false;
+            grantedItemCode = null;
+            grantedDiceCode = null;
 
             if (boardDefinition == null ||
                 boardDefinition.Cells == null ||
@@ -884,15 +918,21 @@ namespace SnakesAndLadders.Services.Logic
                         ref finalTarget,
                         ref extraInfo,
                         out messageIndex,
-                        out shouldGrantExtraRoll);
+                        out shouldGrantExtraRoll,
+                        out grantedItemCode,
+                        out grantedDiceCode);
                     break;
 
                 case SpecialCellType.Item:
-                    // TODO: casillas de ítem
+                    ApplyItemCellEffect(
+                        ref extraInfo,
+                        out grantedItemCode);
                     break;
 
                 case SpecialCellType.Dice:
-                    // TODO: casillas de dado
+                    ApplyDiceCellEffect(
+                        ref extraInfo,
+                        out grantedDiceCode);
                     break;
 
                 default:
@@ -900,16 +940,19 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
-
         private void ApplyMessageCellEffect(
             PlayerRuntimeState playerState,
             ref int finalTarget,
             ref string extraInfo,
             out int? messageIndex,
-            out bool shouldGrantExtraRoll)
+            out bool shouldGrantExtraRoll,
+            out string grantedItemCode,
+            out string grantedDiceCode)
         {
             messageIndex = null;
             shouldGrantExtraRoll = false;
+            grantedItemCode = null;
+            grantedDiceCode = null;
 
             if (playerState == null)
             {
@@ -942,7 +985,12 @@ namespace SnakesAndLadders.Services.Logic
                 finalTarget = candidate;
                 extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_ADVANCE);
 
-                ApplyPostMessageMovementEffects(playerState, ref finalTarget, ref extraInfo);
+                ApplyPostMessageMovementEffects(
+                    playerState,
+                    ref finalTarget,
+                    ref extraInfo,
+                    out grantedItemCode,
+                    out grantedDiceCode);
             }
             else if (isEven && !isSmallOrEqual)
             {
@@ -961,7 +1009,12 @@ namespace SnakesAndLadders.Services.Logic
                 finalTarget = candidate;
                 extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_BACKWARD);
 
-                ApplyPostMessageMovementEffects(playerState, ref finalTarget, ref extraInfo);
+                ApplyPostMessageMovementEffects(
+                    playerState,
+                    ref finalTarget,
+                    ref extraInfo,
+                    out grantedItemCode,
+                    out grantedDiceCode);
             }
             else
             {
@@ -971,10 +1024,15 @@ namespace SnakesAndLadders.Services.Logic
         }
 
         private void ApplyPostMessageMovementEffects(
-    PlayerRuntimeState playerState,
-    ref int finalTarget,
-    ref string extraInfo)
+            PlayerRuntimeState playerState,
+            ref int finalTarget,
+            ref string extraInfo,
+            out string grantedItemCode,
+            out string grantedDiceCode)
         {
+            grantedItemCode = null;
+            grantedDiceCode = null;
+
             finalTarget = ApplyJumpEffectsIfAny(playerState, finalTarget);
 
             if (boardDefinition == null ||
@@ -998,11 +1056,15 @@ namespace SnakesAndLadders.Services.Logic
             switch (cell.SpecialType)
             {
                 case SpecialCellType.Item:
-                    // TODO: lógica de casilla de ítem (inventario/slots)
+                    ApplyItemCellEffect(
+                        ref extraInfo,
+                        out grantedItemCode);
                     break;
 
                 case SpecialCellType.Dice:
-                    // TODO: lógica de casilla de dado (inventario/slots)
+                    ApplyDiceCellEffect(
+                        ref extraInfo,
+                        out grantedDiceCode);
                     break;
 
                 case SpecialCellType.Message:
@@ -1012,6 +1074,41 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
+        private void ApplyItemCellEffect(
+            ref string extraInfo,
+            out string grantedItemCode)
+        {
+            if (ITEM_CODES_POOL.Length == 0)
+            {
+                grantedItemCode = null;
+                return;
+            }
+
+            int index = random.Next(0, ITEM_CODES_POOL.Length);
+            grantedItemCode = ITEM_CODES_POOL[index];
+
+            extraInfo = AppendToken(
+                extraInfo,
+                EXTRA_INFO_ITEM_GRANTED + "_" + grantedItemCode);
+        }
+
+        private void ApplyDiceCellEffect(
+            ref string extraInfo,
+            out string grantedDiceCode)
+        {
+            if (DICE_CODES_POOL.Length == 0)
+            {
+                grantedDiceCode = null;
+                return;
+            }
+
+            int index = random.Next(0, DICE_CODES_POOL.Length);
+            grantedDiceCode = DICE_CODES_POOL[index];
+
+            extraInfo = AppendToken(
+                extraInfo,
+                EXTRA_INFO_DICE_GRANTED + "_" + grantedDiceCode);
+        }
 
         private static string AppendToken(string baseInfo, string token)
         {
