@@ -15,5 +15,7 @@ namespace SnakesAndLadders.Services.Logic.Gameplay
         public string ExtraInfo { get; set; }
         public bool UsedRocket { get; set; }
         public bool RocketIgnored { get; set; }
+
+        public int? MessageIndex { get; set; }
     }
 }

@@ -1,5 +1,6 @@
-﻿using System;
-using SnakeAndLadders.Contracts.Enums;
+﻿using SnakeAndLadders.Contracts.Enums;
+using System;
+using System.Runtime.Serialization;
 
 namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 {
@@ -20,5 +21,7 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
         public string Message { get; set; }
 
         public MoveEffectType EffectType { get; set; }
+
+        public int? MessageIndex { get; set; }
     }
 }

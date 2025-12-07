@@ -33,5 +33,8 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 
         [DataMember(Order = 9)]
         public string ExtraInfo { get; set; }
+
+        [DataMember(Order = 10)]
+        public int? MessageIndex { get; set; }
     }
 }

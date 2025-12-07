@@ -1,6 +1,6 @@
-﻿
-using SnakeAndLadders.Contracts.Dtos.Gameplay;
+﻿using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
+using SnakeAndLadders.Contracts.Helpers;
 using SnakesAndLadders.Services.Logic.Gameplay;
 using System;
 using System.Collections.Generic;
@@ -46,6 +46,19 @@ namespace SnakesAndLadders.Services.Logic
 
         private const int NEGATIVE_DICE_MIN_POSITION = 7;
 
+        // Mensajes (casillas de mensaje)
+        private const int MESSAGE_MIN_INDEX = 1;
+        private const int MESSAGE_MAX_INDEX = 20;
+        private const int MESSAGE_EFFECT_THRESHOLD = 10;
+        private const int MESSAGE_ADVANCE_STEPS = 4;
+        private const int MESSAGE_BACKWARD_STEPS = 5;
+
+        private const string EXTRA_INFO_MESSAGE_ADVANCE = "MSG_ADVANCE_4";
+        private const string EXTRA_INFO_MESSAGE_BACKWARD = "MSG_BACK_5";
+        private const string EXTRA_INFO_MESSAGE_REROLL = "MSG_REROLL";
+        private const string EXTRA_INFO_MESSAGE_SKIP_TURN = "MSG_SKIP_NEXT";
+
+        private readonly BoardDefinitionDto boardDefinition;
 
         private readonly List<int> turnOrder;
         private readonly Dictionary<int, PlayerRuntimeState> playersByUserId;
@@ -73,6 +86,8 @@ namespace SnakesAndLadders.Services.Logic
                 throw new ArgumentNullException(nameof(playerUserIds));
             }
 
+            boardDefinition = board;
+
             turnOrder = playerUserIds
                 .Distinct()
                 .Where(id => id != INVALID_USER_ID)
@@ -85,28 +100,27 @@ namespace SnakesAndLadders.Services.Logic
 
             playersByUserId = turnOrder
                 .ToDictionary(
-                id => id,
-                id => new PlayerRuntimeState
-                {
-                    UserId = id,
-                    Position = MIN_CELL_INDEX,
-                    RemainingFrozenTurns = 0,
-                    HasShield = false,
-                    RemainingShieldTurns = 0,
-                    PendingRocketBonus = 0,
-                    ItemUsedThisTurn = false,
-                    HasRolledThisTurn = false,
-                    ConsecutiveTimeouts = 0
-                });
-
+                    id => id,
+                    id => new PlayerRuntimeState
+                    {
+                        UserId = id,
+                        Position = MIN_CELL_INDEX,
+                        RemainingFrozenTurns = 0,
+                        HasShield = false,
+                        RemainingShieldTurns = 0,
+                        PendingRocketBonus = 0,
+                        ItemUsedThisTurn = false,
+                        HasRolledThisTurn = false,
+                        ConsecutiveTimeouts = 0
+                    });
 
             currentTurnIndex = 0;
             isFinished = false;
 
             random = new Random(unchecked((int)DateTime.UtcNow.Ticks));
 
-            finalCellIndex = ResolveFinalCellIndex(board);
-            jumpDestinationsByStartIndex = ResolveJumpMap(board);
+            finalCellIndex = ResolveFinalCellIndex(boardDefinition);
+            jumpDestinationsByStartIndex = ResolveJumpMap(boardDefinition);
         }
 
         private static int ResolveFinalCellIndex(BoardDefinitionDto board)
@@ -175,7 +189,6 @@ namespace SnakesAndLadders.Services.Logic
 
             return random.Next(DICE_MIN_VALUE, DICE_MAX_VALUE + 1);
         }
-
 
         public TurnTimeoutResult HandleTurnTimeout()
         {
@@ -258,8 +271,6 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
-
-
         public RollDiceResult RollDice(int userId, string diceCode)
         {
             lock (syncRoot)
@@ -280,9 +291,11 @@ namespace SnakesAndLadders.Services.Logic
                     throw new InvalidOperationException("It is not this user's turn.");
                 }
 
-                PlayerRuntimeState playerState = playersByUserId[userId];
+                if (!playersByUserId.TryGetValue(userId, out PlayerRuntimeState playerState))
+                {
+                    throw new InvalidOperationException("Player state was not found.");
+                }
 
-                // 🔹 El jugador sí respondió a su turno, así que limpiamos los timeouts seguidos.
                 playerState.ConsecutiveTimeouts = 0;
 
                 if (playerState.RemainingFrozenTurns > 0)
@@ -306,7 +319,8 @@ namespace SnakesAndLadders.Services.Logic
                         IsGameOver = isFinished,
                         ExtraInfo = frozenExtraInfo,
                         UsedRocket = false,
-                        RocketIgnored = false
+                        RocketIgnored = false,
+                        MessageIndex = null
                     };
                 }
 
@@ -328,7 +342,9 @@ namespace SnakesAndLadders.Services.Logic
 
                 if (playerState.PendingRocketBonus > 0)
                 {
-                    int tentativeTargetWithRocket = fromCellIndex + diceValue + playerState.PendingRocketBonus;
+                    int tentativeTargetWithRocket = fromCellIndex
+                        + diceValue
+                        + playerState.PendingRocketBonus;
 
                     if (finalCellIndex > 0 && tentativeTargetWithRocket <= finalCellIndex)
                     {
@@ -349,7 +365,9 @@ namespace SnakesAndLadders.Services.Logic
 
                     if (rocketIgnored)
                     {
-                        extraTooHighInfo = EXTRA_INFO_ROCKET_IGNORED + "_" + EXTRA_INFO_ROLL_TOO_HIGH_NO_MOVE;
+                        extraTooHighInfo = AppendToken(
+                            EXTRA_INFO_ROCKET_IGNORED,
+                            EXTRA_INFO_ROLL_TOO_HIGH_NO_MOVE);
                     }
 
                     AdvanceTurnAndResetFlags(userId);
@@ -362,7 +380,8 @@ namespace SnakesAndLadders.Services.Logic
                         IsGameOver = isFinished,
                         ExtraInfo = extraTooHighInfo,
                         UsedRocket = false,
-                        RocketIgnored = rocketIgnored
+                        RocketIgnored = rocketIgnored,
+                        MessageIndex = null
                     };
                 }
 
@@ -393,39 +412,49 @@ namespace SnakesAndLadders.Services.Logic
                     }
                 }
 
+                int? messageIndex;
+                bool shouldGrantExtraRoll;
+
+                ApplySpecialCellIfAny(
+                    playerState,
+                    ref finalTarget,
+                    ref extraInfo,
+                    out messageIndex,
+                    out shouldGrantExtraRoll);
+
                 playerState.Position = finalTarget;
 
                 bool isGameOver = false;
+
                 if (finalCellIndex > 0 && finalTarget >= finalCellIndex)
                 {
                     isFinished = true;
                     isGameOver = true;
 
-                    extraInfo = string.IsNullOrWhiteSpace(extraInfo)
-                        ? EXTRA_INFO_WIN
-                        : extraInfo + "_" + EXTRA_INFO_WIN;
+                    extraInfo = AppendToken(extraInfo, EXTRA_INFO_WIN);
                 }
 
-                string rocketInfoToken = string.Empty;
+                string finalExtraInfo = extraInfo;
 
                 if (usedRocket)
                 {
-                    rocketInfoToken = string.IsNullOrWhiteSpace(extraInfo)
-                        ? EXTRA_INFO_ROCKET_USED
-                        : EXTRA_INFO_ROCKET_USED + "_" + extraInfo;
+                    finalExtraInfo = AppendToken(EXTRA_INFO_ROCKET_USED, finalExtraInfo);
                 }
                 else if (rocketIgnored)
                 {
-                    rocketInfoToken = string.IsNullOrWhiteSpace(extraInfo)
-                        ? EXTRA_INFO_ROCKET_IGNORED
-                        : EXTRA_INFO_ROCKET_IGNORED + "_" + extraInfo;
+                    finalExtraInfo = AppendToken(EXTRA_INFO_ROCKET_IGNORED, finalExtraInfo);
                 }
 
-                string finalExtraInfo = string.IsNullOrWhiteSpace(rocketInfoToken)
-                    ? extraInfo
-                    : rocketInfoToken;
+                bool hasExtraRoll = shouldGrantExtraRoll && !isGameOver;
 
-                AdvanceTurnAndResetFlags(userId);
+                if (hasExtraRoll)
+                {
+                    ResetPlayerForExtraRoll(playerState);
+                }
+                else
+                {
+                    AdvanceTurnAndResetFlags(userId);
+                }
 
                 return new RollDiceResult
                 {
@@ -435,12 +464,11 @@ namespace SnakesAndLadders.Services.Logic
                     IsGameOver = isGameOver,
                     ExtraInfo = finalExtraInfo,
                     UsedRocket = usedRocket,
-                    RocketIgnored = rocketIgnored
+                    RocketIgnored = rocketIgnored,
+                    MessageIndex = messageIndex
                 };
             }
         }
-
-
 
         public GameStateSnapshot GetCurrentState()
         {
@@ -473,7 +501,6 @@ namespace SnakesAndLadders.Services.Logic
                 };
             }
         }
-
 
         public ItemEffectResult UseItem(
             int userId,
@@ -527,30 +554,25 @@ namespace SnakesAndLadders.Services.Logic
                 switch (normalizedCode)
                 {
                     case ITEM_CODE_ROCKET:
-                        
                         EnsureSelfTargetOnly("Rocket", userId, targetUserId);
                         result = ApplyRocket(currentPlayer);
                         break;
 
                     case ITEM_CODE_ANCHOR:
-                        
                         result = ApplyAnchor(currentPlayer, targetUserId);
                         break;
 
                     case ITEM_CODE_SWAP:
-                        
                         EnsureOtherPlayerTargetRequired("Intercambio", userId, targetUserId);
                         result = ApplySwap(currentPlayer, targetUserId);
                         break;
 
                     case ITEM_CODE_FREEZE:
-                        
                         EnsureOtherPlayerTargetRequired("Congelar", userId, targetUserId);
                         result = ApplyFreeze(currentPlayer, targetUserId);
                         break;
 
                     case ITEM_CODE_SHIELD:
-                        
                         EnsureSelfTargetOnly("Escudo", userId, targetUserId);
                         result = ApplyShield(currentPlayer);
                         break;
@@ -595,8 +617,6 @@ namespace SnakesAndLadders.Services.Logic
                         itemDisplayName));
             }
         }
-
-
 
         private ItemEffectResult ApplyRocket(PlayerRuntimeState currentPlayer)
         {
@@ -664,10 +684,6 @@ namespace SnakesAndLadders.Services.Logic
                 ShouldConsumeItemImmediately = true
             };
         }
-
-
-
-
 
         private ItemEffectResult ApplySwap(PlayerRuntimeState currentPlayer, int? targetUserId)
         {
@@ -762,9 +778,6 @@ namespace SnakesAndLadders.Services.Logic
             };
         }
 
-
-
-
         private ItemEffectResult ApplyShield(PlayerRuntimeState currentPlayer)
         {
             if (currentPlayer.HasShield && currentPlayer.RemainingShieldTurns > 0)
@@ -811,7 +824,6 @@ namespace SnakesAndLadders.Services.Logic
             return finalPosition;
         }
 
-
         private void AdvanceTurnAndResetFlags(int currentUserId)
         {
             if (!playersByUserId.TryGetValue(currentUserId, out PlayerRuntimeState currentPlayer))
@@ -834,6 +846,197 @@ namespace SnakesAndLadders.Services.Logic
             currentPlayer.HasRolledThisTurn = false;
 
             currentTurnIndex = (currentTurnIndex + 1) % turnOrder.Count;
+        }
+
+        private void ApplySpecialCellIfAny(
+    PlayerRuntimeState playerState,
+    ref int finalTarget,
+    ref string extraInfo,
+    out int? messageIndex,
+    out bool shouldGrantExtraRoll)
+        {
+            messageIndex = null;
+            shouldGrantExtraRoll = false;
+
+            if (boardDefinition == null ||
+                boardDefinition.Cells == null ||
+                boardDefinition.Cells.Count == 0)
+            {
+                return;
+            }
+
+            int targetIndex = finalTarget;
+
+            BoardCellDto cell = boardDefinition
+                .Cells
+                .FirstOrDefault(c => c.Index == targetIndex);
+
+            if (cell == null || cell.SpecialType == SpecialCellType.None)
+            {
+                return;
+            }
+
+            switch (cell.SpecialType)
+            {
+                case SpecialCellType.Message:
+                    ApplyMessageCellEffect(
+                        playerState,
+                        ref finalTarget,
+                        ref extraInfo,
+                        out messageIndex,
+                        out shouldGrantExtraRoll);
+                    break;
+
+                case SpecialCellType.Item:
+                    // TODO: casillas de ítem
+                    break;
+
+                case SpecialCellType.Dice:
+                    // TODO: casillas de dado
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+
+        private void ApplyMessageCellEffect(
+            PlayerRuntimeState playerState,
+            ref int finalTarget,
+            ref string extraInfo,
+            out int? messageIndex,
+            out bool shouldGrantExtraRoll)
+        {
+            messageIndex = null;
+            shouldGrantExtraRoll = false;
+
+            if (playerState == null)
+            {
+                return;
+            }
+
+            int generatedIndex = random.Next(
+                MESSAGE_MIN_INDEX,
+                MESSAGE_MAX_INDEX + 1);
+
+            messageIndex = generatedIndex;
+
+            bool isEven = (generatedIndex % 2) == 0;
+            bool isSmallOrEqual = generatedIndex <= MESSAGE_EFFECT_THRESHOLD;
+
+            if (isEven && isSmallOrEqual)
+            {
+                int candidate = finalTarget + MESSAGE_ADVANCE_STEPS;
+
+                if (finalCellIndex > 0 && candidate > finalCellIndex)
+                {
+                    candidate = finalCellIndex;
+                }
+
+                if (candidate < MIN_BOARD_CELL)
+                {
+                    candidate = MIN_BOARD_CELL;
+                }
+
+                finalTarget = candidate;
+                extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_ADVANCE);
+
+                ApplyPostMessageMovementEffects(playerState, ref finalTarget, ref extraInfo);
+            }
+            else if (isEven && !isSmallOrEqual)
+            {
+                shouldGrantExtraRoll = true;
+                extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_REROLL);
+            }
+            else if (!isEven && isSmallOrEqual)
+            {
+                int candidate = finalTarget - MESSAGE_BACKWARD_STEPS;
+
+                if (candidate < MIN_BOARD_CELL)
+                {
+                    candidate = MIN_BOARD_CELL;
+                }
+
+                finalTarget = candidate;
+                extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_BACKWARD);
+
+                ApplyPostMessageMovementEffects(playerState, ref finalTarget, ref extraInfo);
+            }
+            else
+            {
+                playerState.RemainingFrozenTurns++;
+                extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_SKIP_TURN);
+            }
+        }
+
+        private void ApplyPostMessageMovementEffects(
+    PlayerRuntimeState playerState,
+    ref int finalTarget,
+    ref string extraInfo)
+        {
+            finalTarget = ApplyJumpEffectsIfAny(playerState, finalTarget);
+
+            if (boardDefinition == null ||
+                boardDefinition.Cells == null ||
+                boardDefinition.Cells.Count == 0)
+            {
+                return;
+            }
+
+            int targetIndex = finalTarget;
+
+            BoardCellDto cell = boardDefinition
+                .Cells
+                .FirstOrDefault(c => c.Index == targetIndex);
+
+            if (cell == null || cell.SpecialType == SpecialCellType.None)
+            {
+                return;
+            }
+
+            switch (cell.SpecialType)
+            {
+                case SpecialCellType.Item:
+                    // TODO: lógica de casilla de ítem (inventario/slots)
+                    break;
+
+                case SpecialCellType.Dice:
+                    // TODO: lógica de casilla de dado (inventario/slots)
+                    break;
+
+                case SpecialCellType.Message:
+                default:
+                    // No encadenamos otro mensaje en el mismo turno.
+                    break;
+            }
+        }
+
+
+        private static string AppendToken(string baseInfo, string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return baseInfo ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(baseInfo))
+            {
+                return token;
+            }
+
+            return baseInfo + "_" + token;
+        }
+
+        private static void ResetPlayerForExtraRoll(PlayerRuntimeState playerState)
+        {
+            if (playerState == null)
+            {
+                return;
+            }
+
+            playerState.HasRolledThisTurn = false;
+            playerState.ItemUsedThisTurn = false;
         }
     }
 }

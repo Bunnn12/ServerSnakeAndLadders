@@ -603,8 +603,8 @@ namespace SnakesAndLadders.Services.Wcf
         }
 
         private static RollDiceResponseDto BuildRollDiceResponse(
-            RollDiceRequestDto request,
-            RollDiceResult moveResult)
+    RollDiceRequestDto request,
+    RollDiceResult moveResult)
         {
             if (request == null)
             {
@@ -628,9 +628,11 @@ namespace SnakesAndLadders.Services.Wcf
                 DiceValue = moveResult.DiceValue,
                 MoveResult = effectType,
                 ExtraInfo = moveResult.ExtraInfo,
+                MessageIndex = moveResult.MessageIndex,   // ⬅️ NUEVO
                 UpdatedTokens = null
             };
         }
+
 
         private static MoveEffectType MapMoveEffectType(string extraInfo)
         {
@@ -857,8 +859,8 @@ namespace SnakesAndLadders.Services.Wcf
         }
 
         private static PlayerMoveResultDto BuildPlayerMoveResultDto(
-            int userId,
-            RollDiceResult moveResult)
+    int userId,
+    RollDiceResult moveResult)
         {
             if (moveResult == null)
             {
@@ -876,9 +878,11 @@ namespace SnakesAndLadders.Services.Wcf
                 HasExtraTurn = false,
                 HasWon = moveResult.IsGameOver,
                 Message = moveResult.ExtraInfo,
-                EffectType = effectType
+                EffectType = effectType,
+                MessageIndex = moveResult.MessageIndex   // ⬅️ NUEVO
             };
         }
+
 
         private GameStateSnapshot GetCurrentStateSafe(GameSession session)
         {

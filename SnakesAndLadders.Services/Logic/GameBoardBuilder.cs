@@ -21,7 +21,7 @@ namespace SnakesAndLadders.Services.Logic
         private const int BOARD_SIZE_12_ROWS = 12;
         private const int BOARD_SIZE_12_COLUMNS = 12;
 
-        private const int SPECIAL_CELLS_8_ONE_TYPE = 3;
+        private const int SPECIAL_CELLS_8_ONE_TYPE = 30;
         private const int SPECIAL_CELLS_8_TWO_TYPES = 4;
         private const int SPECIAL_CELLS_8_THREE_TYPES = 6;
 
