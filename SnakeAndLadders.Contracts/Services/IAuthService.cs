@@ -23,5 +23,8 @@ namespace SnakeAndLadders.Contracts.Services
 
         [OperationContract]
         AuthResult RequestPasswordChangeCode(string email);
+
+        [OperationContract]
+        AuthResult Logout(LogoutRequestDto request);
     }
 }

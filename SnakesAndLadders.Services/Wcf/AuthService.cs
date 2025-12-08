@@ -27,6 +27,10 @@ namespace SnakesAndLadders.Services.Wcf
             return _authAppService.Login(request);
         }
 
+        public AuthResult Logout(LogoutRequestDto request)
+        {
+            return _authAppService.Logout(request);
+        }
         public AuthResult RequestEmailVerification(string email)
         {
             return _authAppService.RequestEmailVerification(email);
