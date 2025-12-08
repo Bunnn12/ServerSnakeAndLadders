@@ -154,30 +154,26 @@ namespace SnakesAndLadders.Data.Repositories
                         ProfilePhotoId = normalizedPhotoId
                     };
                 }
-                catch (DbEntityValidationException ex)
+                catch (DbEntityValidationException )
                 {
-                    Logger.Error("DB entity validation error in GetPhotoByUserId.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (DbUpdateException ex)
+                catch (DbUpdateException )
                 {
-                    Logger.Error("DB update error in GetPhotoByUserId.", ex);
-                    throw ex;
+
+                    throw ;
                 }
-                catch (EntityException ex)
+                catch (EntityException )
                 {
-                    Logger.Error("Entity framework error (connection / provider) in GetPhotoByUserId.", ex);
-                    throw ex;
+                    throw;
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("SQL error in GetPhotoByUserId.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Unexpected error in GetPhotoByUserId.", ex);
-                    throw ex;
+                    throw ;
                 }
             }
         }
@@ -290,30 +286,25 @@ namespace SnakesAndLadders.Data.Repositories
 
                     return MapToAccountDto(row.Usuario, row.AvatarDesbloqueado, row.Avatar);
                 }
-                catch (DbEntityValidationException ex)
+                catch (DbEntityValidationException )
                 {
-                    Logger.Error("DB entity validation error in UpdateProfile.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (DbUpdateException ex)
+                catch (DbUpdateException)
                 {
-                    Logger.Error("DB update error in UpdateProfile.", ex);
-                    throw ex;
+                    throw;
                 }
-                catch (EntityException ex)
+                catch (EntityException )
                 {
-                    Logger.Error("Entity framework error (connection / provider) in UpdateProfile.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("SQL error in UpdateProfile.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Unexpected error in UpdateProfile.", ex);
-                    throw ex;
+                    throw ;
                 }
             }
         }
@@ -362,30 +353,25 @@ namespace SnakesAndLadders.Data.Repositories
 
                     return MapToAccountDto(user, avatarUnlocked, avatar);
                 }
-                catch (DbEntityValidationException ex)
+                catch (DbEntityValidationException)
                 {
-                    Logger.Error("DB entity validation error in GetByUserId.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (DbUpdateException ex)
+                catch (DbUpdateException )
                 {
-                    Logger.Error("DB update error in GetByUserId.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (EntityException ex)
+                catch (EntityException )
                 {
-                    Logger.Error("Entity framework error (connection / provider) in GetByUserId.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("SQL error in GetByUserId.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Unexpected error in GetByUserId.", ex);
-                    throw ex;
+                    throw ;
                 }
             }
         }
@@ -412,36 +398,30 @@ namespace SnakesAndLadders.Data.Repositories
                         Avatars = options
                     };
                 }
-                catch (DbEntityValidationException ex)
+                catch (DbEntityValidationException )
                 {
-                    Logger.Error("DB entity validation error in GetAvatarOptions.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (DbUpdateException ex)
+                catch (DbUpdateException )
                 {
-                    Logger.Error("DB update error in GetAvatarOptions.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (EntityException ex)
+                catch (EntityException )
                 {
-                    Logger.Error("Entity framework error (connection / provider) in GetAvatarOptions.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("SQL error in GetAvatarOptions.", ex);
-                    throw ex;
+                    throw ;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Unexpected error in GetAvatarOptions.", ex);
-                    throw ex;
+                    throw ;
                 }
             }
         }
 
-        // --- helpers igual que antes ---
-
+ 
         private static AccountDto MapToAccountDto(
             Usuario usuario,
             AvatarDesbloqueado avatarDesbloqueado,
