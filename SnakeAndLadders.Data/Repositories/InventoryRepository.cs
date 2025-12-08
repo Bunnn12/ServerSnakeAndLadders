@@ -86,7 +86,7 @@ namespace ServerSnakesAndLadders
                 catch (Exception ex)
                 {
                     Logger.Error("Error inesperado al obtener el inventario de objetos del usuario.", ex);
-                    return new List<InventoryItemDto>(); // << clave
+                    return new List<InventoryItemDto>(); 
                 }
             }
         }
@@ -142,12 +142,12 @@ namespace ServerSnakesAndLadders
                 catch (SqlException ex)
                 {
                     Logger.Error("Error SQL al obtener el inventario de dados del usuario.", ex);
-                    return new List<InventoryDiceDto>(); // << clave
+                    return new List<InventoryDiceDto>(); 
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("Error inesperado al obtener el inventario de dados del usuario.", ex);
-                    return new List<InventoryDiceDto>(); // << clave
+                    return new List<InventoryDiceDto>(); 
                 }
             }
         }
@@ -599,7 +599,6 @@ namespace ServerSnakesAndLadders
                         context.Entry(userItem).State = EntityState.Modified;
                     }
 
-                    // auto-equipar si hay slot libre
                     TryEquipItemIfSlotAvailable(context, userId, item.IdObjeto);
 
                     context.SaveChanges();
@@ -690,11 +689,10 @@ namespace ServerSnakesAndLadders
 
 
         private void TryEquipItemIfSlotAvailable(
-    SnakeAndLaddersDBEntities1 context,
-    int userId,
-    int objectId)
+            SnakeAndLaddersDBEntities1 context,
+            int userId,
+            int objectId)
         {
-            // 1) Si este tipo de objeto YA está equipado en algún slot, no hacer nada.
             bool alreadyEquipped = context.ObjetoUsuarioSeleccionado
                 .Any(s =>
                     s.UsuarioIdUsuario == userId &&
@@ -702,12 +700,9 @@ namespace ServerSnakesAndLadders
 
             if (alreadyEquipped)
             {
-                // Ya tiene un escudo (o el item que sea) en algún slot.
-                // Solo aumentamos la cantidad en ObjetoUsuario, pero no tocamos slots.
                 return;
             }
 
-            // 2) Buscar un slot libre
             var usedSlots = context.ObjetoUsuarioSeleccionado
                 .Where(s => s.UsuarioIdUsuario == userId)
                 .Select(s => s.NumeroSlot)
@@ -732,11 +727,10 @@ namespace ServerSnakesAndLadders
 
 
         private void TryEquipDiceIfSlotAvailable(
-    SnakeAndLaddersDBEntities1 context,
-    int userId,
-    int diceId)
+            SnakeAndLaddersDBEntities1 context,
+            int userId,
+            int diceId)
         {
-            // 1) Si este tipo de dado YA está equipado en algún slot, no hacer nada.
             bool alreadyEquipped = context.DadoUsuarioSeleccionado
                 .Any(s =>
                     s.UsuarioIdUsuario == userId &&
@@ -744,12 +738,9 @@ namespace ServerSnakesAndLadders
 
             if (alreadyEquipped)
             {
-                // Ya tiene ese dado equipado en algún slot.
-                // Solo aumentamos la cantidad en DadoUsuario, no tocamos slots.
                 return;
             }
 
-            // 2) Buscar un slot libre
             var usedSlots = context.DadoUsuarioSeleccionado
                 .Where(s => s.UsuarioIdUsuario == userId)
                 .Select(s => s.NumeroSlot)

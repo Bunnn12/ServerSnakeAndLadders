@@ -54,8 +54,6 @@ namespace SnakesAndLadders.Tests.Integration
             }
         }
 
-        // PurchaseAvatarChest
-
         [Fact]
         public void TestPurchaseAvatarChestWhenRequestIsNullReturnsFailureResult()
         {
@@ -131,8 +129,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // PurchaseStickerChest
-
         [Fact]
         public void TestPurchaseStickerChestWhenRequestIsNullReturnsFailureResult()
         {
@@ -207,8 +203,6 @@ namespace SnakesAndLadders.Tests.Integration
             bool isOk = result != null && result.Data == null;
             Assert.True(isOk);
         }
-
-        // PurchaseDice
 
         [Fact]
         public void TestPurchaseDiceWhenRequestIsNullReturnsFailureResult()
@@ -307,8 +301,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // PurchaseItemChest
-
         [Fact]
         public void TestPurchaseItemChestWhenRequestIsNullReturnsFailureResult()
         {
@@ -380,8 +372,6 @@ namespace SnakesAndLadders.Tests.Integration
             bool isOk = result != null && result.Data == null;
             Assert.True(isOk);
         }
-
-        // GetCurrentCoins
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]

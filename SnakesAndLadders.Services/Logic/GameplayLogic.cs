@@ -514,10 +514,6 @@ namespace SnakesAndLadders.Services.Logic
 
         private bool TryGetJumpDestination(int startIndex, out int destinationIndex)
         {
-            // El BoardNavigator ya encapsula el mapa de jumps,
-            // así que reutilizamos ApplyJumpEffectsIfAny comparando resultado.
-            // Si no hay salto, resultado == startIndex.
-            // Si hay, es diferente.
             var dummyPlayer = new PlayerRuntimeState
             {
                 HasShield = false

@@ -119,6 +119,9 @@
     <Compile Include="Unit\FriendsAppServiceTests.cs" />
     <Compile Include="Unit\GameBoardBuilderTests.cs" />
     <Compile Include="Unit\Sha256PasswordHasherTests.cs" />
+    <Compile Include="Unit\SocialProfileAppServiceTests.cs" />
+    <Compile Include="Unit\StatsAppServiceTests.cs" />
+    <Compile Include="Unit\UserAppServiceTests.cs" />
     <Compile Include="XunitConfig.cs" />
   </ItemGroup>
   <ItemGroup>

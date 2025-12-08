@@ -75,8 +75,6 @@ namespace SnakesAndLadders.Tests.Integration
             }
         }
 
-        // GetById
-
         [Fact]
         public void TestGetByIdWhenFriendLinkDoesNotExistReturnsEmptyDto()
         {
@@ -116,8 +114,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // GetNormalized
-
         [Fact]
         public void TestGetNormalizedWhenLinkDoesNotExistReturnsEmptyDto()
         {
@@ -154,8 +150,6 @@ namespace SnakesAndLadders.Tests.Integration
 
             Assert.True(isOk);
         }
-
-        // CreatePending – validaciones
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO, 2)]
@@ -317,7 +311,6 @@ namespace SnakesAndLadders.Tests.Integration
             }
         }
 
-        // UpdateStatus
 
         [Fact]
         public void TestUpdateStatusWhenFriendLinkNotFoundThrowsInvalidOperationException()
@@ -349,7 +342,6 @@ namespace SnakesAndLadders.Tests.Integration
             }
         }
 
-        // DeleteLink
 
         [Fact]
         public void TestDeleteLinkWhenFriendLinkNotFoundDoesNothing()
@@ -389,8 +381,6 @@ namespace SnakesAndLadders.Tests.Integration
                 Assert.True(isOk);
             }
         }
-
-        // GetAcceptedFriendsIds
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]
@@ -444,7 +434,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // GetPendingRelated
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]
@@ -498,7 +487,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // GetAcceptedFriendsDetailed
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]
@@ -552,7 +540,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // GetIncomingPendingDetailed
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]
@@ -606,7 +593,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // GetOutgoingPendingDetailed
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]
@@ -659,8 +645,6 @@ namespace SnakesAndLadders.Tests.Integration
                 result[0].Status == FriendRequestStatus.Pending;
             Assert.True(isOk);
         }
-
-        // SearchUsers
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]
@@ -717,7 +701,6 @@ namespace SnakesAndLadders.Tests.Integration
         {
             int me = CreateUser("Owner");
 
-            // Creamos muchos usuarios que matchean
             for (int i = 0; i < 30; i++)
             {
                 CreateUser($"Many_{i}");

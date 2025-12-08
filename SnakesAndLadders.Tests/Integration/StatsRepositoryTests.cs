@@ -128,8 +128,6 @@ namespace SnakesAndLadders.Tests.Integration
             }
         }
 
-        // GetTopPlayersByCoins
-
         [Theory]
         [InlineData(INVALID_MAX_RESULTS_ZERO)]
         [InlineData(INVALID_MAX_RESULTS_NEGATIVE)]
@@ -229,7 +227,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // GetPlayerStatsByUserId
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]
