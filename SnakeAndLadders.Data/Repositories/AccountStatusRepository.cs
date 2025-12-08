@@ -7,44 +7,62 @@ using SnakesAndLadders.Data;
 
 namespace SnakesAndLadders.Data.Repositories
 {
-    /// <summary>
-    /// Handles activation and deactivation of user-related records
-    /// (user, accounts and passwords) in the database.
-    /// </summary>
     public sealed class AccountStatusRepository : IAccountStatusRepository
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(AccountStatusRepository));
+        private static readonly ILog _logger = LogManager.GetLogger(typeof(AccountStatusRepository));
 
         private const byte STATUS_ACTIVE_VALUE = 0x01;
         private const byte STATUS_INACTIVE_VALUE = 0x00;
 
         private const int COMMAND_TIMEOUT_SECONDS = 30;
+        private const int MIN_VALID_USER_ID = 1;
+
         private const string DELETED_USERNAME_PREFIX = "deleted_";
+        private const string DELETED_EMAIL_LOCAL_PART_PREFIX = "deleted+";
         private const string DELETED_EMAIL_DOMAIN = "invalid.local";
+
+        private const string LOG_ERROR_UPDATING_ACTIVE_STATE =
+            "Error updating active state for user. UserId={0}; IsActive={1}";
+
+        private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
+
+        public AccountStatusRepository(Func<SnakeAndLaddersDBEntities1> contextFactory = null)
+        {
+            _contextFactory = contextFactory ?? (() => new SnakeAndLaddersDBEntities1());
+        }
 
         public void SetUserAndAccountActiveState(int userId, bool isActive)
         {
-            if (userId < 1)
+            if (userId < MIN_VALID_USER_ID)
             {
                 throw new ArgumentOutOfRangeException(nameof(userId));
             }
 
             try
             {
-                using (var context = new SnakeAndLaddersDBEntities1())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 {
-                    ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                    ConfigureContext(context);
 
-                    byte[] dbStatus = new[] { isActive ? STATUS_ACTIVE_VALUE : STATUS_INACTIVE_VALUE };
+                    byte[] dbStatus =
+                    {
+                        isActive
+                            ? STATUS_ACTIVE_VALUE
+                            : STATUS_INACTIVE_VALUE
+                    };
 
-                    var user = context.Usuario.SingleOrDefault(u => u.IdUsuario == userId);
+                    Usuario user = context.Usuario.SingleOrDefault(u => u.IdUsuario == userId);
                     if (user != null)
                     {
                         user.Estado = dbStatus;
 
                         if (!isActive)
                         {
-                            string deletedUserName = $"deleted_{user.IdUsuario:D6}";
+                            string deletedUserName = string.Format(
+                                "{0}{1:D6}",
+                                DELETED_USERNAME_PREFIX,
+                                user.IdUsuario);
+
                             user.NombreUsuario = deletedUserName;
                         }
                     }
@@ -53,13 +71,18 @@ namespace SnakesAndLadders.Data.Repositories
                         .Where(account => account.UsuarioIdUsuario == userId)
                         .ToList();
 
-                    foreach (var account in accounts)
+                    foreach (Cuenta account in accounts)
                     {
                         account.Estado = dbStatus;
 
                         if (!isActive)
                         {
-                            string deletedEmail = $"deleted+{userId:D6}@invalid.local";
+                            string deletedEmail = string.Format(
+                                "{0}{1:D6}@{2}",
+                                DELETED_EMAIL_LOCAL_PART_PREFIX,
+                                userId,
+                                DELETED_EMAIL_DOMAIN);
+
                             account.Correo = deletedEmail;
                         }
                     }
@@ -68,7 +91,7 @@ namespace SnakesAndLadders.Data.Repositories
                         .Where(password => password.UsuarioIdUsuario == userId)
                         .ToList();
 
-                    foreach (var password in passwords)
+                    foreach (Contrasenia password in passwords)
                     {
                         password.Estado = dbStatus;
                     }
@@ -79,13 +102,18 @@ namespace SnakesAndLadders.Data.Repositories
             catch (Exception ex)
             {
                 string message = string.Format(
-                    "Error updating active state for user. UserId={0}; IsActive={1}",
+                    LOG_ERROR_UPDATING_ACTIVE_STATE,
                     userId,
                     isActive);
 
-                Logger.Error(message, ex);
+                _logger.Error(message, ex);
                 throw;
             }
+        }
+
+        private static void ConfigureContext(SnakeAndLaddersDBEntities1 context)
+        {
+            ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
         }
     }
 }

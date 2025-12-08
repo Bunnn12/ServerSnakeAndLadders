@@ -93,6 +93,9 @@
     <Compile Include="Dtos\ItemChestPurchaseDto.cs" />
     <Compile Include="Dtos\LinkSocialProfileRequestDto.cs" />
     <Compile Include="Dtos\LobbySummary.cs" />
+    <Compile Include="Dtos\LoginRequestDto.cs" />
+    <Compile Include="Dtos\LoginResultDto.cs" />
+    <Compile Include="Dtos\LogoutRequestDto.cs" />
     <Compile Include="Dtos\PasswordHistoryResult.cs" />
     <Compile Include="Dtos\PersistPasswordResult.cs" />
     <Compile Include="Dtos\PlayerStatsDto.cs" />

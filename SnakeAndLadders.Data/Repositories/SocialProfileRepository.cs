@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
@@ -11,20 +9,35 @@ namespace SnakesAndLadders.Data.Repositories
 {
     public sealed class SocialProfileRepository : ISocialProfileRepository
     {
-        private const int MAX_PROFILE_LINK_LENGTH = 510;
+        private const int MAX_PROFILE_LINK_LENGTH = 255;
+        private const int MIN_VALID_USER_ID = 1;
 
         private const string NETWORK_INSTAGRAM = "INSTAGRAM";
         private const string NETWORK_FACEBOOK = "FACEBOOK";
         private const string NETWORK_TWITTER = "TWITTER";
 
+        private const string ERROR_USER_ID_POSITIVE = "UserId must be positive.";
+        private const string ERROR_REQUEST_NULL = "Request cannot be null.";
+        private const string ERROR_PROFILE_LINK_REQUIRED = "ProfileLink is required.";
+        private const string ERROR_SOCIAL_TYPE_REQUIRED = "TipoRedSocial is required.";
+        private const string ERROR_UNKNOWN_SOCIAL_NETWORK_TEMPLATE =
+            "Unknown social network type: {0}";
+
+        private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
+
+        public SocialProfileRepository(Func<SnakeAndLaddersDBEntities1> contextFactory = null)
+        {
+            _contextFactory = contextFactory ?? (() => new SnakeAndLaddersDBEntities1());
+        }
+
         public IReadOnlyList<SocialProfileDto> GetByUserId(int userId)
         {
-            if (userId <= 0)
+            if (userId < MIN_VALID_USER_ID)
             {
-                throw new ArgumentOutOfRangeException(nameof(userId));
+                throw new ArgumentOutOfRangeException(nameof(userId), ERROR_USER_ID_POSITIVE);
             }
 
-            using (var db = new SnakeAndLaddersDBEntities1())
+            using (SnakeAndLaddersDBEntities1 db = _contextFactory())
             {
                 var rows = db.RedesSociales
                     .AsNoTracking()
@@ -33,7 +46,7 @@ namespace SnakesAndLadders.Data.Repositories
 
                 List<SocialProfileDto> result = new List<SocialProfileDto>();
 
-                foreach (var row in rows)
+                foreach (RedesSociales row in rows)
                 {
                     SocialNetworkType network;
 
@@ -62,20 +75,20 @@ namespace SnakesAndLadders.Data.Repositories
         {
             if (request == null)
             {
-                throw new ArgumentNullException(nameof(request));
+                throw new ArgumentNullException(nameof(request), ERROR_REQUEST_NULL);
             }
 
-            if (request.UserId <= 0)
+            if (request.UserId < MIN_VALID_USER_ID)
             {
-                throw new ArgumentOutOfRangeException(nameof(request.UserId));
+                throw new ArgumentOutOfRangeException(nameof(request.UserId), ERROR_USER_ID_POSITIVE);
             }
 
             string profileLink = NormalizeAndValidateProfileLink(request.ProfileLink);
             string networkCode = GetNetworkCode(request.Network);
 
-            using (var db = new SnakeAndLaddersDBEntities1())
+            using (SnakeAndLaddersDBEntities1 db = _contextFactory())
             {
-                var entity = db.RedesSociales
+                RedesSociales entity = db.RedesSociales
                     .SingleOrDefault(r =>
                         r.UsuarioIdUsuario == request.UserId &&
                         r.TipoRedSocial == networkCode);
@@ -109,19 +122,19 @@ namespace SnakesAndLadders.Data.Repositories
         {
             if (request == null)
             {
-                throw new ArgumentNullException(nameof(request));
+                throw new ArgumentNullException(nameof(request), ERROR_REQUEST_NULL);
             }
 
-            if (request.UserId <= 0)
+            if (request.UserId < MIN_VALID_USER_ID)
             {
-                throw new ArgumentOutOfRangeException(nameof(request.UserId));
+                throw new ArgumentOutOfRangeException(nameof(request.UserId), ERROR_USER_ID_POSITIVE);
             }
 
             string networkCode = GetNetworkCode(request.Network);
 
-            using (var db = new SnakeAndLaddersDBEntities1())
+            using (SnakeAndLaddersDBEntities1 db = _contextFactory())
             {
-                var entity = db.RedesSociales
+                RedesSociales entity = db.RedesSociales
                     .SingleOrDefault(r =>
                         r.UsuarioIdUsuario == request.UserId &&
                         r.TipoRedSocial == networkCode);
@@ -140,7 +153,7 @@ namespace SnakesAndLadders.Data.Repositories
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                throw new ArgumentException("ProfileLink is required.", nameof(value));
+                throw new ArgumentException(ERROR_PROFILE_LINK_REQUIRED, nameof(value));
             }
 
             string trimmed = value.Trim();
@@ -172,7 +185,7 @@ namespace SnakesAndLadders.Data.Repositories
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                throw new ArgumentException("TipoRedSocial is required.", nameof(value));
+                throw new ArgumentException(ERROR_SOCIAL_TYPE_REQUIRED, nameof(value));
             }
 
             string normalized = value.Trim().ToUpperInvariant();
@@ -192,7 +205,11 @@ namespace SnakesAndLadders.Data.Repositories
                 return SocialNetworkType.Twitter;
             }
 
-            throw new ArgumentException("Unknown social network type: " + normalized, nameof(value));
+            string message = string.Format(
+                ERROR_UNKNOWN_SOCIAL_NETWORK_TEMPLATE,
+                normalized);
+
+            throw new ArgumentException(message, nameof(value));
         }
     }
 }

@@ -105,10 +105,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Integration\AccountsRepositoryTests.cs" />
+    <Compile Include="Integration\AccountStatusRepositoryTests.cs" />
+    <Compile Include="Integration\FriendsRepositoryTests.cs" />
     <Compile Include="Integration\IntegrationTestBase.cs" />
+    <Compile Include="Integration\SanctionRepositoryTests.cs" />
+    <Compile Include="Integration\ShopRepositoryTests.cs" />
+    <Compile Include="Integration\SocialProfileRepositoryTests.cs" />
+    <Compile Include="Integration\StatsRepositoryTests.cs" />
+    <Compile Include="Integration\UserRepositoryTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Unit\AuthAppServiceTests.cs" />
+    <Compile Include="Unit\ChatAppServiceTests.cs" />
+    <Compile Include="Unit\FriendsAppServiceTests.cs" />
+    <Compile Include="Unit\GameBoardBuilderTests.cs" />
     <Compile Include="Unit\Sha256PasswordHasherTests.cs" />
+    <Compile Include="XunitConfig.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -1,677 +1,952 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Configuration;
-using System.Security.Cryptography;
-using System.Text;
 using Moq;
 using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Services.Logic;
+using SnakesAndLadders.Services.Logic.Auth;
 using Xunit;
 
 namespace SnakesAndLadders.Tests.Unit
 {
-    public class AuthAppServiceTests
+    public sealed class AuthAppServiceTests
     {
-        private const string TEST_SECRET = "SECRET_KEY_FOR_TESTS_1234567890";
-        private const string TEST_TOKEN_MINUTES_KEY = "Auth:TokenMinutes";
-        private const string TEST_SECRET_KEY = "Auth:Secret";
-
-        private readonly Mock<IAccountsRepository> _accountsRepository;
-        private readonly Mock<IPasswordHasher> _passwordHasher;
-        private readonly Mock<IEmailSender> _emailSender;
-        private readonly Mock<IPlayerReportAppService> _playerReportAppService;
-        private readonly Mock<IUserRepository> _userRepository;
+        private readonly Mock<IAccountsRepository> _accountsRepositoryMock;
+        private readonly Mock<IPasswordHasher> _passwordHasherMock;
+        private readonly Mock<IEmailSender> _emailSenderMock;
+        private readonly Mock<IPlayerReportAppService> _playerReportAppServiceMock;
+        private readonly Mock<IUserRepository> _userRepositoryMock;
+        private readonly Mock<ITokenService> _tokenServiceMock;
+        private readonly Mock<IVerificationCodeStore> _verificationCodeStoreMock;
 
         private readonly AuthAppService _service;
 
         public AuthAppServiceTests()
         {
-            if (ConfigurationManager.AppSettings[TEST_SECRET_KEY] == null)
-            {
-                ConfigurationManager.AppSettings[TEST_SECRET_KEY] = TEST_SECRET;
-            }
-
-            if (ConfigurationManager.AppSettings[TEST_TOKEN_MINUTES_KEY] == null)
-            {
-                ConfigurationManager.AppSettings[TEST_TOKEN_MINUTES_KEY] = "60";
-            }
-
-            _accountsRepository = new Mock<IAccountsRepository>();
-            _passwordHasher = new Mock<IPasswordHasher>();
-            _emailSender = new Mock<IEmailSender>();
-            _playerReportAppService = new Mock<IPlayerReportAppService>();
-            _userRepository = new Mock<IUserRepository>();
+            _accountsRepositoryMock = new Mock<IAccountsRepository>(MockBehavior.Strict);
+            _passwordHasherMock = new Mock<IPasswordHasher>(MockBehavior.Strict);
+            _emailSenderMock = new Mock<IEmailSender>(MockBehavior.Strict);
+            _playerReportAppServiceMock = new Mock<IPlayerReportAppService>(MockBehavior.Strict);
+            _userRepositoryMock = new Mock<IUserRepository>(MockBehavior.Strict);
+            _tokenServiceMock = new Mock<ITokenService>(MockBehavior.Strict);
+            _verificationCodeStoreMock = new Mock<IVerificationCodeStore>(MockBehavior.Strict);
 
             _service = new AuthAppService(
-                _accountsRepository.Object,
-                _passwordHasher.Object,
-                _emailSender.Object,
-                _playerReportAppService.Object,
-                _userRepository.Object);
+                _accountsRepositoryMock.Object,
+                _passwordHasherMock.Object,
+                _emailSenderMock.Object,
+                _playerReportAppServiceMock.Object,
+                _userRepositoryMock.Object,
+                _tokenServiceMock.Object,
+                _verificationCodeStoreMock.Object);
         }
 
+        #region RegisterUser
 
         [Fact]
-        public void TestRegisterUserWhenRequestIsNullUsesInvalidRequestCode()
+        public void TestRegisterUserReturnsInvalidRequestWhenRegistrationIsNull()
         {
             AuthResult result = _service.RegisterUser(null);
 
-            Assert.False(result.Success);
-            Assert.Equal("Auth.InvalidRequest", result.Code);
+            Assert.True(!result.Success && result.Code == "Auth.InvalidRequest");
         }
 
-        [Fact]
-        public void TestRegisterUserWhenRequiredFieldsAreEmptyUsesInvalidRequestCode()
+        [Theory]
+        [InlineData(null, "user@test.com", "Password1")]
+        [InlineData("User", null, "Password1")]
+        [InlineData("User", "user@test.com", null)]
+        [InlineData(" ", "user@test.com", "Password1")]
+        public void TestRegisterUserReturnsInvalidRequestWhenRegistrationHasMissingFields(
+            string userName,
+            string email,
+            string password)
         {
-            RegistrationDto dto = new RegistrationDto
+            var registration = new RegistrationDto
             {
-                Email = "",
-                Password = "",
-                UserName = ""
+                UserName = userName,
+                Email = email,
+                Password = password
             };
 
-            AuthResult result = _service.RegisterUser(dto);
+            AuthResult result = _service.RegisterUser(registration);
 
-            Assert.False(result.Success);
-            Assert.Equal("Auth.InvalidRequest", result.Code);
+            Assert.True(!result.Success && result.Code == "Auth.InvalidRequest");
         }
 
         [Fact]
-        public void TestRegisterUserWhenEmailAlreadyExistsUsesEmailAlreadyExistsCode()
+        public void TestRegisterUserReturnsEmailAlreadyExistsWhenEmailIsRegistered()
         {
-            RegistrationDto dto = new RegistrationDto
+            var registration = new RegistrationDto
             {
-                Email = "exists@test.com",
-                UserName = "User1",
-                Password = "123"
+                UserName = "UserOne",
+                Email = "user@test.com",
+                Password = "Password1"
             };
 
-            _accountsRepository.Setup(x => x.IsEmailRegistered(dto.Email)).Returns(true);
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered("user@test.com"))
+                .Returns(true);
 
-            AuthResult result = _service.RegisterUser(dto);
+            AuthResult result = _service.RegisterUser(registration);
 
-            Assert.False(result.Success);
-            Assert.Equal("Auth.EmailAlreadyExists", result.Code);
-            _accountsRepository.Verify(
-                x => x.CreateUserWithAccountAndPassword(It.IsAny<CreateAccountRequestDto>()),
-                Times.Never);
+            Assert.True(!result.Success && result.Code == "Auth.EmailAlreadyExists");
         }
 
         [Fact]
-        public void TestRegisterUserWhenUserNameIsTakenUsesUserNameAlreadyExistsCode()
+        public void TestRegisterUserReturnsUserNameAlreadyExistsWhenUserNameTaken()
         {
-            RegistrationDto dto = new RegistrationDto
+            var registration = new RegistrationDto
             {
-                Email = "new@test.com",
-                UserName = "TakenUser",
-                Password = "123"
+                UserName = "UserOne",
+                Email = "user@test.com",
+                Password = "Password1"
             };
 
-            _accountsRepository.Setup(x => x.IsEmailRegistered(dto.Email)).Returns(false);
-            _accountsRepository.Setup(x => x.IsUserNameTaken(dto.UserName)).Returns(true);
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered("user@test.com"))
+                .Returns(false);
 
-            AuthResult result = _service.RegisterUser(dto);
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsUserNameTaken("UserOne"))
+                .Returns(true);
 
-            Assert.False(result.Success);
-            Assert.Equal("Auth.UserNameAlreadyExists", result.Code);
+            AuthResult result = _service.RegisterUser(registration);
+
+            Assert.True(!result.Success && result.Code == "Auth.UserNameAlreadyExists");
         }
 
         [Fact]
-        public void TestRegisterUserWhenRepositoryFailsUsesServerErrorCode()
+        public void TestRegisterUserReturnsOkWhenCreationSucceeds()
         {
-            RegistrationDto dto = new RegistrationDto
+            var registration = new RegistrationDto
             {
-                Email = "new@test.com",
-                UserName = "User1",
-                Password = "123"
+                UserName = "UserOne",
+                Email = "user@test.com",
+                Password = "Password1",
+                FirstName = "Test",
+                LastName = "User"
             };
 
-            _accountsRepository.Setup(x => x.IsEmailRegistered(dto.Email)).Returns(false);
-            _accountsRepository.Setup(x => x.IsUserNameTaken(dto.UserName)).Returns(false);
-            _passwordHasher.Setup(x => x.Hash(dto.Password)).Returns("hash_123");
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered("user@test.com"))
+                .Returns(false);
 
-            OperationResult<int> failureResult = OperationResult<int>.Failure("db error");
-            _accountsRepository
-                .Setup(x => x.CreateUserWithAccountAndPassword(It.IsAny<CreateAccountRequestDto>()))
-                .Returns(failureResult);
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsUserNameTaken("UserOne"))
+                .Returns(false);
 
-            AuthResult result = _service.RegisterUser(dto);
+            _passwordHasherMock
+                .Setup(hasher => hasher.Hash("Password1"))
+                .Returns("HASHED_PASSWORD");
 
-            Assert.False(result.Success);
-            Assert.Equal("Auth.ServerError", result.Code);
+            _accountsRepositoryMock
+                .Setup(repo => repo.CreateUserWithAccountAndPassword(
+                    It.Is<CreateAccountRequestDto>(dto =>
+                        dto.Username == "UserOne"
+                        && dto.Email == "user@test.com"
+                        && dto.PasswordHash == "HASHED_PASSWORD")))
+                .Returns(OperationResult<int>.Success(123));
+
+            AuthResult result = _service.RegisterUser(registration);
+
+            Assert.True(result.Success && result.Code == "Auth.Ok" && result.UserId == 123);
         }
 
         [Fact]
-        public void TestRegisterUserWhenDataIsValidCreatesUserWithGeneratedId()
+        public void TestRegisterUserReturnsServerErrorWhenCreationFails()
         {
-            RegistrationDto dto = new RegistrationDto
+            var registration = new RegistrationDto
             {
-                Email = "new@test.com",
-                UserName = "Hero",
-                Password = "123"
+                UserName = "UserOne",
+                Email = "user@test.com",
+                Password = "Password1",
+                FirstName = "Test",
+                LastName = "User"
             };
 
-            _accountsRepository.Setup(x => x.IsEmailRegistered(dto.Email)).Returns(false);
-            _accountsRepository.Setup(x => x.IsUserNameTaken(dto.UserName)).Returns(false);
-            _passwordHasher.Setup(x => x.Hash(dto.Password)).Returns("hash_123");
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered("user@test.com"))
+                .Returns(false);
 
-            OperationResult<int> successResult = OperationResult<int>.Success(42);
-            _accountsRepository
-                .Setup(x => x.CreateUserWithAccountAndPassword(It.IsAny<CreateAccountRequestDto>()))
-                .Returns(successResult);
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsUserNameTaken("UserOne"))
+                .Returns(false);
 
-            AuthResult result = _service.RegisterUser(dto);
+            _passwordHasherMock
+                .Setup(hasher => hasher.Hash("Password1"))
+                .Returns("HASHED_PASSWORD");
 
-            Assert.True(result.Success);
-            Assert.Equal("Auth.Ok", result.Code);
-            Assert.Equal(42, result.UserId);
-            Assert.Equal("Hero", result.DisplayName);
+            _accountsRepositoryMock
+                .Setup(repo => repo.CreateUserWithAccountAndPassword(It.IsAny<CreateAccountRequestDto>()))
+                .Returns(OperationResult<int>.Failure("Error"));
+
+            AuthResult result = _service.RegisterUser(registration);
+
+            Assert.True(!result.Success
+                        && result.Code == "Auth.ServerError"
+                        && result.Meta != null
+                        && result.Meta.TryGetValue("errorType", out string errorType)
+                        && errorType == "SqlError");
         }
 
+        #endregion
+
+        #region Login
+
         [Fact]
-        public void TestLoginWhenRequestIsNullUsesInvalidRequestCode()
+        public void TestLoginReturnsInvalidRequestWhenRequestIsNull()
         {
             AuthResult result = _service.Login(null);
 
-            Assert.False(result.Success);
-            Assert.Equal("Auth.InvalidRequest", result.Code);
+            Assert.True(!result.Success && result.Code == "Auth.InvalidRequest");
         }
 
-        [Fact]
-        public void TestLoginWhenEmailOrPasswordIsEmptyUsesInvalidRequestCode()
+        [Theory]
+        [InlineData(null, "Password1")]
+        [InlineData("user@test.com", null)]
+        [InlineData(" ", "Password1")]
+        [InlineData("user@test.com", " ")]
+        public void TestLoginReturnsInvalidRequestWhenRequiredFieldsMissing(
+            string email,
+            string password)
         {
-            LoginDto dto = new LoginDto
+            var request = new LoginDto
             {
-                Email = "",
-                Password = ""
+                Email = email,
+                Password = password
             };
 
-            AuthResult result = _service.Login(dto);
+            AuthResult result = _service.Login(request);
 
-            Assert.False(result.Success);
-            Assert.Equal("Auth.InvalidRequest", result.Code);
+            Assert.True(!result.Success && result.Code == "Auth.InvalidRequest");
         }
 
         [Fact]
-        public void TestLoginWhenRepositoryIndicatesFailureUsesInvalidCredentialsCode()
+        public void TestLoginReturnsInvalidCredentialsWhenAuthNotFound()
         {
-            LoginDto dto = new LoginDto
-            {
-                Email = "no@user.com",
-                Password = "123"
-            };
-
-            OperationResult<AuthCredentialsDto> failure =
-                OperationResult<AuthCredentialsDto>.Failure("not found");
-
-            _accountsRepository.Setup(x => x.GetAuthByIdentifier(dto.Email)).Returns(failure);
-
-            AuthResult result = _service.Login(dto);
-
-            Assert.False(result.Success);
-            Assert.Equal("Auth.InvalidCredentials", result.Code);
-        }
-
-        [Fact]
-        public void TestLoginWhenPasswordIsIncorrectUsesInvalidCredentialsCode()
-        {
-            LoginDto dto = new LoginDto
+            var request = new LoginDto
             {
                 Email = "user@test.com",
-                Password = "wrong"
+                Password = "Password1"
             };
 
-            AuthCredentialsDto credentials = new AuthCredentialsDto
-            {
-                UserId = 1,
-                PasswordHash = "correctHash"
-            };
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
+                .Returns(OperationResult<AuthCredentialsDto>.Success(null));
 
-            _accountsRepository
-                .Setup(x => x.GetAuthByIdentifier(dto.Email))
-                .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
+            AuthResult result = _service.Login(request);
 
-            _passwordHasher.Setup(x => x.Verify("wrong", "correctHash")).Returns(false);
-
-            AuthResult result = _service.Login(dto);
-
-            Assert.False(result.Success);
-            Assert.Equal("Auth.InvalidCredentials", result.Code);
+            Assert.True(!result.Success && result.Code == "Auth.InvalidCredentials");
         }
 
         [Fact]
-        public void TestLoginWhenBanServiceThrowsUsesServerErrorCode()
+        public void TestLoginReturnsInvalidCredentialsWhenPasswordDoesNotMatch()
         {
-            LoginDto dto = new LoginDto
+            var request = new LoginDto
             {
                 Email = "user@test.com",
-                Password = "123"
+                Password = "Password1"
             };
 
-            AuthCredentialsDto credentials = new AuthCredentialsDto
+            var credentials = new AuthCredentialsDto
             {
-                UserId = 1,
-                PasswordHash = "hash"
+                UserId = 10,
+                PasswordHash = "HASHED",
+                DisplayName = "UserOne",
+                ProfilePhotoId = "PHOTO"
             };
 
-            _accountsRepository
-                .Setup(x => x.GetAuthByIdentifier(dto.Email))
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
                 .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
 
-            _passwordHasher.Setup(x => x.Verify(dto.Password, "hash")).Returns(true);
-            _playerReportAppService
-                .Setup(x => x.GetCurrentBan(1))
-                .Throws(new InvalidOperationException("boom"));
+            _passwordHasherMock
+                .Setup(hasher => hasher.Verify("Password1", "HASHED"))
+                .Returns(false);
 
-            AuthResult result = _service.Login(dto);
+            AuthResult result = _service.Login(request);
 
-            Assert.False(result.Success);
-            Assert.Equal("Auth.ServerError", result.Code);
+            Assert.True(!result.Success && result.Code == "Auth.InvalidCredentials");
         }
 
         [Fact]
-        public void TestLoginWhenUserIsBannedUsesBannedCodeAndMeta()
+        public void TestLoginReturnsBannedWhenUserHasActiveBan()
         {
-            LoginDto dto = new LoginDto
+            var request = new LoginDto
             {
-                Email = "banned@test.com",
-                Password = "123"
+                Email = "user@test.com",
+                Password = "Password1"
             };
 
-            AuthCredentialsDto credentials = new AuthCredentialsDto
+            var credentials = new AuthCredentialsDto
             {
-                UserId = 5,
-                PasswordHash = "hash"
+                UserId = 10,
+                PasswordHash = "HASHED",
+                DisplayName = "UserOne",
+                ProfilePhotoId = "PHOTO"
             };
 
-            _accountsRepository
-                .Setup(x => x.GetAuthByIdentifier(It.IsAny<string>()))
-                .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
-
-            _passwordHasher.Setup(x => x.Verify(It.IsAny<string>(), It.IsAny<string>())).Returns(true);
-
-            BanInfoDto banInfo = new BanInfoDto
+            var banInfo = new BanInfoDto
             {
                 IsBanned = true,
-                SanctionType = "Permaban",
-                BanEndsAtUtc = DateTime.UtcNow.AddDays(1)
+                SanctionType = "TEMP_BAN",
+                BanEndsAtUtc = DateTime.UtcNow.AddHours(1)
             };
 
-            _playerReportAppService.Setup(x => x.GetCurrentBan(5)).Returns(banInfo);
-
-            AuthResult result = _service.Login(dto);
-
-            Assert.False(result.Success);
-            Assert.Equal("Auth.Banned", result.Code);
-            Assert.Equal("Permaban", result.Meta["sanctionType"]);
-            Assert.True(result.Meta.ContainsKey("banEndsAtUtc"));
-        }
-
-        [Fact]
-        public void TestLoginSuccessGeneratesTokenAndLoadsCurrentSkin()
-        {
-            LoginDto dto = new LoginDto
-            {
-                Email = "ok@test.com",
-                Password = "123"
-            };
-
-            AuthCredentialsDto credentials = new AuthCredentialsDto
-            {
-                UserId = 1,
-                PasswordHash = "hash",
-                DisplayName = "Player"
-            };
-
-            _accountsRepository
-                .Setup(x => x.GetAuthByIdentifier(It.IsAny<string>()))
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
                 .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
 
-            _passwordHasher.Setup(x => x.Verify(It.IsAny<string>(), It.IsAny<string>())).Returns(true);
-            _playerReportAppService.Setup(x => x.GetCurrentBan(It.IsAny<int>())).Returns((BanInfoDto)null);
+            _passwordHasherMock
+                .Setup(hasher => hasher.Verify("Password1", "HASHED"))
+                .Returns(true);
 
-            AccountDto account = new AccountDto
-            {
-                CurrentSkinId = "Skin01",
-                CurrentSkinUnlockedId = 99
-            };
+            _playerReportAppServiceMock
+                .Setup(service => service.GetCurrentBan(10))
+                .Returns(banInfo);
 
-            _userRepository.Setup(x => x.GetByUserId(1)).Returns(account);
+            AuthResult result = _service.Login(request);
 
-            AuthResult result = _service.Login(dto);
-
-            Assert.True(result.Success);
-            Assert.False(string.IsNullOrWhiteSpace(result.Token));
-            Assert.Equal("Skin01", result.CurrentSkinId);
-            Assert.Equal(99, result.CurrentSkinUnlockedId);
-            Assert.True(result.ExpiresAtUtc > DateTime.UtcNow);
+            Assert.True(!result.Success
+                        && result.Code == "Auth.Banned"
+                        && result.Meta != null
+                        && result.Meta.ContainsKey("sanctionType"));
         }
 
         [Fact]
-        public void TestRequestEmailVerificationWhenEmailIsEmptyUsesEmailRequiredCode()
+        public void TestLoginReturnsInvalidCredentialsWhenAccountNotFound()
         {
-            AuthResult result = _service.RequestEmailVerification("  ");
-
-            Assert.False(result.Success);
-            Assert.Equal("Auth.EmailRequired", result.Code);
-        }
-
-        [Fact]
-        public void TestRequestEmailVerificationWhenEmailAlreadyRegisteredUsesEmailAlreadyExistsCode()
-        {
-            const string EMAIL = "registered@test.com";
-
-            _accountsRepository.Setup(x => x.IsEmailRegistered(EMAIL)).Returns(true);
-
-            AuthResult result = _service.RequestEmailVerification(EMAIL);
-
-            Assert.False(result.Success);
-            Assert.Equal("Auth.EmailAlreadyExists", result.Code);
-            _emailSender.Verify(
-                x => x.SendVerificationCode(It.IsAny<string>(), It.IsAny<string>()),
-                Times.Never);
-        }
-
-        [Fact]
-        public void TestRequestEmailVerificationSuccessSendsVerificationEmail()
-        {
-            const string EMAIL = "new@test.com";
-
-            _accountsRepository.Setup(x => x.IsEmailRegistered(EMAIL)).Returns(false);
-
-            AuthResult result = _service.RequestEmailVerification(EMAIL);
-
-            Assert.True(result.Success);
-            _emailSender.Verify(
-                x => x.SendVerificationCode(EMAIL, It.IsAny<string>()),
-                Times.Once);
-        }
-
-        [Fact]
-        public void TestRequestEmailVerificationSecondRequestWithinThrottleUsesThrottleWaitCode()
-        {
-            const string EMAIL = "throttle@test.com";
-
-            _accountsRepository.Setup(x => x.IsEmailRegistered(EMAIL)).Returns(false);
-
-            AuthResult first = _service.RequestEmailVerification(EMAIL);
-            AuthResult second = _service.RequestEmailVerification(EMAIL);
-
-            Assert.True(first.Success);
-            Assert.False(second.Success);
-            Assert.Equal("Auth.ThrottleWait", second.Code);
-            Assert.True(second.Meta.ContainsKey("seconds"));
-        }
-
-        [Fact]
-        public void TestRequestEmailVerificationWhenSenderThrowsUsesEmailSendFailedCode()
-        {
-            const string EMAIL = "error@test.com";
-
-            _accountsRepository.Setup(x => x.IsEmailRegistered(EMAIL)).Returns(false);
-            _emailSender
-                .Setup(x => x.SendVerificationCode(EMAIL, It.IsAny<string>()))
-                .Throws(new InvalidOperationException("smtp error"));
-
-            AuthResult result = _service.RequestEmailVerification(EMAIL);
-
-            Assert.False(result.Success);
-            Assert.Equal("Auth.EmailSendFailed", result.Code);
-            Assert.Equal("InvalidOperationException", result.Meta["reason"]);
-        }
-
-        [Fact]
-        public void TestConfirmEmailVerificationWhenRequestIsInvalidUsesInvalidRequestCode()
-        {
-            AuthResult result = _service.ConfirmEmailVerification("  ", "  ");
-
-            Assert.False(result.Success);
-            Assert.Equal("Auth.InvalidRequest", result.Code);
-        }
-
-        [Fact]
-        public void TestConfirmEmailVerificationWhenCodeNotRequestedUsesCodeNotRequestedCode()
-        {
-            AuthResult result = _service.ConfirmEmailVerification("someone@test.com", "123456");
-
-            Assert.False(result.Success);
-            Assert.Equal("Auth.CodeNotRequested", result.Code);
-        }
-
-        [Fact]
-        public void TestConfirmEmailVerificationWhenCodeDoesNotMatchUsesCodeInvalidCode()
-        {
-            const string EMAIL = "code_mismatch@test.com";
-            string capturedCode = null;
-
-            _accountsRepository.Setup(x => x.IsEmailRegistered(EMAIL)).Returns(false);
-            _emailSender
-                .Setup(x => x.SendVerificationCode(EMAIL, It.IsAny<string>()))
-                .Callback<string, string>((e, c) => capturedCode = c);
-
-            AuthResult requestResult = _service.RequestEmailVerification(EMAIL);
-            Assert.True(requestResult.Success);
-            Assert.False(string.IsNullOrWhiteSpace(capturedCode));
-
-            AuthResult confirmResult = _service.ConfirmEmailVerification(EMAIL, "000000");
-
-            Assert.False(confirmResult.Success);
-            Assert.Equal("Auth.CodeInvalid", confirmResult.Code);
-        }
-
-        [Fact]
-        public void TestConfirmEmailVerificationWhenCodeIsValidUsesOkCode()
-        {
-            const string EMAIL = "valid_code@test.com";
-            string capturedCode = null;
-
-            _accountsRepository.Setup(x => x.IsEmailRegistered(EMAIL)).Returns(false);
-            _emailSender
-                .Setup(x => x.SendVerificationCode(EMAIL, It.IsAny<string>()))
-                .Callback<string, string>((e, c) => capturedCode = c);
-
-            AuthResult requestResult = _service.RequestEmailVerification(EMAIL);
-            Assert.True(requestResult.Success);
-            Assert.False(string.IsNullOrWhiteSpace(capturedCode));
-
-            AuthResult confirmResult = _service.ConfirmEmailVerification(EMAIL, capturedCode);
-
-            Assert.True(confirmResult.Success);
-            Assert.Equal("Auth.Ok", confirmResult.Code);
-        }
-
-        [Fact]
-        public void TestGetUserIdFromTokenWhenTokenIsNullOrWhitespaceYieldsZero()
-        {
-            int userId = _service.GetUserIdFromToken("   ");
-
-            Assert.Equal(0, userId);
-        }
-
-        [Fact]
-        public void TestGetUserIdFromTokenWhenTokenIsPlainIntegerUsesCompatibilityPath()
-        {
-            int userId = _service.GetUserIdFromToken("7");
-
-            Assert.Equal(7, userId);
-        }
-
-        [Fact]
-        public void TestGetUserIdFromTokenWhenTokenIsValidEncodesAndDecodesUserId()
-        {
-            const int USER_ID = 25;
-            DateTime expires = DateTime.UtcNow.AddMinutes(30);
-            string token = CreateSignedToken(USER_ID, expires, TEST_SECRET);
-
-            int userId = _service.GetUserIdFromToken(token);
-
-            Assert.Equal(USER_ID, userId);
-        }
-
-        [Fact]
-        public void TestGetUserIdFromTokenWhenTokenIsExpiredYieldsZero()
-        {
-            const int USER_ID = 25;
-            DateTime expired = DateTime.UtcNow.AddMinutes(-5);
-            string token = CreateSignedToken(USER_ID, expired, TEST_SECRET);
-
-            int userId = _service.GetUserIdFromToken(token);
-
-            Assert.Equal(0, userId);
-        }
-
-        [Fact]
-        public void TestGetUserIdFromTokenWhenSignatureIsTamperedYieldsZero()
-        {
-            const int USER_ID = 25;
-            DateTime expires = DateTime.UtcNow.AddMinutes(30);
-            string token = CreateSignedToken(USER_ID, expires, TEST_SECRET);
-
-            string raw = Encoding.UTF8.GetString(Convert.FromBase64String(token));
-            string[] parts = raw.Split('|');
-            parts[2] = "00" + parts[2]; // tamper signature
-            string tamperedRaw = string.Join("|", parts);
-            string tamperedToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(tamperedRaw));
-
-            int userId = _service.GetUserIdFromToken(tamperedToken);
-
-            Assert.Equal(0, userId);
-        }
-        private static string CreateSignedToken(int userId, DateTime expiresAtUtc, string secret)
-        {
-            long expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
-            string payload = $"{userId}|{expUnix}";
-            string signatureHex = ComputeHmacHex(secret, payload);
-            string raw = $"{payload}|{signatureHex}";
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
-        }
-
-        private static string ComputeHmacHex(string secret, string data)
-        {
-            using (HMACSHA256 hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
-            {
-                byte[] bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
-                StringBuilder builder = new StringBuilder(bytes.Length * 2);
-                for (int index = 0; index < bytes.Length; index++)
-                {
-                    builder.Append(bytes[index].ToString("x2"));
-                }
-
-                return builder.ToString();
-            }
-        }
-
-        [Fact]
-        public void TestLoginWhenAccountLoadThrowsStillSucceedsWithoutSkin()
-        {
-            LoginDto dto = new LoginDto
+            var request = new LoginDto
             {
                 Email = "user@test.com",
-                Password = "123"
+                Password = "Password1"
             };
 
-            AuthCredentialsDto credentials = new AuthCredentialsDto
+            var credentials = new AuthCredentialsDto
             {
-                UserId = 1,
-                PasswordHash = "hash",
-                DisplayName = "Player"
+                UserId = 10,
+                PasswordHash = "HASHED",
+                DisplayName = "UserOne",
+                ProfilePhotoId = "PHOTO"
             };
 
-            _accountsRepository
-                .Setup(x => x.GetAuthByIdentifier(It.IsAny<string>()))
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
                 .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
 
-            _passwordHasher.Setup(x => x.Verify(dto.Password, "hash")).Returns(true);
-            _playerReportAppService
-                .Setup(x => x.GetCurrentBan(It.IsAny<int>()))
-                .Returns((BanInfoDto)null);
-            _userRepository
-                .Setup(x => x.GetByUserId(1))
-                .Throws(new InvalidOperationException("profile error"));
+            _passwordHasherMock
+                .Setup(hasher => hasher.Verify("Password1", "HASHED"))
+                .Returns(true);
 
-            AuthResult result = _service.Login(dto);
-            Assert.True(result.Success);
-            Assert.Equal("Auth.Ok", result.Code);
-            Assert.Equal(1, result.UserId);
-            Assert.Null(result.CurrentSkinId);
-            Assert.Null(result.CurrentSkinUnlockedId);
+            _playerReportAppServiceMock
+                .Setup(service => service.GetCurrentBan(10))
+                .Returns(new BanInfoDto
+                {
+                    IsBanned = false
+                });
+
+            _userRepositoryMock
+                .Setup(repo => repo.GetByUserId(10))
+                .Returns((AccountDto)null);
+
+            AuthResult result = _service.Login(request);
+
+            Assert.True(!result.Success && result.Code == "Auth.InvalidCredentials");
         }
 
         [Fact]
-        public void TestLoginWhenTokenMinutesConfigIsInvalidUsesDefaultMinutes()
+        public void TestLoginReturnsServerErrorWhenTokenIssueFails()
         {
-
-            string originalValue = ConfigurationManager.AppSettings["Auth:TokenMinutes"];
-            ConfigurationManager.AppSettings["Auth:TokenMinutes"] = "not-an-int";
-
-            try
+            var request = new LoginDto
             {
-                LoginDto dto = new LoginDto
-                {
-                    Email = "user@test.com",
-                    Password = "123"
-                };
+                Email = "user@test.com",
+                Password = "Password1"
+            };
 
-                AuthCredentialsDto credentials = new AuthCredentialsDto
-                {
-                    UserId = 1,
-                    PasswordHash = "hash",
-                    DisplayName = "Player"
-                };
-
-                _accountsRepository
-                    .Setup(x => x.GetAuthByIdentifier(It.IsAny<string>()))
-                    .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
-
-                _passwordHasher.Setup(x => x.Verify(dto.Password, "hash")).Returns(true);
-                _playerReportAppService
-                    .Setup(x => x.GetCurrentBan(It.IsAny<int>()))
-                    .Returns((BanInfoDto)null);
-
-                DateTime before = DateTime.UtcNow;
-                AuthResult result = _service.Login(dto);
-
-                Assert.True(result.Success);
-                Assert.True(result.ExpiresAtUtc.HasValue);
-
-                TimeSpan ttl = result.ExpiresAtUtc.Value - before;
-                Assert.True(ttl.TotalMinutes > 1000);   
-                Assert.True(ttl.TotalDays <= 8);        
-            }
-            finally
+            var credentials = new AuthCredentialsDto
             {
+                UserId = 10,
+                PasswordHash = "HASHED",
+                DisplayName = "UserOne",
+                ProfilePhotoId = "PHOTO"
+            };
 
-                ConfigurationManager.AppSettings["Auth:TokenMinutes"] = originalValue;
-            }
+            var account = new AccountDto
+            {
+                CurrentSkinId = "5",
+                CurrentSkinUnlockedId = 7
+            };
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
+                .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
+
+            _passwordHasherMock
+                .Setup(hasher => hasher.Verify("Password1", "HASHED"))
+                .Returns(true);
+
+            _playerReportAppServiceMock
+                .Setup(service => service.GetCurrentBan(10))
+                .Returns(new BanInfoDto
+                {
+                    IsBanned = false
+                });
+
+            _userRepositoryMock
+                .Setup(repo => repo.GetByUserId(10))
+                .Returns(account);
+
+            _tokenServiceMock
+                .Setup(service => service.IssueToken(10, It.IsAny<DateTime>()))
+                .Throws(new Exception("Token error"));
+
+            AuthResult result = _service.Login(request);
+
+            Assert.True(!result.Success
+                        && result.Code == "Auth.ServerError"
+                        && result.Meta != null
+                        && result.Meta.TryGetValue("errorType", out string errorType)
+                        && errorType == "UnexpectedError");
         }
-
 
         [Fact]
-        public void TestRequestEmailVerificationThrottleIsPerEmailNotGlobal()
+        public void TestLoginReturnsOkWhenAllStepsSucceed()
         {
+            var request = new LoginDto
+            {
+                Email = "user@test.com",
+                Password = "Password1"
+            };
 
-            const string EMAIL_ONE = "first@test.com";
-            const string EMAIL_TWO = "second@test.com";
+            var credentials = new AuthCredentialsDto
+            {
+                UserId = 10,
+                PasswordHash = "HASHED",
+                DisplayName = "UserOne",
+                ProfilePhotoId = "PHOTO"
+            };
 
-            _accountsRepository.Setup(x => x.IsEmailRegistered(EMAIL_ONE)).Returns(false);
-            _accountsRepository.Setup(x => x.IsEmailRegistered(EMAIL_TWO)).Returns(false);
+            var account = new AccountDto
+            {
+                CurrentSkinId = "5",
+                CurrentSkinUnlockedId = 7
+            };
 
-            AuthResult firstFirst = _service.RequestEmailVerification(EMAIL_ONE);
-            AuthResult firstSecond = _service.RequestEmailVerification(EMAIL_TWO);
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
+                .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
 
-            Assert.True(firstFirst.Success);
-            Assert.True(firstSecond.Success);
+            _passwordHasherMock
+                .Setup(hasher => hasher.Verify("Password1", "HASHED"))
+                .Returns(true);
 
-            _emailSender.Verify(
-                x => x.SendVerificationCode(EMAIL_ONE, It.IsAny<string>()),
-                Times.Once);
+            _playerReportAppServiceMock
+                .Setup(service => service.GetCurrentBan(10))
+                .Returns(new BanInfoDto
+                {
+                    IsBanned = false
+                });
 
-            _emailSender.Verify(
-                x => x.SendVerificationCode(EMAIL_TWO, It.IsAny<string>()),
-                Times.Once);
+            _userRepositoryMock
+                .Setup(repo => repo.GetByUserId(10))
+                .Returns(account);
+
+            _tokenServiceMock
+                .Setup(service => service.IssueToken(10, It.IsAny<DateTime>()))
+                .Returns("TOKEN-123");
+
+            AuthResult result = _service.Login(request);
+
+            Assert.True(result.Success
+                        && result.Code == "Auth.Ok"
+                        && result.Token == "TOKEN-123"
+                        && result.CurrentSkinId == "5"
+                        && result.CurrentSkinUnlockedId == 7);
         }
+
+        #endregion
+
+        #region RequestEmailVerification
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void TestRequestEmailVerificationReturnsEmailRequiredWhenEmailMissing(string email)
+        {
+            AuthResult result = _service.RequestEmailVerification(email);
+
+            Assert.True(!result.Success && result.Code == "Auth.EmailRequired");
+        }
+
+        [Fact]
+        public void TestRequestEmailVerificationReturnsEmailAlreadyExistsWhenRegistered()
+        {
+            const string email = "user@test.com";
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered(email))
+                .Returns(true);
+
+            AuthResult result = _service.RequestEmailVerification(email);
+
+            Assert.True(!result.Success && result.Code == "Auth.EmailAlreadyExists");
+        }
+
+        [Fact]
+        public void TestRequestEmailVerificationReturnsThrottleWhenResendWindowNotElapsed()
+        {
+            const string email = "user@test.com";
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered(email))
+                .Returns(false);
+
+            var entry = new VerificationCodeEntry
+            {
+                Code = "123456",
+                LastSentUtc = DateTime.UtcNow,
+                ExpiresUtc = DateTime.UtcNow.AddMinutes(5)
+            };
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet(email, out entry))
+                .Returns(true);
+
+            AuthResult result = _service.RequestEmailVerification(email);
+
+            Assert.True(!result.Success && result.Code == "Auth.ThrottleWait");
+        }
+
+        [Fact]
+        public void TestRequestEmailVerificationReturnsOkWhenEmailIsValidAndNotRegistered()
+        {
+            const string email = "user@test.com";
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered(email))
+                .Returns(false);
+
+            VerificationCodeEntry ignoredEntry;
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet(email, out ignoredEntry))
+                .Returns(false);
+
+            _verificationCodeStoreMock
+                .Setup(store => store.SaveNewCode(
+                    email,
+                    It.IsAny<string>(),
+                    It.IsAny<DateTime>()));
+
+            _emailSenderMock
+                .Setup(sender => sender.SendVerificationCode(
+                    email,
+                    It.IsAny<string>()));
+
+            AuthResult result = _service.RequestEmailVerification(email);
+
+            Assert.True(result.Success && result.Code == "Auth.Ok");
+        }
+
+        #endregion
+
+        #region ConfirmEmailVerification
+
+        [Theory]
+        [InlineData(null, "123456")]
+        [InlineData("user@test.com", null)]
+        [InlineData(" ", "123456")]
+        [InlineData("user@test.com", " ")]
+        public void TestConfirmEmailVerificationReturnsInvalidRequestWhenMissingData(
+            string email,
+            string code)
+        {
+            AuthResult result = _service.ConfirmEmailVerification(email, code);
+
+            Assert.True(!result.Success && result.Code == "Auth.InvalidRequest");
+        }
+
+        [Fact]
+        public void TestConfirmEmailVerificationReturnsCodeNotRequestedWhenEntryNotFound()
+        {
+            const string email = "user@test.com";
+            const string code = "123456";
+
+            VerificationCodeEntry entry;
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet(email, out entry))
+                .Returns(false);
+
+            AuthResult result = _service.ConfirmEmailVerification(email, code);
+
+            Assert.True(!result.Success && result.Code == "Auth.CodeNotRequested");
+        }
+
+        [Fact]
+        public void TestConfirmEmailVerificationReturnsCodeExpiredWhenEntryExpired()
+        {
+            const string email = "user@test.com";
+            const string code = "123456";
+
+            var entry = new VerificationCodeEntry
+            {
+                Code = code,
+                LastSentUtc = DateTime.UtcNow.AddMinutes(-10),
+                ExpiresUtc = DateTime.UtcNow.AddMinutes(-1)
+            };
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet(email, out entry))
+                .Returns(true);
+
+            _verificationCodeStoreMock
+                .Setup(store => store.Remove(email));
+
+            AuthResult result = _service.ConfirmEmailVerification(email, code);
+
+            Assert.True(!result.Success && result.Code == "Auth.CodeExpired");
+        }
+
+        [Fact]
+        public void TestConfirmEmailVerificationReturnsOkWhenCodeMatches()
+        {
+            const string email = "user@test.com";
+            const string code = "123456";
+
+            var entry = new VerificationCodeEntry
+            {
+                Code = code,
+                LastSentUtc = DateTime.UtcNow,
+                ExpiresUtc = DateTime.UtcNow.AddMinutes(5)
+            };
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet(email, out entry))
+                .Returns(true);
+
+            _verificationCodeStoreMock
+                .Setup(store => store.Remove(email));
+
+            AuthResult result = _service.ConfirmEmailVerification(email, code);
+
+            Assert.True(result.Success && result.Code == "Auth.Ok");
+        }
+
+        #endregion
+
+        #region RequestPasswordChangeCode
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void TestRequestPasswordChangeCodeReturnsEmailRequiredWhenMissing(string email)
+        {
+            AuthResult result = _service.RequestPasswordChangeCode(email);
+
+            Assert.True(!result.Success && result.Code == "Auth.EmailRequired");
+        }
+
+        [Fact]
+        public void TestRequestPasswordChangeCodeReturnsEmailNotFoundWhenNotRegistered()
+        {
+            const string email = "user@test.com";
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered(email))
+                .Returns(false);
+
+            AuthResult result = _service.RequestPasswordChangeCode(email);
+
+            Assert.True(!result.Success && result.Code == "Auth.EmailNotFound");
+        }
+
+        [Fact]
+        public void TestRequestPasswordChangeCodeReturnsThrottleWhenResendWindowNotElapsed()
+        {
+            const string email = "user@test.com";
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered(email))
+                .Returns(true);
+
+            var entry = new VerificationCodeEntry
+            {
+                Code = "123456",
+                LastSentUtc = DateTime.UtcNow,
+                ExpiresUtc = DateTime.UtcNow.AddMinutes(5)
+            };
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet(email, out entry))
+                .Returns(true);
+
+            AuthResult result = _service.RequestPasswordChangeCode(email);
+
+            Assert.True(!result.Success && result.Code == "Auth.ThrottleWait");
+        }
+
+        [Fact]
+        public void TestRequestPasswordChangeCodeReturnsOkWhenEmailRegistered()
+        {
+            const string email = "user@test.com";
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.IsEmailRegistered(email))
+                .Returns(true);
+
+            VerificationCodeEntry ignoredEntry;
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet(email, out ignoredEntry))
+                .Returns(false);
+
+            _verificationCodeStoreMock
+                .Setup(store => store.SaveNewCode(
+                    email,
+                    It.IsAny<string>(),
+                    It.IsAny<DateTime>()));
+
+            _emailSenderMock
+                .Setup(sender => sender.SendVerificationCode(
+                    email,
+                    It.IsAny<string>()));
+
+            AuthResult result = _service.RequestPasswordChangeCode(email);
+
+            Assert.True(result.Success && result.Code == "Auth.Ok");
+        }
+
+        #endregion
+
+        #region ChangePassword
+
+        [Fact]
+        public void TestChangePasswordReturnsInvalidRequestWhenRequestIsNull()
+        {
+            AuthResult result = _service.ChangePassword(null);
+
+            Assert.True(!result.Success && result.Code == "Auth.InvalidRequest");
+        }
+
+        [Theory]
+        [InlineData(null, "Password1A", "123456")]
+        [InlineData("user@test.com", null, "123456")]
+        [InlineData("user@test.com", "Password1A", null)]
+        [InlineData(" ", "Password1A", "123456")]
+        public void TestChangePasswordReturnsInvalidRequestWhenMissingData(
+            string email,
+            string newPassword,
+            string verificationCode)
+        {
+            var request = new ChangePasswordRequestDto
+            {
+                Email = email,
+                NewPassword = newPassword,
+                VerificationCode = verificationCode
+            };
+
+            AuthResult result = _service.ChangePassword(request);
+
+            Assert.True(!result.Success && result.Code == "Auth.InvalidRequest");
+        }
+
+        [Fact]
+        public void TestChangePasswordReturnsPasswordWeakWhenFormatInvalid()
+        {
+            var request = new ChangePasswordRequestDto
+            {
+                Email = "user@test.com",
+                NewPassword = "weak",
+                VerificationCode = "123456"
+            };
+
+            AuthResult result = _service.ChangePassword(request);
+
+            Assert.True(!result.Success && result.Code == "Auth.PasswordWeak");
+        }
+
+        [Fact]
+        public void TestChangePasswordReturnsInvalidCredentialsWhenUserNotFound()
+        {
+            var request = new ChangePasswordRequestDto
+            {
+                Email = "user@test.com",
+                NewPassword = "Password1A",
+                VerificationCode = "123456"
+            };
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
+                .Returns(OperationResult<AuthCredentialsDto>.Success(null));
+
+            AuthResult result = _service.ChangePassword(request);
+
+            Assert.True(!result.Success && result.Code == "Auth.InvalidCredentials");
+        }
+
+        [Fact]
+        public void TestChangePasswordReturnsCodeNotRequestedWhenVerificationEntryMissing()
+        {
+            var request = new ChangePasswordRequestDto
+            {
+                Email = "user@test.com",
+                NewPassword = "Password1A",
+                VerificationCode = "123456"
+            };
+
+            var credentials = new AuthCredentialsDto
+            {
+                UserId = 10,
+                PasswordHash = "OLD_HASH",
+                DisplayName = "UserOne",
+                ProfilePhotoId = "PHOTO"
+            };
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
+                .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
+
+            VerificationCodeEntry entry;
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet("user@test.com", out entry))
+                .Returns(false);
+
+            AuthResult result = _service.ChangePassword(request);
+
+            Assert.True(!result.Success && result.Code == "Auth.CodeNotRequested");
+        }
+
+        [Fact]
+        public void TestChangePasswordReturnsPasswordReusedWhenNewMatchesHistory()
+        {
+            var request = new ChangePasswordRequestDto
+            {
+                Email = "user@test.com",
+                NewPassword = "Password1A",
+                VerificationCode = "123456"
+            };
+
+            var credentials = new AuthCredentialsDto
+            {
+                UserId = 10,
+                PasswordHash = "OLD_HASH",
+                DisplayName = "UserOne",
+                ProfilePhotoId = "PHOTO"
+            };
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
+                .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
+
+            var entry = new VerificationCodeEntry
+            {
+                Code = "123456",
+                LastSentUtc = DateTime.UtcNow,
+                ExpiresUtc = DateTime.UtcNow.AddMinutes(5)
+            };
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet("user@test.com", out entry))
+                .Returns(true);
+
+            _verificationCodeStoreMock
+                .Setup(store => store.Remove("user@test.com"));
+
+            var history = new List<string> { "HASH_1" }.AsReadOnly();
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetLastPasswordHashes(10, 3))
+                .Returns(OperationResult<IReadOnlyList<string>>.Success(history));
+
+            _passwordHasherMock
+                .Setup(hasher => hasher.Verify("Password1A", "HASH_1"))
+                .Returns(true);
+
+            AuthResult result = _service.ChangePassword(request);
+
+            Assert.True(!result.Success && result.Code == "Auth.PasswordReused");
+        }
+
+        [Fact]
+        public void TestChangePasswordReturnsOkWhenPasswordChangedSuccessfully()
+        {
+            var request = new ChangePasswordRequestDto
+            {
+                Email = "user@test.com",
+                NewPassword = "Password1A",
+                VerificationCode = "123456"
+            };
+
+            var credentials = new AuthCredentialsDto
+            {
+                UserId = 10,
+                PasswordHash = "OLD_HASH",
+                DisplayName = "UserOne",
+                ProfilePhotoId = "PHOTO"
+            };
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetAuthByIdentifier("user@test.com"))
+                .Returns(OperationResult<AuthCredentialsDto>.Success(credentials));
+
+            var entry = new VerificationCodeEntry
+            {
+                Code = "123456",
+                LastSentUtc = DateTime.UtcNow,
+                ExpiresUtc = DateTime.UtcNow.AddMinutes(5)
+            };
+
+            _verificationCodeStoreMock
+                .Setup(store => store.TryGet("user@test.com", out entry))
+                .Returns(true);
+
+            _verificationCodeStoreMock
+                .Setup(store => store.Remove("user@test.com"));
+
+            var history = new List<string> { "HASH_1" }.AsReadOnly();
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.GetLastPasswordHashes(10, 3))
+                .Returns(OperationResult<IReadOnlyList<string>>.Success(history));
+
+            _passwordHasherMock
+                .Setup(hasher => hasher.Verify("Password1A", "HASH_1"))
+                .Returns(false);
+
+            _passwordHasherMock
+                .Setup(hasher => hasher.Hash("Password1A"))
+                .Returns("NEW_HASH");
+
+            _accountsRepositoryMock
+                .Setup(repo => repo.AddPasswordHash(10, "NEW_HASH"))
+                .Returns(OperationResult<bool>.Success(true));
+
+            AuthResult result = _service.ChangePassword(request);
+
+            Assert.True(result.Success && result.Code == "Auth.Ok" && result.UserId == 10);
+        }
+
+        #endregion
+
+        #region GetUserIdFromToken
+
+        [Fact]
+        public void TestGetUserIdFromTokenReturnsValueFromTokenService()
+        {
+            _tokenServiceMock
+                .Setup(service => service.GetUserIdFromToken("TOKEN-1"))
+                .Returns(42);
+
+            int userId = _service.GetUserIdFromToken("TOKEN-1");
+
+            Assert.Equal(42, userId);
+        }
+
+        #endregion
     }
 }

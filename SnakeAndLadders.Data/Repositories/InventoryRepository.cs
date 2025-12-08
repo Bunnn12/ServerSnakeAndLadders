@@ -49,7 +49,7 @@ namespace ServerSnakesAndLadders
                         join obj in context.Objeto
                             on userObject.ObjetoIdObjeto equals obj.IdObjeto
                         join selected in context.ObjetoUsuarioSeleccionado
-                            .Where(s => s.UsuarioIdUsuario == userId)
+                                .Where(s => s.UsuarioIdUsuario == userId)
                             on new
                             {
                                 userObject.UsuarioIdUsuario,
@@ -63,7 +63,7 @@ namespace ServerSnakesAndLadders
                             into selectedJoin
                         from selected in selectedJoin.DefaultIfEmpty()
                         where userObject.UsuarioIdUsuario == userId
-                              && userObject.CantidadObjeto > 0      
+                              && userObject.CantidadObjeto > 0
                         select new InventoryItemDto
                         {
                             ObjectId = obj.IdObjeto,
@@ -82,16 +82,15 @@ namespace ServerSnakesAndLadders
                 catch (SqlException ex)
                 {
                     Logger.Error("Error SQL al obtener el inventario de objetos del usuario.", ex);
-                    throw;
+                    return new List<InventoryItemDto>(); // << clave
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("Error inesperado al obtener el inventario de objetos del usuario.", ex);
-                    throw;
+                    return new List<InventoryItemDto>(); // << clave
                 }
             }
         }
-
 
         public IList<InventoryDiceDto> GetUserDice(int userId)
         {
@@ -111,7 +110,7 @@ namespace ServerSnakesAndLadders
                         join dice in context.Dado
                             on userDice.DadoIdDado equals dice.IdDado
                         join selected in context.DadoUsuarioSeleccionado
-                            .Where(s => s.UsuarioIdUsuario == userId)
+                                .Where(s => s.UsuarioIdUsuario == userId)
                             on new
                             {
                                 userDice.UsuarioIdUsuario,
@@ -125,7 +124,7 @@ namespace ServerSnakesAndLadders
                             into selectedJoin
                         from selected in selectedJoin.DefaultIfEmpty()
                         where userDice.UsuarioIdUsuario == userId
-                              && userDice.CantidadDado > 0       
+                              && userDice.CantidadDado > 0
                         select new InventoryDiceDto
                         {
                             DiceId = dice.IdDado,
@@ -144,15 +143,16 @@ namespace ServerSnakesAndLadders
                 catch (SqlException ex)
                 {
                     Logger.Error("Error SQL al obtener el inventario de dados del usuario.", ex);
-                    throw;
+                    return new List<InventoryDiceDto>(); // << clave
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("Error inesperado al obtener el inventario de dados del usuario.", ex);
-                    throw;
+                    return new List<InventoryDiceDto>(); // << clave
                 }
             }
         }
+
 
 
         public void UpdateSelectedItems(
@@ -784,12 +784,6 @@ namespace ServerSnakesAndLadders
                 }
             }
         }
-
-
-
-
-
-
 
     }
 }

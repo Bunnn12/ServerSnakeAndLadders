@@ -1,23 +1,18 @@
-﻿using SnakeAndLadders.Contracts.Dtos.Gameplay;
-using SnakeAndLadders.Contracts.Enums;
-using SnakeAndLadders.Contracts.Helpers;
-using SnakesAndLadders.Services.Logic.Gameplay;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using SnakeAndLadders.Contracts.Dtos.Gameplay;
+using SnakeAndLadders.Contracts.Enums;
 
 namespace SnakesAndLadders.Services.Logic
 {
+    using SnakesAndLadders.Services.Logic.Gameplay;
+
     public sealed class GameplayLogic
     {
-        private const int DICE_MIN_VALUE = 1;
-        private const int DICE_MAX_VALUE = 6;
         private const int INVALID_USER_ID = 0;
 
-        private const int ROCKET_BONUS_STEPS = 5;
-        private const int ANCHOR_BACKWARD_STEPS = 3;
-        private const int FREEZE_TURNS = 2;
-        private const int SHIELD_TURNS = 3;
+        private const int MAX_CONSECUTIVE_TIMEOUTS = 3;
 
         private const int MIN_CELL_INDEX = 0;
         private const int MIN_BOARD_CELL = 1;
@@ -32,65 +27,22 @@ namespace SnakesAndLadders.Services.Logic
         private const string EXTRA_INFO_ROCKET_USED = "Rocket_Used";
         private const string EXTRA_INFO_ROCKET_IGNORED = "Rocket_Ignored";
 
-        private const string ITEM_CODE_ROCKET = "IT_ROCKET";
-        private const string ITEM_CODE_ANCHOR = "IT_ANCHOR";
-        private const string ITEM_CODE_SWAP = "IT_SWAP";
-        private const string ITEM_CODE_FREEZE = "IT_FREEZE";
-        private const string ITEM_CODE_SHIELD = "IT_SHIELD";
+        private readonly BoardDefinitionDto _boardDefinition;
 
-        private const string DICE_CODE_NEGATIVE = "DICE_NEG";
-        private const string DICE_CODE_ONE_TWO_THREE = "DICE_123";
-        private const string DICE_CODE_FOUR_FIVE_SIX = "DICE_456";
+        private readonly List<int> _turnOrder;
+        private readonly Dictionary<int, PlayerRuntimeState> _playersByUserId;
 
-        private const int MAX_CONSECUTIVE_TIMEOUTS = 3;
+        private readonly object _syncRoot = new object();
+        private readonly Random _random;
 
-        private const int NEGATIVE_DICE_MIN_POSITION = 7;
+        private readonly IBoardNavigator _boardNavigator;
+        private readonly IDiceManager _diceService;
+        private readonly IItemEffectManager _itemEffectService;
 
-        // Mensajes (casillas de mensaje)
-        private const int MESSAGE_MIN_INDEX = 1;
-        private const int MESSAGE_MAX_INDEX = 20;
-        private const int MESSAGE_EFFECT_THRESHOLD = 10;
-        private const int MESSAGE_ADVANCE_STEPS = 4;
-        private const int MESSAGE_BACKWARD_STEPS = 5;
+        private readonly int _finalCellIndex;
 
-        private const string EXTRA_INFO_MESSAGE_ADVANCE = "MSG_ADVANCE_4";
-        private const string EXTRA_INFO_MESSAGE_BACKWARD = "MSG_BACK_5";
-        private const string EXTRA_INFO_MESSAGE_REROLL = "MSG_REROLL";
-        private const string EXTRA_INFO_MESSAGE_SKIP_TURN = "MSG_SKIP_NEXT";
-
-        // Tokens para casillas de item y dado
-        private const string EXTRA_INFO_ITEM_GRANTED = "ITEM_GRANTED";
-        private const string EXTRA_INFO_DICE_GRANTED = "DICE_GRANTED";
-
-        private static readonly string[] ITEM_CODES_POOL =
-        {
-            ITEM_CODE_ROCKET,
-            ITEM_CODE_ANCHOR,
-            ITEM_CODE_SWAP,
-            ITEM_CODE_FREEZE,
-            ITEM_CODE_SHIELD
-        };
-
-        private static readonly string[] DICE_CODES_POOL =
-        {
-            DICE_CODE_NEGATIVE,
-            DICE_CODE_ONE_TWO_THREE,
-            DICE_CODE_FOUR_FIVE_SIX
-        };
-
-        private readonly BoardDefinitionDto boardDefinition;
-
-        private readonly List<int> turnOrder;
-        private readonly Dictionary<int, PlayerRuntimeState> playersByUserId;
-        private readonly Dictionary<int, int> jumpDestinationsByStartIndex;
-
-        private readonly int finalCellIndex;
-
-        private readonly object syncRoot = new object();
-        private readonly Random random;
-
-        private int currentTurnIndex;
-        private bool isFinished;
+        private int _currentTurnIndex;
+        private bool _isFinished;
 
         public GameplayLogic(
             BoardDefinitionDto board,
@@ -106,19 +58,19 @@ namespace SnakesAndLadders.Services.Logic
                 throw new ArgumentNullException(nameof(playerUserIds));
             }
 
-            boardDefinition = board;
+            _boardDefinition = board;
 
-            turnOrder = playerUserIds
+            _turnOrder = playerUserIds
                 .Distinct()
                 .Where(id => id != INVALID_USER_ID)
                 .ToList();
 
-            if (turnOrder.Count == 0)
+            if (_turnOrder.Count == 0)
             {
                 throw new InvalidOperationException("GameplayLogic requires at least one player.");
             }
 
-            playersByUserId = turnOrder
+            _playersByUserId = _turnOrder
                 .ToDictionary(
                     id => id,
                     id => new PlayerRuntimeState
@@ -134,99 +86,35 @@ namespace SnakesAndLadders.Services.Logic
                         ConsecutiveTimeouts = 0
                     });
 
-            currentTurnIndex = 0;
-            isFinished = false;
+            _currentTurnIndex = 0;
+            _isFinished = false;
 
-            random = new Random(unchecked((int)DateTime.UtcNow.Ticks));
+            _random = new Random(unchecked((int)DateTime.UtcNow.Ticks));
 
-            finalCellIndex = ResolveFinalCellIndex(boardDefinition);
-            jumpDestinationsByStartIndex = ResolveJumpMap(boardDefinition);
-        }
+            _boardNavigator = new BoardNavigator(_boardDefinition, _random);
+            _diceService = new DiceManager(_random);
+            _itemEffectService = new ItemEffectManager();
 
-        private static int ResolveFinalCellIndex(BoardDefinitionDto board)
-        {
-            if (board == null || board.Cells == null || board.Cells.Count == 0)
-            {
-                return 0;
-            }
-
-            return board.Cells.Max(c => c.Index);
-        }
-
-        private static Dictionary<int, int> ResolveJumpMap(BoardDefinitionDto board)
-        {
-            var result = new Dictionary<int, int>();
-
-            if (board == null || board.Links == null || board.Links.Count == 0)
-            {
-                return result;
-            }
-
-            foreach (BoardLinkDto link in board.Links)
-            {
-                int from = link.StartIndex;
-                int to = link.EndIndex;
-
-                if (from > 0 && to > 0 && from != to)
-                {
-                    result[from] = to;
-                }
-            }
-
-            return result;
-        }
-
-        private int GetDiceValueForCode(PlayerRuntimeState playerState, string diceCode)
-        {
-            if (string.IsNullOrWhiteSpace(diceCode))
-            {
-                return random.Next(DICE_MIN_VALUE, DICE_MAX_VALUE + 1);
-            }
-
-            string normalizedCode = diceCode.Trim().ToUpperInvariant();
-
-            if (normalizedCode == DICE_CODE_NEGATIVE)
-            {
-                if (playerState.Position < NEGATIVE_DICE_MIN_POSITION)
-                {
-                    throw new InvalidOperationException(
-                        "No puedes usar el dado negativo tan cerca de la casilla inicial.");
-                }
-
-                int absoluteValue = random.Next(DICE_MIN_VALUE, DICE_MAX_VALUE + 1);
-                return -absoluteValue;
-            }
-
-            if (normalizedCode == DICE_CODE_ONE_TWO_THREE)
-            {
-                return random.Next(1, 3 + 1);
-            }
-
-            if (normalizedCode == DICE_CODE_FOUR_FIVE_SIX)
-            {
-                return random.Next(4, 6 + 1);
-            }
-
-            return random.Next(DICE_MIN_VALUE, DICE_MAX_VALUE + 1);
+            _finalCellIndex = _boardNavigator.FinalCellIndex;
         }
 
         public TurnTimeoutResult HandleTurnTimeout()
         {
-            lock (syncRoot)
+            lock (_syncRoot)
             {
-                if (isFinished)
+                if (_isFinished)
                 {
                     throw new InvalidOperationException("The game has already finished.");
                 }
 
-                if (turnOrder.Count == 0)
+                if (_turnOrder.Count == 0)
                 {
                     throw new InvalidOperationException("There are no players in this game.");
                 }
 
-                int previousTurnUserId = turnOrder[currentTurnIndex];
+                int previousTurnUserId = _turnOrder[_currentTurnIndex];
 
-                if (!playersByUserId.TryGetValue(previousTurnUserId, out PlayerRuntimeState currentPlayer))
+                if (!_playersByUserId.TryGetValue(previousTurnUserId, out PlayerRuntimeState currentPlayer))
                 {
                     throw new InvalidOperationException("Current player state was not found.");
                 }
@@ -242,16 +130,16 @@ namespace SnakesAndLadders.Services.Logic
                     playerKicked = true;
                     kickedUserId = previousTurnUserId;
 
-                    playersByUserId.Remove(previousTurnUserId);
-                    turnOrder.Remove(previousTurnUserId);
+                    _playersByUserId.Remove(previousTurnUserId);
+                    _turnOrder.Remove(previousTurnUserId);
 
-                    if (turnOrder.Count <= 1)
+                    if (_turnOrder.Count <= 1)
                     {
-                        isFinished = true;
+                        _isFinished = true;
 
-                        if (turnOrder.Count == 1)
+                        if (_turnOrder.Count == 1)
                         {
-                            winnerUserId = turnOrder[0];
+                            winnerUserId = _turnOrder[0];
                         }
 
                         return new TurnTimeoutResult
@@ -265,9 +153,9 @@ namespace SnakesAndLadders.Services.Logic
                         };
                     }
 
-                    if (currentTurnIndex >= turnOrder.Count)
+                    if (_currentTurnIndex >= _turnOrder.Count)
                     {
-                        currentTurnIndex = currentTurnIndex % turnOrder.Count;
+                        _currentTurnIndex = _currentTurnIndex % _turnOrder.Count;
                     }
                 }
                 else
@@ -275,9 +163,9 @@ namespace SnakesAndLadders.Services.Logic
                     AdvanceTurnAndResetFlags(previousTurnUserId);
                 }
 
-                int currentTurnUserId = isFinished || turnOrder.Count == 0
+                int currentTurnUserId = _isFinished || _turnOrder.Count == 0
                     ? INVALID_USER_ID
-                    : turnOrder[currentTurnIndex];
+                    : _turnOrder[_currentTurnIndex];
 
                 return new TurnTimeoutResult
                 {
@@ -285,7 +173,7 @@ namespace SnakesAndLadders.Services.Logic
                     CurrentTurnUserId = currentTurnUserId,
                     PlayerKicked = playerKicked,
                     KickedUserId = kickedUserId,
-                    GameFinished = isFinished,
+                    GameFinished = _isFinished,
                     WinnerUserId = winnerUserId
                 };
             }
@@ -293,25 +181,25 @@ namespace SnakesAndLadders.Services.Logic
 
         public RollDiceResult RollDice(int userId, string diceCode)
         {
-            lock (syncRoot)
+            lock (_syncRoot)
             {
-                if (isFinished)
+                if (_isFinished)
                 {
                     throw new InvalidOperationException("The game has already finished.");
                 }
 
-                if (!turnOrder.Contains(userId))
+                if (!_turnOrder.Contains(userId))
                 {
                     throw new InvalidOperationException("User is not part of this game.");
                 }
 
-                int currentTurnUserId = turnOrder[currentTurnIndex];
+                int currentTurnUserId = _turnOrder[_currentTurnIndex];
                 if (currentTurnUserId != userId)
                 {
                     throw new InvalidOperationException("It is not this user's turn.");
                 }
 
-                if (!playersByUserId.TryGetValue(userId, out PlayerRuntimeState playerState))
+                if (!_playersByUserId.TryGetValue(userId, out PlayerRuntimeState playerState))
                 {
                     throw new InvalidOperationException("Player state was not found.");
                 }
@@ -336,7 +224,7 @@ namespace SnakesAndLadders.Services.Logic
                         DiceValue = 0,
                         FromCellIndex = playerState.Position,
                         ToCellIndex = playerState.Position,
-                        IsGameOver = isFinished,
+                        IsGameOver = _isFinished,
                         ExtraInfo = frozenExtraInfo,
                         UsedRocket = false,
                         RocketIgnored = false,
@@ -348,7 +236,7 @@ namespace SnakesAndLadders.Services.Logic
 
                 playerState.HasRolledThisTurn = true;
 
-                int diceValue = GetDiceValueForCode(playerState, diceCode);
+                int diceValue = _diceService.GetDiceValue(playerState, diceCode);
 
                 int fromCellIndex = playerState.Position;
 
@@ -368,7 +256,7 @@ namespace SnakesAndLadders.Services.Logic
                         + diceValue
                         + playerState.PendingRocketBonus;
 
-                    if (finalCellIndex > 0 && tentativeTargetWithRocket <= finalCellIndex)
+                    if (_finalCellIndex > 0 && tentativeTargetWithRocket <= _finalCellIndex)
                     {
                         tentativeTarget = tentativeTargetWithRocket;
                         usedRocket = true;
@@ -381,7 +269,7 @@ namespace SnakesAndLadders.Services.Logic
                     playerState.PendingRocketBonus = 0;
                 }
 
-                if (finalCellIndex > 0 && tentativeTarget > finalCellIndex)
+                if (_finalCellIndex > 0 && tentativeTarget > _finalCellIndex)
                 {
                     string extraTooHighInfo = EXTRA_INFO_ROLL_TOO_HIGH_NO_MOVE;
 
@@ -399,7 +287,7 @@ namespace SnakesAndLadders.Services.Logic
                         DiceValue = diceValue,
                         FromCellIndex = fromCellIndex,
                         ToCellIndex = fromCellIndex,
-                        IsGameOver = isFinished,
+                        IsGameOver = _isFinished,
                         ExtraInfo = extraTooHighInfo,
                         UsedRocket = false,
                         RocketIgnored = rocketIgnored,
@@ -409,11 +297,11 @@ namespace SnakesAndLadders.Services.Logic
                     };
                 }
 
-                int finalTarget = ApplyJumpEffectsIfAny(playerState, tentativeTarget);
+                int finalTarget = _boardNavigator.ApplyJumpEffectsIfAny(playerState, tentativeTarget);
 
                 string extraInfo = string.Empty;
 
-                if (jumpDestinationsByStartIndex.TryGetValue(tentativeTarget, out int jumpDestination))
+                if (TryGetJumpDestination(tentativeTarget, out int jumpDestination))
                 {
                     bool isLadder = jumpDestination > tentativeTarget;
                     bool isSnake = jumpDestination < tentativeTarget;
@@ -436,27 +324,26 @@ namespace SnakesAndLadders.Services.Logic
                     }
                 }
 
-                int? messageIndex;
-                bool shouldGrantExtraRoll;
-                string grantedItemCode;
-                string grantedDiceCode;
-
-                ApplySpecialCellIfAny(
+                SpecialCellResult specialCellResult = _boardNavigator.ApplySpecialCellIfAny(
                     playerState,
-                    ref finalTarget,
-                    ref extraInfo,
-                    out messageIndex,
-                    out shouldGrantExtraRoll,
-                    out grantedItemCode,
-                    out grantedDiceCode);
+                    finalTarget,
+                    extraInfo);
+
+                finalTarget = specialCellResult.FinalCellIndex;
+                extraInfo = specialCellResult.ExtraInfo;
+
+                int? messageIndex = specialCellResult.MessageIndex;
+                bool shouldGrantExtraRoll = specialCellResult.GrantsExtraRoll;
+                string grantedItemCode = specialCellResult.GrantedItemCode;
+                string grantedDiceCode = specialCellResult.GrantedDiceCode;
 
                 playerState.Position = finalTarget;
 
                 bool isGameOver = false;
 
-                if (finalCellIndex > 0 && finalTarget >= finalCellIndex)
+                if (_finalCellIndex > 0 && finalTarget >= _finalCellIndex)
                 {
-                    isFinished = true;
+                    _isFinished = true;
                     isGameOver = true;
 
                     extraInfo = AppendToken(extraInfo, EXTRA_INFO_WIN);
@@ -502,11 +389,11 @@ namespace SnakesAndLadders.Services.Logic
 
         public GameStateSnapshot GetCurrentState()
         {
-            lock (syncRoot)
+            lock (_syncRoot)
             {
-                int currentTurnUserId = turnOrder[currentTurnIndex];
+                int currentTurnUserId = _turnOrder[_currentTurnIndex];
 
-                var tokens = playersByUserId
+                var tokens = _playersByUserId
                     .Select(pair =>
                     {
                         PlayerRuntimeState state = pair.Value;
@@ -526,7 +413,7 @@ namespace SnakesAndLadders.Services.Logic
                 return new GameStateSnapshot
                 {
                     CurrentTurnUserId = currentTurnUserId,
-                    IsFinished = isFinished,
+                    IsFinished = _isFinished,
                     Tokens = tokens
                 };
             }
@@ -542,25 +429,28 @@ namespace SnakesAndLadders.Services.Logic
                 throw new ArgumentNullException(nameof(itemCode));
             }
 
-            lock (syncRoot)
+            lock (_syncRoot)
             {
-                if (isFinished)
+                if (_isFinished)
                 {
                     throw new InvalidOperationException("La partida ya terminó.");
                 }
 
-                if (!turnOrder.Contains(userId))
+                if (!_turnOrder.Contains(userId))
                 {
                     throw new InvalidOperationException("El usuario no forma parte de esta partida.");
                 }
 
-                int currentTurnUserId = turnOrder[currentTurnIndex];
+                int currentTurnUserId = _turnOrder[_currentTurnIndex];
                 if (currentTurnUserId != userId)
                 {
                     throw new InvalidOperationException("No es el turno de este jugador.");
                 }
 
-                PlayerRuntimeState currentPlayer = playersByUserId[userId];
+                if (!_playersByUserId.TryGetValue(userId, out PlayerRuntimeState currentPlayer))
+                {
+                    throw new InvalidOperationException("Player state was not found.");
+                }
 
                 if (currentPlayer.RemainingFrozenTurns > 0)
                 {
@@ -577,39 +467,12 @@ namespace SnakesAndLadders.Services.Logic
                     throw new InvalidOperationException("El jugador ya usó un ítem en este turno.");
                 }
 
-                string normalizedCode = itemCode.Trim().ToUpperInvariant();
-
-                ItemEffectResult result;
-
-                switch (normalizedCode)
-                {
-                    case ITEM_CODE_ROCKET:
-                        EnsureSelfTargetOnly("Rocket", userId, targetUserId);
-                        result = ApplyRocket(currentPlayer);
-                        break;
-
-                    case ITEM_CODE_ANCHOR:
-                        result = ApplyAnchor(currentPlayer, targetUserId);
-                        break;
-
-                    case ITEM_CODE_SWAP:
-                        EnsureOtherPlayerTargetRequired("Intercambio", userId, targetUserId);
-                        result = ApplySwap(currentPlayer, targetUserId);
-                        break;
-
-                    case ITEM_CODE_FREEZE:
-                        EnsureOtherPlayerTargetRequired("Congelar", userId, targetUserId);
-                        result = ApplyFreeze(currentPlayer, targetUserId);
-                        break;
-
-                    case ITEM_CODE_SHIELD:
-                        EnsureSelfTargetOnly("Escudo", userId, targetUserId);
-                        result = ApplyShield(currentPlayer);
-                        break;
-
-                    default:
-                        throw new InvalidOperationException("Código de ítem no soportado.");
-                }
+                ItemEffectResult result = _itemEffectService.UseItem(
+                    itemCode,
+                    userId,
+                    targetUserId,
+                    _playersByUserId,
+                    ApplyJumpEffectsIfAny);
 
                 if (!result.WasBlockedByShield)
                 {
@@ -620,243 +483,14 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
-        private static void EnsureSelfTargetOnly(
-            string itemDisplayName,
-            int userId,
-            int? targetUserId)
-        {
-            if (targetUserId.HasValue && targetUserId.Value != userId)
-            {
-                throw new InvalidOperationException(
-                    string.Format(
-                        "{0} solo se puede usar sobre tu propio jugador.",
-                        itemDisplayName));
-            }
-        }
-
-        private static void EnsureOtherPlayerTargetRequired(
-            string itemDisplayName,
-            int userId,
-            int? targetUserId)
-        {
-            if (!targetUserId.HasValue || targetUserId.Value == userId)
-            {
-                throw new InvalidOperationException(
-                    string.Format(
-                        "{0} debe usarse sobre otro jugador.",
-                        itemDisplayName));
-            }
-        }
-
-        private ItemEffectResult ApplyRocket(PlayerRuntimeState currentPlayer)
-        {
-            currentPlayer.PendingRocketBonus = ROCKET_BONUS_STEPS;
-
-            return new ItemEffectResult
-            {
-                ItemCode = ITEM_CODE_ROCKET,
-                EffectType = ItemEffectType.Rocket,
-                UserId = currentPlayer.UserId,
-                TargetUserId = null,
-                FromCellIndex = currentPlayer.Position,
-                ToCellIndex = null,
-                WasBlockedByShield = false,
-                TargetFrozen = false,
-                ShieldActivated = false,
-                ShouldConsumeItemImmediately = false
-            };
-        }
-
-        private ItemEffectResult ApplyAnchor(PlayerRuntimeState currentPlayer, int? targetUserId)
-        {
-            int effectiveTargetUserId = targetUserId ?? currentPlayer.UserId;
-
-            if (!playersByUserId.TryGetValue(effectiveTargetUserId, out PlayerRuntimeState targetPlayer))
-            {
-                throw new InvalidOperationException("Target player is not part of this game.");
-            }
-
-            if (targetPlayer.HasShield)
-            {
-                throw new InvalidOperationException("No puedes usar Ancla contra un jugador que tiene un escudo activo.");
-            }
-
-            int originalPosition = targetPlayer.Position;
-            int minimumCellForAnchor = MIN_BOARD_CELL + ANCHOR_BACKWARD_STEPS;
-
-            if (originalPosition <= minimumCellForAnchor)
-            {
-                throw new InvalidOperationException(
-                    "Solo puedes usar Ancla cuando estás exactamente a 3 casillas de la casilla inicial.");
-            }
-
-            int candidatePosition = originalPosition - ANCHOR_BACKWARD_STEPS;
-
-            if (candidatePosition < MIN_BOARD_CELL)
-            {
-                candidatePosition = MIN_BOARD_CELL;
-            }
-
-            int finalPosition = ApplyJumpEffectsIfAny(targetPlayer, candidatePosition);
-            targetPlayer.Position = finalPosition;
-
-            return new ItemEffectResult
-            {
-                ItemCode = ITEM_CODE_ANCHOR,
-                EffectType = ItemEffectType.Anchor,
-                UserId = currentPlayer.UserId,
-                TargetUserId = effectiveTargetUserId,
-                FromCellIndex = originalPosition,
-                ToCellIndex = finalPosition,
-                WasBlockedByShield = false,
-                TargetFrozen = false,
-                ShieldActivated = false,
-                ShouldConsumeItemImmediately = true
-            };
-        }
-
-        private ItemEffectResult ApplySwap(PlayerRuntimeState currentPlayer, int? targetUserId)
-        {
-            if (!targetUserId.HasValue)
-            {
-                throw new InvalidOperationException("Swap item requires a target player.");
-            }
-
-            if (targetUserId.Value == currentPlayer.UserId)
-            {
-                throw new InvalidOperationException("Swap item cannot target the same player.");
-            }
-
-            if (!playersByUserId.TryGetValue(targetUserId.Value, out PlayerRuntimeState targetPlayer))
-            {
-                throw new InvalidOperationException("Target player is not part of this game.");
-            }
-
-            bool wasBlockedByShield = targetPlayer.HasShield;
-
-            int fromCurrent = currentPlayer.Position;
-            int fromTarget = targetPlayer.Position;
-
-            int toCurrent = fromCurrent;
-            int toTarget = fromTarget;
-
-            if (!wasBlockedByShield)
-            {
-                toCurrent = fromTarget;
-                toTarget = fromCurrent;
-
-                currentPlayer.Position = toCurrent;
-                targetPlayer.Position = toTarget;
-            }
-
-            return new ItemEffectResult
-            {
-                ItemCode = ITEM_CODE_SWAP,
-                EffectType = ItemEffectType.Swap,
-                UserId = currentPlayer.UserId,
-                TargetUserId = targetUserId.Value,
-                FromCellIndex = fromCurrent,
-                ToCellIndex = toCurrent,
-                WasBlockedByShield = wasBlockedByShield,
-                TargetFrozen = false,
-                ShieldActivated = false,
-                ShouldConsumeItemImmediately = !wasBlockedByShield
-            };
-        }
-
-        private ItemEffectResult ApplyFreeze(PlayerRuntimeState currentPlayer, int? targetUserId)
-        {
-            if (!targetUserId.HasValue)
-            {
-                throw new InvalidOperationException("Freeze item requires a target player.");
-            }
-
-            if (targetUserId.Value == currentPlayer.UserId)
-            {
-                throw new InvalidOperationException("Freeze item cannot target the same player.");
-            }
-
-            if (!playersByUserId.TryGetValue(targetUserId.Value, out PlayerRuntimeState targetPlayer))
-            {
-                throw new InvalidOperationException("Target player is not part of this game.");
-            }
-
-            if (targetPlayer.HasShield)
-            {
-                throw new InvalidOperationException("No puedes congelar a un jugador que tiene un escudo activo.");
-            }
-
-            if (targetPlayer.RemainingFrozenTurns > 0)
-            {
-                throw new InvalidOperationException("Target player is already frozen.");
-            }
-
-            targetPlayer.RemainingFrozenTurns = FREEZE_TURNS;
-
-            return new ItemEffectResult
-            {
-                ItemCode = ITEM_CODE_FREEZE,
-                EffectType = ItemEffectType.Freeze,
-                UserId = currentPlayer.UserId,
-                TargetUserId = targetUserId.Value,
-                FromCellIndex = targetPlayer.Position,
-                ToCellIndex = targetPlayer.Position,
-                WasBlockedByShield = false,
-                TargetFrozen = true,
-                ShieldActivated = false,
-                ShouldConsumeItemImmediately = true
-            };
-        }
-
-        private ItemEffectResult ApplyShield(PlayerRuntimeState currentPlayer)
-        {
-            if (currentPlayer.HasShield && currentPlayer.RemainingShieldTurns > 0)
-            {
-                throw new InvalidOperationException("The player already has an active shield.");
-            }
-
-            currentPlayer.HasShield = true;
-            currentPlayer.RemainingShieldTurns = SHIELD_TURNS;
-
-            return new ItemEffectResult
-            {
-                ItemCode = ITEM_CODE_SHIELD,
-                EffectType = ItemEffectType.Shield,
-                UserId = currentPlayer.UserId,
-                TargetUserId = null,
-                FromCellIndex = currentPlayer.Position,
-                ToCellIndex = currentPlayer.Position,
-                WasBlockedByShield = false,
-                TargetFrozen = false,
-                ShieldActivated = true,
-                ShouldConsumeItemImmediately = true
-            };
-        }
-
         private int ApplyJumpEffectsIfAny(PlayerRuntimeState targetPlayer, int candidatePosition)
         {
-            int finalPosition = candidatePosition;
-
-            if (!jumpDestinationsByStartIndex.TryGetValue(candidatePosition, out int jumpDestination))
-            {
-                return finalPosition;
-            }
-
-            bool isSnake = jumpDestination < candidatePosition;
-
-            if (isSnake && targetPlayer.HasShield)
-            {
-                return candidatePosition;
-            }
-
-            finalPosition = jumpDestination;
-
-            return finalPosition;
+            return _boardNavigator.ApplyJumpEffectsIfAny(targetPlayer, candidatePosition);
         }
 
         private void AdvanceTurnAndResetFlags(int currentUserId)
         {
-            if (!playersByUserId.TryGetValue(currentUserId, out PlayerRuntimeState currentPlayer))
+            if (!_playersByUserId.TryGetValue(currentUserId, out PlayerRuntimeState currentPlayer))
             {
                 return;
             }
@@ -875,239 +509,30 @@ namespace SnakesAndLadders.Services.Logic
             currentPlayer.ItemUsedThisTurn = false;
             currentPlayer.HasRolledThisTurn = false;
 
-            currentTurnIndex = (currentTurnIndex + 1) % turnOrder.Count;
+            _currentTurnIndex = (_currentTurnIndex + 1) % _turnOrder.Count;
         }
 
-        private void ApplySpecialCellIfAny(
-            PlayerRuntimeState playerState,
-            ref int finalTarget,
-            ref string extraInfo,
-            out int? messageIndex,
-            out bool shouldGrantExtraRoll,
-            out string grantedItemCode,
-            out string grantedDiceCode)
+        private bool TryGetJumpDestination(int startIndex, out int destinationIndex)
         {
-            messageIndex = null;
-            shouldGrantExtraRoll = false;
-            grantedItemCode = null;
-            grantedDiceCode = null;
-
-            if (boardDefinition == null ||
-                boardDefinition.Cells == null ||
-                boardDefinition.Cells.Count == 0)
+            // El BoardNavigator ya encapsula el mapa de jumps,
+            // así que reutilizamos ApplyJumpEffectsIfAny comparando resultado.
+            // Si no hay salto, resultado == startIndex.
+            // Si hay, es diferente.
+            var dummyPlayer = new PlayerRuntimeState
             {
-                return;
+                HasShield = false
+            };
+
+            int result = _boardNavigator.ApplyJumpEffectsIfAny(dummyPlayer, startIndex);
+
+            if (result != startIndex)
+            {
+                destinationIndex = result;
+                return true;
             }
 
-            int targetIndex = finalTarget;
-
-            BoardCellDto cell = boardDefinition
-                .Cells
-                .FirstOrDefault(c => c.Index == targetIndex);
-
-            if (cell == null || cell.SpecialType == SpecialCellType.None)
-            {
-                return;
-            }
-
-            switch (cell.SpecialType)
-            {
-                case SpecialCellType.Message:
-                    ApplyMessageCellEffect(
-                        playerState,
-                        ref finalTarget,
-                        ref extraInfo,
-                        out messageIndex,
-                        out shouldGrantExtraRoll,
-                        out grantedItemCode,
-                        out grantedDiceCode);
-                    break;
-
-                case SpecialCellType.Item:
-                    ApplyItemCellEffect(
-                        ref extraInfo,
-                        out grantedItemCode);
-                    break;
-
-                case SpecialCellType.Dice:
-                    ApplyDiceCellEffect(
-                        ref extraInfo,
-                        out grantedDiceCode);
-                    break;
-
-                default:
-                    break;
-            }
-        }
-
-        private void ApplyMessageCellEffect(
-            PlayerRuntimeState playerState,
-            ref int finalTarget,
-            ref string extraInfo,
-            out int? messageIndex,
-            out bool shouldGrantExtraRoll,
-            out string grantedItemCode,
-            out string grantedDiceCode)
-        {
-            messageIndex = null;
-            shouldGrantExtraRoll = false;
-            grantedItemCode = null;
-            grantedDiceCode = null;
-
-            if (playerState == null)
-            {
-                return;
-            }
-
-            int generatedIndex = random.Next(
-                MESSAGE_MIN_INDEX,
-                MESSAGE_MAX_INDEX + 1);
-
-            messageIndex = generatedIndex;
-
-            bool isEven = (generatedIndex % 2) == 0;
-            bool isSmallOrEqual = generatedIndex <= MESSAGE_EFFECT_THRESHOLD;
-
-            if (isEven && isSmallOrEqual)
-            {
-                int candidate = finalTarget + MESSAGE_ADVANCE_STEPS;
-
-                if (finalCellIndex > 0 && candidate > finalCellIndex)
-                {
-                    candidate = finalCellIndex;
-                }
-
-                if (candidate < MIN_BOARD_CELL)
-                {
-                    candidate = MIN_BOARD_CELL;
-                }
-
-                finalTarget = candidate;
-                extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_ADVANCE);
-
-                ApplyPostMessageMovementEffects(
-                    playerState,
-                    ref finalTarget,
-                    ref extraInfo,
-                    out grantedItemCode,
-                    out grantedDiceCode);
-            }
-            else if (isEven && !isSmallOrEqual)
-            {
-                shouldGrantExtraRoll = true;
-                extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_REROLL);
-            }
-            else if (!isEven && isSmallOrEqual)
-            {
-                int candidate = finalTarget - MESSAGE_BACKWARD_STEPS;
-
-                if (candidate < MIN_BOARD_CELL)
-                {
-                    candidate = MIN_BOARD_CELL;
-                }
-
-                finalTarget = candidate;
-                extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_BACKWARD);
-
-                ApplyPostMessageMovementEffects(
-                    playerState,
-                    ref finalTarget,
-                    ref extraInfo,
-                    out grantedItemCode,
-                    out grantedDiceCode);
-            }
-            else
-            {
-                playerState.RemainingFrozenTurns++;
-                extraInfo = AppendToken(extraInfo, EXTRA_INFO_MESSAGE_SKIP_TURN);
-            }
-        }
-
-        private void ApplyPostMessageMovementEffects(
-            PlayerRuntimeState playerState,
-            ref int finalTarget,
-            ref string extraInfo,
-            out string grantedItemCode,
-            out string grantedDiceCode)
-        {
-            grantedItemCode = null;
-            grantedDiceCode = null;
-
-            finalTarget = ApplyJumpEffectsIfAny(playerState, finalTarget);
-
-            if (boardDefinition == null ||
-                boardDefinition.Cells == null ||
-                boardDefinition.Cells.Count == 0)
-            {
-                return;
-            }
-
-            int targetIndex = finalTarget;
-
-            BoardCellDto cell = boardDefinition
-                .Cells
-                .FirstOrDefault(c => c.Index == targetIndex);
-
-            if (cell == null || cell.SpecialType == SpecialCellType.None)
-            {
-                return;
-            }
-
-            switch (cell.SpecialType)
-            {
-                case SpecialCellType.Item:
-                    ApplyItemCellEffect(
-                        ref extraInfo,
-                        out grantedItemCode);
-                    break;
-
-                case SpecialCellType.Dice:
-                    ApplyDiceCellEffect(
-                        ref extraInfo,
-                        out grantedDiceCode);
-                    break;
-
-                case SpecialCellType.Message:
-                default:
-                    // No encadenamos otro mensaje en el mismo turno.
-                    break;
-            }
-        }
-
-        private void ApplyItemCellEffect(
-            ref string extraInfo,
-            out string grantedItemCode)
-        {
-            if (ITEM_CODES_POOL.Length == 0)
-            {
-                grantedItemCode = null;
-                return;
-            }
-
-            int index = random.Next(0, ITEM_CODES_POOL.Length);
-            grantedItemCode = ITEM_CODES_POOL[index];
-
-            extraInfo = AppendToken(
-                extraInfo,
-                EXTRA_INFO_ITEM_GRANTED + "_" + grantedItemCode);
-        }
-
-        private void ApplyDiceCellEffect(
-            ref string extraInfo,
-            out string grantedDiceCode)
-        {
-            if (DICE_CODES_POOL.Length == 0)
-            {
-                grantedDiceCode = null;
-                return;
-            }
-
-            int index = random.Next(0, DICE_CODES_POOL.Length);
-            grantedDiceCode = DICE_CODES_POOL[index];
-
-            extraInfo = AppendToken(
-                extraInfo,
-                EXTRA_INFO_DICE_GRANTED + "_" + grantedDiceCode);
+            destinationIndex = startIndex;
+            return false;
         }
 
         private static string AppendToken(string baseInfo, string token)

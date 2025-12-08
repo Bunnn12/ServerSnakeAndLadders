@@ -17,5 +17,7 @@ namespace SnakeAndLadders.Contracts.Interfaces
         AuthResult ChangePassword(ChangePasswordRequestDto request);
 
         AuthResult RequestPasswordChangeCode(string email);
+
+        AuthResult Logout(LogoutRequestDto request);
     }
 }

@@ -4,22 +4,17 @@ using ServerSnakesAndLadders;
 using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakesAndLadders.Data;
-using SnakesAndLadders.Data.Repositories;
 using SnakesAndLadders.Tests.integration;
 using Xunit;
 
 namespace SnakesAndLadders.Tests.Integration
 {
-    public class AccountsRepositoryTests : IntegrationTestBase
+    public sealed class AccountsRepositoryTests : IntegrationTestBase
     {
-        private const int USERNAME_MAX_LENGTH = 90;
-        private const int EMAIL_MAX_LENGTH = 200;
-        private const int PROFILE_DESC_MAX_LENGTH = 510;
-        private const int PASSWORD_HASH_MAX_LENGTH = 510;
-        private const int PROFILE_PHOTO_ID_MAX_LENGTH = 5;
-        private const int INITIAL_COINS = 0;
         private const byte STATUS_ACTIVE = 1;
+        private const int INITIAL_COINS = 0;
 
+        // TC-001
         [Fact]
         public void TestCreateUserWithValidDataPersistsUserAccountAndPassword()
         {
@@ -38,29 +33,33 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<int> result = repository.CreateUserWithAccountAndPassword(newUser);
 
-            Assert.True(result.IsSuccess, $"Operation failed: {result.ErrorMessage}");
-            Assert.True(result.Data > 0);
+            bool isOk;
 
             using (SnakeAndLaddersDBEntities1 db = CreateContext())
             {
                 Usuario userRow = db.Usuario.Find(result.Data);
-                Assert.NotNull(userRow);
-                Assert.Equal("JugadorPro", userRow.NombreUsuario);
-                Assert.Equal("Juan", userRow.Nombre);
-                Assert.Equal("Perez", userRow.Apellidos);
-                Assert.Equal("Me gusta jugar", userRow.DescripcionPerfil);
-                Assert.Equal("A0001", userRow.FotoPerfil);
-
                 Cuenta accountRow = db.Cuenta.FirstOrDefault(c => c.UsuarioIdUsuario == result.Data);
-                Assert.NotNull(accountRow);
-                Assert.Equal("juan@game.com", accountRow.Correo);
-
                 Contrasenia passwordRow = db.Contrasenia.FirstOrDefault(p => p.UsuarioIdUsuario == result.Data);
-                Assert.NotNull(passwordRow);
-                Assert.Equal("HashSeguro123", passwordRow.Contrasenia1);
+
+                isOk =
+                    result.IsSuccess &&
+                    result.Data > 0 &&
+                    userRow != null &&
+                    userRow.NombreUsuario == "JugadorPro" &&
+                    userRow.Nombre == "Juan" &&
+                    userRow.Apellidos == "Perez" &&
+                    userRow.DescripcionPerfil == "Me gusta jugar" &&
+                    userRow.FotoPerfil == "A0001" &&
+                    accountRow != null &&
+                    accountRow.Correo == "juan@game.com" &&
+                    passwordRow != null &&
+                    passwordRow.Contrasenia1 == "HashSeguro123";
             }
+
+            Assert.True(isOk);
         }
 
+        // TC-002
         [Fact]
         public void TestCreateUserWhenRequestIsNullFailure()
         {
@@ -68,10 +67,11 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<int> result = repository.CreateUserWithAccountAndPassword(null);
 
-            Assert.False(result.IsSuccess);
-            Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+            bool isFailure = !result.IsSuccess && !string.IsNullOrWhiteSpace(result.ErrorMessage);
+            Assert.True(isFailure);
         }
 
+        // TC-003
         [Fact]
         public void TestCreateUserWhenUsernameIsMissingFailure()
         {
@@ -82,18 +82,22 @@ namespace SnakesAndLadders.Tests.Integration
                 Username = "   ",
                 FirstName = "Juan",
                 LastName = "Perez",
-                Email = "user@test.com",
-                PasswordHash = "Hash",
+                Email = "juan@game.com",
+                PasswordHash = "HashSeguro123",
                 ProfileDescription = null,
                 ProfilePhotoId = null
             };
 
             OperationResult<int> result = repository.CreateUserWithAccountAndPassword(requestDto);
 
-            Assert.False(result.IsSuccess);
-            Assert.Contains("UserName", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+            bool isFailure =
+                !result.IsSuccess &&
+                result.ErrorMessage?.IndexOf("Username", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            Assert.True(isFailure);
         }
 
+        // TC-004
         [Fact]
         public void TestCreateUserWhenEmailIsMissingFailure()
         {
@@ -112,10 +116,14 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<int> result = repository.CreateUserWithAccountAndPassword(requestDto);
 
-            Assert.False(result.IsSuccess);
-            Assert.Contains("Email", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+            bool isFailure =
+                !result.IsSuccess &&
+                result.ErrorMessage?.IndexOf("Email", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            Assert.True(isFailure);
         }
 
+        // TC-005
         [Fact]
         public void TestCreateUserWhenPasswordHashIsMissingFailure()
         {
@@ -134,10 +142,14 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<int> result = repository.CreateUserWithAccountAndPassword(requestDto);
 
-            Assert.False(result.IsSuccess);
-            Assert.Contains("PasswordHash", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+            bool isFailure =
+                !result.IsSuccess &&
+                result.ErrorMessage?.IndexOf("PasswordHash", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            Assert.True(isFailure);
         }
 
+        // TC-006
         [Fact]
         public void TestIsEmailRegisteredWithExistingEmailTrue()
         {
@@ -159,6 +171,7 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isRegistered);
         }
 
+        // TC-007
         [Fact]
         public void TestIsEmailRegisteredWithNonExistingEmailFalse()
         {
@@ -166,23 +179,24 @@ namespace SnakesAndLadders.Tests.Integration
 
             bool isRegistered = repository.IsEmailRegistered("not_found@test.com");
 
-            Assert.False(isRegistered);
+            Assert.True(!isRegistered);
         }
 
-        [Fact]
-        public void TestIsEmailRegisteredWithNullOrWhitespaceFalse()
+        // TC-008, TC-009, TC-010
+        [Theory]
+        [InlineData("")]
+        [InlineData("       ")]
+        [InlineData(null)]
+        public void TestIsEmailRegisteredWithInvalidEmailReturnsFalse(string email)
         {
             AccountsRepository repository = new AccountsRepository(CreateContext);
 
-            bool nullResult = repository.IsEmailRegistered(null);
-            bool emptyResult = repository.IsEmailRegistered(string.Empty);
-            bool whitespaceResult = repository.IsEmailRegistered("   ");
+            bool result = repository.IsEmailRegistered(email);
 
-            Assert.False(nullResult);
-            Assert.False(emptyResult);
-            Assert.False(whitespaceResult);
+            Assert.True(!result);
         }
 
+        // TC-011
         [Fact]
         public void TestIsUserNameTakenWithExistingUserTrue()
         {
@@ -198,11 +212,13 @@ namespace SnakesAndLadders.Tests.Integration
             };
 
             repository.CreateUserWithAccountAndPassword(requestDto);
+
             bool isTaken = repository.IsUserNameTaken("ExistingUser");
 
             Assert.True(isTaken);
         }
 
+        // TC-012
         [Fact]
         public void TestIsUserNameTakenWithNonExistingUserFalse()
         {
@@ -210,23 +226,24 @@ namespace SnakesAndLadders.Tests.Integration
 
             bool isTaken = repository.IsUserNameTaken("GhostUser");
 
-            Assert.False(isTaken);
+            Assert.True(!isTaken);
         }
 
-        [Fact]
-        public void TestIsUserNameTakenWithNullOrWhitespaceFalse()
+        // TC-013, TC-014, TC-015
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData(null)]
+        public void TestIsUserNameTakenWithInvalidUserNameReturnsFalse(string username)
         {
             AccountsRepository repository = new AccountsRepository(CreateContext);
 
-            bool nullResult = repository.IsUserNameTaken(null);
-            bool emptyResult = repository.IsUserNameTaken(string.Empty);
-            bool whitespaceResult = repository.IsUserNameTaken("   ");
+            bool result = repository.IsUserNameTaken(username);
 
-            Assert.False(nullResult);
-            Assert.False(emptyResult);
-            Assert.False(whitespaceResult);
+            Assert.True(!result);
         }
 
+        // TC-016
         [Fact]
         public void TestGetAuthByIdentifierWithExistingEmailSuccess()
         {
@@ -246,14 +263,17 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<AuthCredentialsDto> result = repository.GetAuthByIdentifier("login_email@test.com");
 
-            Assert.True(result.IsSuccess);
-            Assert.NotNull(result.Data);
-            Assert.Equal("LoginByEmail", result.Data.DisplayName);
-            Assert.Equal("Secret123", result.Data.PasswordHash);
-            Assert.Equal("A0001", result.Data.ProfilePhotoId);
+            bool isOk =
+                result.IsSuccess &&
+                result.Data != null &&
+                result.Data.DisplayName == "LoginByEmail" &&
+                result.Data.PasswordHash == "Secret123" &&
+                result.Data.ProfilePhotoId == "A0001";
+
+            Assert.True(isOk);
         }
 
-
+        // TC-017
         [Fact]
         public void TestGetAuthByIdentifierWhenIdentifierIsNullFailure()
         {
@@ -261,10 +281,11 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<AuthCredentialsDto> result = repository.GetAuthByIdentifier(null);
 
-            Assert.False(result.IsSuccess);
-            Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+            bool isFailure = !result.IsSuccess && !string.IsNullOrWhiteSpace(result.ErrorMessage);
+            Assert.True(isFailure);
         }
 
+        // TC-018
         [Fact]
         public void TestGetAuthByIdentifierWhenUserDoesNotExistFailure()
         {
@@ -272,10 +293,11 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<AuthCredentialsDto> result = repository.GetAuthByIdentifier("ghost@test.com");
 
-            Assert.False(result.IsSuccess);
-            Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+            bool isFailure = !result.IsSuccess && !string.IsNullOrWhiteSpace(result.ErrorMessage);
+            Assert.True(isFailure);
         }
 
+        // caso extra (similar a matriz): user sin contraseña
         [Fact]
         public void TestGetAuthByIdentifierWhenUserHasNoPasswordFailure()
         {
@@ -292,8 +314,8 @@ namespace SnakesAndLadders.Tests.Integration
                     Apellidos = "Pass",
                     DescripcionPerfil = null,
                     FotoPerfil = null,
-                    Monedas = 0,
-                    Estado = new byte[] { 1 }
+                    Monedas = INITIAL_COINS,
+                    Estado = new[] { STATUS_ACTIVE }
                 };
 
                 db.Usuario.Add(userRow);
@@ -304,7 +326,7 @@ namespace SnakesAndLadders.Tests.Integration
                 {
                     UsuarioIdUsuario = userId,
                     Correo = "nopass@test.com",
-                    Estado = new byte[] { 1 }
+                    Estado = new[] { STATUS_ACTIVE }
                 };
 
                 db.Cuenta.Add(accountRow);
@@ -313,11 +335,11 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<AuthCredentialsDto> result = repository.GetAuthByIdentifier("nopass@test.com");
 
-            Assert.False(result.IsSuccess);
-            Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+            bool isFailure = !result.IsSuccess && !string.IsNullOrWhiteSpace(result.ErrorMessage);
+            Assert.True(isFailure);
         }
 
-
+        // TC-019
         [Fact]
         public void TestGetAuthByIdentifierTrimsIdentifierWhitespace()
         {
@@ -338,13 +360,17 @@ namespace SnakesAndLadders.Tests.Integration
             OperationResult<AuthCredentialsDto> result =
                 repository.GetAuthByIdentifier("   trim_login@test.com   ");
 
-            Assert.True(result.IsSuccess);
-            Assert.NotNull(result.Data);
-            Assert.Equal("LoginTrimEmail", result.Data.DisplayName);
-            Assert.Equal("Secret123", result.Data.PasswordHash);
-            Assert.Equal("A0001", result.Data.ProfilePhotoId);
+            bool isOk =
+                result.IsSuccess &&
+                result.Data != null &&
+                result.Data.DisplayName == "LoginTrimEmail" &&
+                result.Data.PasswordHash == "Secret123" &&
+                result.Data.ProfilePhotoId == "A0001";
+
+            Assert.True(isOk);
         }
 
+        // TC-020
         [Fact]
         public void TestGetAuthByIdentifierWhenIdentifierIsWhitespaceFailure()
         {
@@ -352,10 +378,11 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<AuthCredentialsDto> result = repository.GetAuthByIdentifier("   ");
 
-            Assert.False(result.IsSuccess);
-            Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+            bool isFailure = !result.IsSuccess && !string.IsNullOrWhiteSpace(result.ErrorMessage);
+            Assert.True(isFailure);
         }
 
+        // TC-021
         [Fact]
         public void TestGetAuthByIdentifierReturnsMostRecentPasswordHash()
         {
@@ -372,23 +399,18 @@ namespace SnakesAndLadders.Tests.Integration
             };
 
             OperationResult<int> createResult = repository.CreateUserWithAccountAndPassword(requestDto);
-            Assert.True(createResult.IsSuccess, $"Operation failed: {createResult.ErrorMessage}");
-
-            int userId = createResult.Data;
 
             using (SnakeAndLaddersDBEntities1 db = CreateContext())
             {
-               
+                int userId = createResult.Data;
                 Cuenta accountRow = db.Cuenta.Single(c => c.UsuarioIdUsuario == userId);
 
                 Contrasenia newPassword = new Contrasenia
                 {
                     UsuarioIdUsuario = userId,
-                   
                     Cuenta = accountRow,
                     Contrasenia1 = "NewHash456",
-                    Estado = new[] { (byte)1 },
-                   
+                    Estado = new[] { STATUS_ACTIVE },
                     FechaCreacion = DateTime.UtcNow.AddSeconds(1)
                 };
 
@@ -399,10 +421,12 @@ namespace SnakesAndLadders.Tests.Integration
             OperationResult<AuthCredentialsDto> authResult =
                 repository.GetAuthByIdentifier("password_history@test.com");
 
-            Assert.True(authResult.IsSuccess);
-            Assert.NotNull(authResult.Data);
-            Assert.Equal("NewHash456", authResult.Data.PasswordHash);
-        }
+            bool isOk =
+                authResult.IsSuccess &&
+                authResult.Data != null &&
+                authResult.Data.PasswordHash == "NewHash456";
 
+            Assert.True(isOk);
+        }
     }
 }

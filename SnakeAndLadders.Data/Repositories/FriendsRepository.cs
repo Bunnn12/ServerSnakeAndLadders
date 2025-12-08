@@ -7,71 +7,116 @@ using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
-using SnakesAndLadders.Data;
 
 namespace SnakesAndLadders.Data.Repositories
 {
     public sealed class FriendsRepository : IFriendsRepository
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(FriendsRepository));
+        private static readonly ILog _logger = LogManager.GetLogger(typeof(FriendsRepository));
 
-        private static readonly byte[] _statusPendingBinaryValue = { 0x01 };
-        private static readonly byte[] _statusAcceptedBinaryValue = { 0x02 };
+        private const byte FRIEND_REQUEST_STATUS_PENDING_VALUE = 0x01;
+        private const byte FRIEND_REQUEST_STATUS_ACCEPTED_VALUE = 0x02;
+
+        private static readonly byte[] _statusPendingBinaryValue = { FRIEND_REQUEST_STATUS_PENDING_VALUE };
+        private static readonly byte[] _statusAcceptedBinaryValue = { FRIEND_REQUEST_STATUS_ACCEPTED_VALUE };
 
         private const int COMMAND_TIMEOUT_SECONDS = 30;
         private const int DEFAULT_SEARCH_MAX_RESULTS = 20;
         private const int MAX_SEARCH_RESULTS = 100;
+        private const int MIN_VALID_USER_ID = 1;
+        private const int STATUS_MIN_LENGTH = 1;
+        private const int STATUS_INDEX = 0;
+        private const int EXPECTED_USER_COUNT_FOR_LINK = 2;
+        private const int DEFAULT_FRIEND_LINK_ID = 0;
+        private const int DEFAULT_USER_ID = 0;
+
+        private const FriendRequestStatus DEFAULT_FRIEND_REQUEST_STATUS = FriendRequestStatus.Pending;
+
+        private const string ERROR_USERS_NOT_FOUND = "Users not found.";
+        private const string ERROR_PENDING_ALREADY_EXISTS = "Pending friend request already exists.";
+        private const string ERROR_ALREADY_FRIENDS = "Users are already friends.";
+        private const string ERROR_FRIEND_LINK_NOT_FOUND = "Friend link not found.";
+        private const string ERROR_USER_ID_POSITIVE = "UserId must be positive.";
+
+        private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
+
+        public FriendsRepository(Func<SnakeAndLaddersDBEntities1> contextFactory = null)
+        {
+            _contextFactory = contextFactory ?? (() => new SnakeAndLaddersDBEntities1());
+        }
 
         public FriendLinkDto GetById(int friendLinkId)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                ConfigureContext(dbContext);
 
-                var entity = dbContext.ListaAmigos
+                ListaAmigos entity = dbContext.ListaAmigos
                     .AsNoTracking()
                     .SingleOrDefault(friendLink => friendLink.IdListaAmigos == friendLinkId);
 
-                return Map(entity);
+                if (entity == null)
+                {
+                    return CreateEmptyFriendLink();
+                }
+
+                FriendLinkDto dto = Map(entity);
+                return dto;
             }
         }
 
         public FriendLinkDto GetNormalized(int userIdA, int userIdB)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                ConfigureContext(dbContext);
 
-                var entity = dbContext.ListaAmigos
+                ListaAmigos entity = dbContext.ListaAmigos
                     .AsNoTracking()
                     .SingleOrDefault(friendLink =>
                         (friendLink.UsuarioIdUsuario1 == userIdA && friendLink.UsuarioIdUsuario2 == userIdB) ||
                         (friendLink.UsuarioIdUsuario1 == userIdB && friendLink.UsuarioIdUsuario2 == userIdA));
 
-                return Map(entity);
+                if (entity == null)
+                {
+                    return CreateEmptyFriendLink();
+                }
+
+                FriendLinkDto dto = Map(entity);
+                return dto;
             }
         }
 
         public FriendLinkDto CreatePending(int requesterUserId, int targetUserId)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
-            using (var transaction = dbContext.Database.BeginTransaction())
+            if (requesterUserId < MIN_VALID_USER_ID)
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                throw new ArgumentOutOfRangeException(nameof(requesterUserId), ERROR_USER_ID_POSITIVE);
+            }
 
-                var existingUsers = dbContext.Usuario
+            if (targetUserId < MIN_VALID_USER_ID)
+            {
+                throw new ArgumentOutOfRangeException(nameof(targetUserId), ERROR_USER_ID_POSITIVE);
+            }
+
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
+            using (DbContextTransaction transaction = dbContext.Database.BeginTransaction())
+            {
+                ConfigureContext(dbContext);
+
+                List<int> existingUsers = dbContext.Usuario
                     .Where(user =>
                         user.IdUsuario == requesterUserId ||
                         user.IdUsuario == targetUserId)
                     .Select(user => user.IdUsuario)
                     .ToList();
 
-                if (existingUsers.Count != 2)
+                if (existingUsers.Count != EXPECTED_USER_COUNT_FOR_LINK)
                 {
-                    throw new InvalidOperationException("Users not found.");
+                    throw new InvalidOperationException(ERROR_USERS_NOT_FOUND);
                 }
 
-                var existingLink = dbContext.ListaAmigos
+                ListaAmigos existingLink = dbContext.ListaAmigos
                     .SingleOrDefault(friendLink =>
                         (friendLink.UsuarioIdUsuario1 == requesterUserId &&
                          friendLink.UsuarioIdUsuario2 == targetUserId) ||
@@ -80,7 +125,7 @@ namespace SnakesAndLadders.Data.Repositories
 
                 if (existingLink == null)
                 {
-                    var newLink = new ListaAmigos
+                    ListaAmigos newLink = new ListaAmigos
                     {
                         UsuarioIdUsuario1 = requesterUserId,
                         UsuarioIdUsuario2 = targetUserId,
@@ -91,15 +136,13 @@ namespace SnakesAndLadders.Data.Repositories
                     dbContext.SaveChanges();
                     transaction.Commit();
 
-                    return Map(newLink);
+                    FriendLinkDto dto = Map(newLink);
+                    return dto;
                 }
 
-                byte currentStatus = (existingLink.EstadoSolicitud != null &&
-                                      existingLink.EstadoSolicitud.Length > 0)
-                    ? existingLink.EstadoSolicitud[0]
-                    : _statusPendingBinaryValue[0];
+                byte currentStatus = GetStatusValue(existingLink.EstadoSolicitud);
 
-                if (currentStatus == _statusPendingBinaryValue[0])
+                if (currentStatus == FRIEND_REQUEST_STATUS_PENDING_VALUE)
                 {
                     bool isReverse =
                         existingLink.UsuarioIdUsuario1 == targetUserId &&
@@ -111,15 +154,16 @@ namespace SnakesAndLadders.Data.Repositories
                         dbContext.SaveChanges();
                         transaction.Commit();
 
-                        return Map(existingLink);
+                        FriendLinkDto acceptedDto = Map(existingLink);
+                        return acceptedDto;
                     }
 
-                    throw new InvalidOperationException("Pending already exists.");
+                    throw new InvalidOperationException(ERROR_PENDING_ALREADY_EXISTS);
                 }
 
-                if (currentStatus == _statusAcceptedBinaryValue[0])
+                if (currentStatus == FRIEND_REQUEST_STATUS_ACCEPTED_VALUE)
                 {
-                    throw new InvalidOperationException("Already friends.");
+                    throw new InvalidOperationException(ERROR_ALREADY_FRIENDS);
                 }
 
                 existingLink.UsuarioIdUsuario1 = requesterUserId;
@@ -129,23 +173,24 @@ namespace SnakesAndLadders.Data.Repositories
                 dbContext.SaveChanges();
                 transaction.Commit();
 
-                return Map(existingLink);
+                FriendLinkDto updatedDto = Map(existingLink);
+                return updatedDto;
             }
         }
 
         public void UpdateStatus(int friendLinkId, byte newStatus)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
-            using (var transaction = dbContext.Database.BeginTransaction())
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
+            using (DbContextTransaction transaction = dbContext.Database.BeginTransaction())
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                ConfigureContext(dbContext);
 
-                var entity = dbContext.ListaAmigos
+                ListaAmigos entity = dbContext.ListaAmigos
                     .SingleOrDefault(friendLink => friendLink.IdListaAmigos == friendLinkId);
 
                 if (entity == null)
                 {
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException(ERROR_FRIEND_LINK_NOT_FOUND);
                 }
 
                 entity.EstadoSolicitud = new[] { newStatus };
@@ -157,12 +202,12 @@ namespace SnakesAndLadders.Data.Repositories
 
         public void DeleteLink(int friendLinkId)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
-            using (var transaction = dbContext.Database.BeginTransaction())
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
+            using (DbContextTransaction transaction = dbContext.Database.BeginTransaction())
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                ConfigureContext(dbContext);
 
-                var entity = dbContext.ListaAmigos
+                ListaAmigos entity = dbContext.ListaAmigos
                     .SingleOrDefault(friendLink => friendLink.IdListaAmigos == friendLinkId);
 
                 if (entity == null)
@@ -178,11 +223,16 @@ namespace SnakesAndLadders.Data.Repositories
 
         public IReadOnlyList<int> GetAcceptedFriendsIds(int userId)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            if (userId < MIN_VALID_USER_ID)
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                throw new ArgumentOutOfRangeException(nameof(userId), ERROR_USER_ID_POSITIVE);
+            }
 
-                var query = dbContext.ListaAmigos
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
+            {
+                ConfigureContext(dbContext);
+
+                IQueryable<int> query = dbContext.ListaAmigos
                     .AsNoTracking()
                     .Where(friendLink =>
                         friendLink.EstadoSolicitud == _statusAcceptedBinaryValue &&
@@ -193,56 +243,48 @@ namespace SnakesAndLadders.Data.Repositories
                             ? friendLink.UsuarioIdUsuario2
                             : friendLink.UsuarioIdUsuario1);
 
-                return query.ToList();
+                List<int> friendIds = query.ToList();
+                return friendIds;
             }
         }
 
         public IReadOnlyList<FriendLinkDto> GetPendingRelated(int userId)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            if (userId < MIN_VALID_USER_ID)
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                throw new ArgumentOutOfRangeException(nameof(userId), ERROR_USER_ID_POSITIVE);
+            }
 
-                var query = dbContext.ListaAmigos
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
+            {
+                ConfigureContext(dbContext);
+
+                IQueryable<ListaAmigos> query = dbContext.ListaAmigos
                     .AsNoTracking()
                     .Where(friendLink =>
                         friendLink.EstadoSolicitud == _statusPendingBinaryValue &&
                         (friendLink.UsuarioIdUsuario1 == userId ||
                          friendLink.UsuarioIdUsuario2 == userId));
 
-                return query
+                List<FriendLinkDto> result = query
                     .ToList()
                     .Select(Map)
                     .ToList();
+
+                return result;
             }
-        }
-
-        private static FriendLinkDto Map(ListaAmigos entity)
-        {
-            if (entity == null)
-            {
-                return null;
-            }
-
-            byte status = (entity.EstadoSolicitud != null &&
-                           entity.EstadoSolicitud.Length > 0)
-                ? entity.EstadoSolicitud[0]
-                : _statusPendingBinaryValue[0];
-
-            return new FriendLinkDto
-            {
-                FriendLinkId = entity.IdListaAmigos,
-                UserId1 = entity.UsuarioIdUsuario1,
-                UserId2 = entity.UsuarioIdUsuario2,
-                Status = (FriendRequestStatus)status
-            };
         }
 
         public IReadOnlyList<FriendListItemDto> GetAcceptedFriendsDetailed(int userId)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            if (userId < MIN_VALID_USER_ID)
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                throw new ArgumentOutOfRangeException(nameof(userId), ERROR_USER_ID_POSITIVE);
+            }
+
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
+            {
+                ConfigureContext(dbContext);
 
                 var rows = dbContext.ListaAmigos
                     .AsNoTracking()
@@ -259,7 +301,7 @@ namespace SnakesAndLadders.Data.Repositories
                     })
                     .ToList();
 
-                var friendIds = rows
+                List<int> friendIds = rows
                     .Select(row => row.FriendUserId)
                     .ToList();
 
@@ -275,7 +317,7 @@ namespace SnakesAndLadders.Data.Repositories
                     .ToList()
                     .ToDictionary(user => user.IdUsuario);
 
-                return rows
+                List<FriendListItemDto> result = rows
                     .Select(row => new FriendListItemDto
                     {
                         FriendLinkId = row.IdListaAmigos,
@@ -288,16 +330,23 @@ namespace SnakesAndLadders.Data.Repositories
                             : null
                     })
                     .ToList();
+
+                return result;
             }
         }
 
         public IReadOnlyList<FriendRequestItemDto> GetIncomingPendingDetailed(int userId)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            if (userId < MIN_VALID_USER_ID)
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                throw new ArgumentOutOfRangeException(nameof(userId), ERROR_USER_ID_POSITIVE);
+            }
 
-                var pending = dbContext.ListaAmigos
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
+            {
+                ConfigureContext(dbContext);
+
+                List<ListaAmigos> pending = dbContext.ListaAmigos
                     .AsNoTracking()
                     .Where(friendLink =>
                         friendLink.EstadoSolicitud == _statusPendingBinaryValue &&
@@ -305,11 +354,11 @@ namespace SnakesAndLadders.Data.Repositories
                          friendLink.UsuarioIdUsuario2 == userId))
                     .ToList();
 
-                var incoming = pending
+                List<ListaAmigos> incoming = pending
                     .Where(friendLink => friendLink.UsuarioIdUsuario2 == userId)
                     .ToList();
 
-                var involvedIds = incoming
+                List<int> involvedIds = incoming
                     .Select(friendLink => friendLink.UsuarioIdUsuario1)
                     .Concat(incoming.Select(friendLink => friendLink.UsuarioIdUsuario2))
                     .Distinct()
@@ -326,7 +375,7 @@ namespace SnakesAndLadders.Data.Repositories
                     .ToList()
                     .ToDictionary(user => user.IdUsuario);
 
-                return incoming
+                List<FriendRequestItemDto> result = incoming
                     .Select(entity => new FriendRequestItemDto
                     {
                         FriendLinkId = entity.IdListaAmigos,
@@ -337,23 +386,30 @@ namespace SnakesAndLadders.Data.Repositories
                         Status = FriendRequestStatus.Pending
                     })
                     .ToList();
+
+                return result;
             }
         }
 
         public IReadOnlyList<FriendRequestItemDto> GetOutgoingPendingDetailed(int userId)
         {
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            if (userId < MIN_VALID_USER_ID)
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                throw new ArgumentOutOfRangeException(nameof(userId), ERROR_USER_ID_POSITIVE);
+            }
 
-                var outgoing = dbContext.ListaAmigos
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
+            {
+                ConfigureContext(dbContext);
+
+                List<ListaAmigos> outgoing = dbContext.ListaAmigos
                     .AsNoTracking()
                     .Where(friendLink =>
                         friendLink.EstadoSolicitud == _statusPendingBinaryValue &&
                         friendLink.UsuarioIdUsuario1 == userId)
                     .ToList();
 
-                var involvedIds = outgoing
+                List<int> involvedIds = outgoing
                     .Select(friendLink => friendLink.UsuarioIdUsuario1)
                     .Concat(outgoing.Select(friendLink => friendLink.UsuarioIdUsuario2))
                     .Distinct()
@@ -370,7 +426,7 @@ namespace SnakesAndLadders.Data.Repositories
                     .ToList()
                     .ToDictionary(user => user.IdUsuario);
 
-                return outgoing
+                List<FriendRequestItemDto> result = outgoing
                     .Select(entity => new FriendRequestItemDto
                     {
                         FriendLinkId = entity.IdListaAmigos,
@@ -381,34 +437,41 @@ namespace SnakesAndLadders.Data.Repositories
                         Status = FriendRequestStatus.Pending
                     })
                     .ToList();
+
+                return result;
             }
         }
 
         public IReadOnlyList<UserBriefDto> SearchUsers(string query, int maxResults, int excludeUserId)
         {
-            query = (query ?? string.Empty).Trim();
+            if (excludeUserId < MIN_VALID_USER_ID)
+            {
+                throw new ArgumentOutOfRangeException(nameof(excludeUserId), ERROR_USER_ID_POSITIVE);
+            }
 
-            if (string.IsNullOrWhiteSpace(query))
+            string normalizedQuery = (query ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(normalizedQuery))
             {
                 return new List<UserBriefDto>();
             }
 
-            using (var dbContext = new SnakeAndLaddersDBEntities1())
+            using (SnakeAndLaddersDBEntities1 dbContext = _contextFactory())
             {
-                ((IObjectContextAdapter)dbContext).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
+                ConfigureContext(dbContext);
 
                 int limit = maxResults > 0 && maxResults <= MAX_SEARCH_RESULTS
                     ? maxResults
                     : DEFAULT_SEARCH_MAX_RESULTS;
 
-                var pendingTargets = dbContext.ListaAmigos
+                IQueryable<int> pendingTargets = dbContext.ListaAmigos
                     .AsNoTracking()
                     .Where(friendLink =>
                         friendLink.UsuarioIdUsuario1 == excludeUserId &&
                         friendLink.EstadoSolicitud == _statusPendingBinaryValue)
                     .Select(friendLink => friendLink.UsuarioIdUsuario2);
 
-                var acceptedTargets = dbContext.ListaAmigos
+                IQueryable<int> acceptedTargets = dbContext.ListaAmigos
                     .AsNoTracking()
                     .Where(friendLink =>
                         friendLink.EstadoSolicitud == _statusAcceptedBinaryValue &&
@@ -419,15 +482,15 @@ namespace SnakesAndLadders.Data.Repositories
                             ? friendLink.UsuarioIdUsuario2
                             : friendLink.UsuarioIdUsuario1);
 
-                var blockedIds = pendingTargets
+                IQueryable<int> blockedIds = pendingTargets
                     .Concat(acceptedTargets)
                     .Distinct();
 
-                var queryUsers = dbContext.Usuario
+                IQueryable<UserBriefDto> queryUsers = dbContext.Usuario
                     .AsNoTracking()
                     .Where(user =>
                         user.IdUsuario != excludeUserId &&
-                        user.NombreUsuario.Contains(query) &&
+                        user.NombreUsuario.Contains(normalizedQuery) &&
                         !blockedIds.Contains(user.IdUsuario))
                     .OrderBy(user => user.NombreUsuario)
                     .Take(limit)
@@ -438,8 +501,52 @@ namespace SnakesAndLadders.Data.Repositories
                         ProfilePhotoId = user.FotoPerfil
                     });
 
-                return queryUsers.ToList();
+                List<UserBriefDto> result = queryUsers.ToList();
+                return result;
             }
+        }
+
+        private static FriendLinkDto Map(ListaAmigos entity)
+        {
+            byte statusValue = GetStatusValue(entity.EstadoSolicitud);
+
+            FriendLinkDto dto = new FriendLinkDto
+            {
+                FriendLinkId = entity.IdListaAmigos,
+                UserId1 = entity.UsuarioIdUsuario1,
+                UserId2 = entity.UsuarioIdUsuario2,
+                Status = (FriendRequestStatus)statusValue
+            };
+
+            return dto;
+        }
+
+        private static byte GetStatusValue(byte[] statusBinary)
+        {
+            if (statusBinary == null || statusBinary.Length < STATUS_MIN_LENGTH)
+            {
+                return FRIEND_REQUEST_STATUS_PENDING_VALUE;
+            }
+
+            return statusBinary[STATUS_INDEX];
+        }
+
+        private static FriendLinkDto CreateEmptyFriendLink()
+        {
+            FriendLinkDto dto = new FriendLinkDto
+            {
+                FriendLinkId = DEFAULT_FRIEND_LINK_ID,
+                UserId1 = DEFAULT_USER_ID,
+                UserId2 = DEFAULT_USER_ID,
+                Status = DEFAULT_FRIEND_REQUEST_STATUS
+            };
+
+            return dto;
+        }
+
+        private static void ConfigureContext(SnakeAndLaddersDBEntities1 context)
+        {
+            ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
         }
     }
 }

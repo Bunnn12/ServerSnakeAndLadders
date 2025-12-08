@@ -13,7 +13,7 @@ using SnakesAndLadders.Server.Helpers;
 
 namespace ServerSnakesAndLadders
 {
-    public class AccountsRepository : IAccountsRepository
+    public sealed class AccountsRepository : IAccountsRepository
     {
         private const int EMAIL_MAX_LENGTH = 200;
         private const int USERNAME_MAX_LENGTH = 90;
@@ -24,7 +24,50 @@ namespace ServerSnakesAndLadders
         private const int INITIAL_COINS = 0;
         private const byte STATUS_ACTIVE = 1;
 
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(AccountsRepository));
+        private const int MIN_VALID_USER_ID = 1;
+        private const int MIN_PASSWORD_HISTORY_COUNT = 1;
+        private const int STATUS_MIN_LENGTH = 1;
+        private const int STATUS_ACTIVE_INDEX = 0;
+
+        private const int EMPTY_COLLECTION_COUNT = 0;
+        private const int MULTIPLE_ITEMS_MIN_COUNT = 2;
+        private const int SUBSTRING_START_INDEX = 0;
+
+        private const string ERROR_REQUEST_NULL = "Request cannot be null.";
+        private const string ERROR_IDENTIFIER_REQUIRED = "Identifier is required.";
+        private const string ERROR_INVALID_USERNAME_OR_PASSWORD = "Invalid username or password.";
+        private const string ERROR_INVALID_CREDENTIALS = "Invalid credentials.";
+        private const string ERROR_PROFILE_DATA_NOT_FOUND = "Profile data not found.";
+        private const string ERROR_USER_ID_POSITIVE = "UserId must be positive.";
+        private const string ERROR_MAX_COUNT_POSITIVE = "maxCount must be positive.";
+        private const string ERROR_PASSWORD_HASH_REQUIRED = "PasswordHash is required.";
+        private const string ERROR_ACTIVE_ACCOUNT_NOT_FOUND = "Active account not found for user.";
+        private const string ERROR_DATABASE_REGISTERING_USER = "Database error while registering user.";
+        private const string ERROR_UNEXPECTED_REGISTERING_USER = "Unexpected error while registering user.";
+        private const string ERROR_DATABASE_LOADING_PASSWORD_HISTORY = "Database error while loading password history.";
+        private const string ERROR_UNEXPECTED_LOADING_PASSWORD_HISTORY = "Unexpected error while loading password history.";
+        private const string ERROR_DATABASE_UPDATING_PASSWORD = "Database error while updating password.";
+        private const string ERROR_UNEXPECTED_UPDATING_PASSWORD = "Unexpected error while updating password.";
+        private const string ERROR_DATABASE_LOADING_EMAIL = "Database error while loading email.";
+        private const string ERROR_UNEXPECTED_LOADING_EMAIL = "Unexpected error while loading email.";
+        private const string ERROR_REQUIRED_TEMPLATE = "{0} is required.";
+
+        private const string LOG_SQL_ERROR_CREATE_USER = "SQL error while creating user.";
+        private const string LOG_UNEXPECTED_ERROR_CREATE_USER = "Unexpected error while creating user.";
+        private const string LOG_INTEGRITY_USER_WITHOUT_PASSWORD = "Integrity issue: user {0} exists but has no password.";
+        private const string LOG_SQL_ERROR_PASSWORD_HISTORY = "SQL error while loading password history.";
+        private const string LOG_UNEXPECTED_ERROR_PASSWORD_HISTORY = "Unexpected error while loading password history.";
+        private const string LOG_SQL_ERROR_INSERT_PASSWORD = "SQL error while inserting new password.";
+        private const string LOG_UNEXPECTED_ERROR_INSERT_PASSWORD = "Unexpected error while inserting new password.";
+        private const string LOG_SQL_ERROR_EMAIL_BY_USER_ID = "SQL error while loading email by user id.";
+        private const string LOG_UNEXPECTED_ERROR_EMAIL_BY_USER_ID = "Unexpected error while loading email by user id.";
+        private const string LOG_NO_ACTIVE_ACCOUNT_FOR_USER_CHANGING_PASSWORD = "No active account found for user when changing password. UserId={0}";
+        private const string LOG_NO_ACTIVE_ACCOUNT_FOR_USER_GET_EMAIL = "GetEmailByUserId: no active account found for user. UserId={0}";
+        private const string LOG_MULTIPLE_ACTIVE_ACCOUNTS_EMAIL = "Found {0} ACTIVE accounts with the same email {1}. Using the one with highest IdCuenta.";
+        private const string LOG_MULTIPLE_ACTIVE_USERS_USERNAME = "Found {0} ACTIVE users with the same NombreUsuario {1}. Using the one with highest IdUsuario.";
+        private const string LOG_MULTIPLE_ACTIVE_ACCOUNTS_FOR_USER = "Found {0} ACTIVE accounts for user {1}. Using the one with highest IdCuenta.";
+
+        private static readonly ILog _logger = LogManager.GetLogger(typeof(AccountsRepository));
 
         private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
 
@@ -42,11 +85,11 @@ namespace ServerSnakesAndLadders
 
             string normalizedEmail = NormalizeString(email, EMAIL_MAX_LENGTH);
 
-            using (var context = _contextFactory())
+            using (SnakeAndLaddersDBEntities1 context = _contextFactory())
             {
                 ConfigureContext(context);
 
-                var accounts = context.Cuenta
+                List<Cuenta> accounts = context.Cuenta
                     .AsNoTracking()
                     .Where(account => account.Correo == normalizedEmail)
                     .ToList();
@@ -64,11 +107,11 @@ namespace ServerSnakesAndLadders
 
             string normalizedUserName = NormalizeString(userName, USERNAME_MAX_LENGTH);
 
-            using (var context = _contextFactory())
+            using (SnakeAndLaddersDBEntities1 context = _contextFactory())
             {
                 ConfigureContext(context);
 
-                var users = context.Usuario
+                List<Usuario> users = context.Usuario
                     .AsNoTracking()
                     .Where(user => user.NombreUsuario == normalizedUserName)
                     .ToList();
@@ -81,15 +124,15 @@ namespace ServerSnakesAndLadders
         {
             if (request == null)
             {
-                return OperationResult<int>.Failure("Request cannot be null.");
+                return OperationResult<int>.Failure(ERROR_REQUEST_NULL);
             }
 
             try
             {
-                var userData = PrepareUserData(request);
+                (Usuario User, Cuenta Account, Contrasenia Password) userData = PrepareUserData(request);
 
-                using (var context = _contextFactory())
-                using (var transaction = context.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
+                using (DbContextTransaction transaction = context.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
                 {
                     try
                     {
@@ -112,14 +155,14 @@ namespace ServerSnakesAndLadders
                     catch (SqlException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("SQL error while creating user.", ex);
-                        return OperationResult<int>.Failure("Database error while registering user.");
+                        _logger.Error(LOG_SQL_ERROR_CREATE_USER, ex);
+                        return OperationResult<int>.Failure(ERROR_DATABASE_REGISTERING_USER);
                     }
                     catch (Exception ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("Unexpected error while creating user.", ex);
-                        return OperationResult<int>.Failure("Unexpected error while registering user.");
+                        _logger.Error(LOG_UNEXPECTED_ERROR_CREATE_USER, ex);
+                        return OperationResult<int>.Failure(ERROR_UNEXPECTED_REGISTERING_USER);
                     }
                 }
             }
@@ -133,12 +176,12 @@ namespace ServerSnakesAndLadders
         {
             if (string.IsNullOrWhiteSpace(identifier))
             {
-                return OperationResult<AuthCredentialsDto>.Failure("Identifier is required.");
+                return OperationResult<AuthCredentialsDto>.Failure(ERROR_IDENTIFIER_REQUIRED);
             }
 
             string trimmedIdentifier = identifier.Trim();
 
-            using (var context = _contextFactory())
+            using (SnakeAndLaddersDBEntities1 context = _contextFactory())
             {
                 ConfigureContext(context);
 
@@ -147,16 +190,16 @@ namespace ServerSnakesAndLadders
 
                 if (!userId.HasValue)
                 {
-                    return OperationResult<AuthCredentialsDto>.Failure("Invalid username or password.");
+                    return OperationResult<AuthCredentialsDto>.Failure(ERROR_INVALID_USERNAME_OR_PASSWORD);
                 }
 
-                var userEntity = context.Usuario
+                Usuario userEntity = context.Usuario
                     .AsNoTracking()
                     .SingleOrDefault(user => user.IdUsuario == userId.Value);
 
                 if (userEntity == null || !IsActiveStatus(userEntity.Estado))
                 {
-                    return OperationResult<AuthCredentialsDto>.Failure("Invalid username or password.");
+                    return OperationResult<AuthCredentialsDto>.Failure(ERROR_INVALID_USERNAME_OR_PASSWORD);
                 }
 
                 string passwordHash = context.Contrasenia
@@ -168,11 +211,11 @@ namespace ServerSnakesAndLadders
 
                 if (string.IsNullOrWhiteSpace(passwordHash))
                 {
-                    Logger.WarnFormat(
-                        "Integrity issue: user {0} exists but has no password.",
+                    _logger.WarnFormat(
+                        LOG_INTEGRITY_USER_WITHOUT_PASSWORD,
                         userId.Value);
 
-                    return OperationResult<AuthCredentialsDto>.Failure("Invalid credentials.");
+                    return OperationResult<AuthCredentialsDto>.Failure(ERROR_INVALID_CREDENTIALS);
                 }
 
                 var userProfile = context.Usuario
@@ -183,7 +226,7 @@ namespace ServerSnakesAndLadders
 
                 if (userProfile == null)
                 {
-                    return OperationResult<AuthCredentialsDto>.Failure("Profile data not found.");
+                    return OperationResult<AuthCredentialsDto>.Failure(ERROR_PROFILE_DATA_NOT_FOUND);
                 }
 
                 var credentialsDto = new AuthCredentialsDto
@@ -200,19 +243,19 @@ namespace ServerSnakesAndLadders
 
         public OperationResult<IReadOnlyList<string>> GetLastPasswordHashes(int userId, int maxCount)
         {
-            if (userId <= 0)
+            if (userId < MIN_VALID_USER_ID)
             {
-                return OperationResult<IReadOnlyList<string>>.Failure("UserId must be positive.");
+                return OperationResult<IReadOnlyList<string>>.Failure(ERROR_USER_ID_POSITIVE);
             }
 
-            if (maxCount <= 0)
+            if (maxCount < MIN_PASSWORD_HISTORY_COUNT)
             {
-                return OperationResult<IReadOnlyList<string>>.Failure("maxCount must be positive.");
+                return OperationResult<IReadOnlyList<string>>.Failure(ERROR_MAX_COUNT_POSITIVE);
             }
 
             try
             {
-                using (var context = _contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 {
                     ConfigureContext(context);
 
@@ -224,38 +267,38 @@ namespace ServerSnakesAndLadders
                         .Select(password => password.Contrasenia1)
                         .ToList();
 
-                    IReadOnlyList<string> readOnlyHashes = hashes;
+                    IReadOnlyList<string> readOnlyHashes = hashes.AsReadOnly();
 
                     return OperationResult<IReadOnlyList<string>>.Success(readOnlyHashes);
                 }
             }
             catch (SqlException ex)
             {
-                Logger.Error("SQL error while loading password history.", ex);
-                return OperationResult<IReadOnlyList<string>>.Failure("Database error while loading password history.");
+                _logger.Error(LOG_SQL_ERROR_PASSWORD_HISTORY, ex);
+                return OperationResult<IReadOnlyList<string>>.Failure(ERROR_DATABASE_LOADING_PASSWORD_HISTORY);
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error while loading password history.", ex);
-                return OperationResult<IReadOnlyList<string>>.Failure("Unexpected error while loading password history.");
+                _logger.Error(LOG_UNEXPECTED_ERROR_PASSWORD_HISTORY, ex);
+                return OperationResult<IReadOnlyList<string>>.Failure(ERROR_UNEXPECTED_LOADING_PASSWORD_HISTORY);
             }
         }
 
         public OperationResult<bool> AddPasswordHash(int userId, string passwordHash)
         {
-            if (userId <= 0)
+            if (userId < MIN_VALID_USER_ID)
             {
-                return OperationResult<bool>.Failure("UserId must be positive.");
+                return OperationResult<bool>.Failure(ERROR_USER_ID_POSITIVE);
             }
 
             if (string.IsNullOrWhiteSpace(passwordHash))
             {
-                return OperationResult<bool>.Failure("PasswordHash is required.");
+                return OperationResult<bool>.Failure(ERROR_PASSWORD_HASH_REQUIRED);
             }
 
             try
             {
-                using (var context = _contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 {
                     ConfigureContext(context);
 
@@ -263,11 +306,11 @@ namespace ServerSnakesAndLadders
 
                     if (activeAccount == null)
                     {
-                        Logger.ErrorFormat(
-                            "No active account found for user when changing password. UserId={0}",
+                        _logger.ErrorFormat(
+                            LOG_NO_ACTIVE_ACCOUNT_FOR_USER_CHANGING_PASSWORD,
                             userId);
 
-                        return OperationResult<bool>.Failure("No active account found for user.");
+                        return OperationResult<bool>.Failure(ERROR_ACTIVE_ACCOUNT_NOT_FOUND);
                     }
 
                     var passwordEntity = new Contrasenia
@@ -287,26 +330,26 @@ namespace ServerSnakesAndLadders
             }
             catch (SqlException ex)
             {
-                Logger.Error("SQL error while inserting new password.", ex);
-                return OperationResult<bool>.Failure("Database error while updating password.");
+                _logger.Error(LOG_SQL_ERROR_INSERT_PASSWORD, ex);
+                return OperationResult<bool>.Failure(ERROR_DATABASE_UPDATING_PASSWORD);
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error while inserting new password.", ex);
-                return OperationResult<bool>.Failure("Unexpected error while updating password.");
+                _logger.Error(LOG_UNEXPECTED_ERROR_INSERT_PASSWORD, ex);
+                return OperationResult<bool>.Failure(ERROR_UNEXPECTED_UPDATING_PASSWORD);
             }
         }
 
         public OperationResult<string> GetEmailByUserId(int userId)
         {
-            if (userId <= 0)
+            if (userId < MIN_VALID_USER_ID)
             {
-                return OperationResult<string>.Failure("UserId must be positive.");
+                return OperationResult<string>.Failure(ERROR_USER_ID_POSITIVE);
             }
 
             try
             {
-                using (var context = _contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 {
                     ConfigureContext(context);
 
@@ -314,11 +357,11 @@ namespace ServerSnakesAndLadders
 
                     if (activeAccount == null)
                     {
-                        Logger.WarnFormat(
-                            "GetEmailByUserId: no active account found for user. UserId={0}",
+                        _logger.WarnFormat(
+                            LOG_NO_ACTIVE_ACCOUNT_FOR_USER_GET_EMAIL,
                             userId);
 
-                        return OperationResult<string>.Failure("Active account not found for user.");
+                        return OperationResult<string>.Failure(ERROR_ACTIVE_ACCOUNT_NOT_FOUND);
                     }
 
                     string email = activeAccount.Correo ?? string.Empty;
@@ -328,17 +371,17 @@ namespace ServerSnakesAndLadders
             }
             catch (SqlException ex)
             {
-                Logger.Error("SQL error while loading email by user id.", ex);
-                return OperationResult<string>.Failure("Database error while loading email.");
+                _logger.Error(LOG_SQL_ERROR_EMAIL_BY_USER_ID, ex);
+                return OperationResult<string>.Failure(ERROR_DATABASE_LOADING_EMAIL);
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error while loading email by user id.", ex);
-                return OperationResult<string>.Failure("Unexpected error while loading email.");
+                _logger.Error(LOG_UNEXPECTED_ERROR_EMAIL_BY_USER_ID, ex);
+                return OperationResult<string>.Failure(ERROR_UNEXPECTED_LOADING_EMAIL);
             }
         }
 
-        private void ConfigureContext(SnakeAndLaddersDBEntities1 context)
+        private static void ConfigureContext(SnakeAndLaddersDBEntities1 context)
         {
             ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
         }
@@ -350,34 +393,34 @@ namespace ServerSnakesAndLadders
                 return null;
             }
 
-            var accounts = context.Cuenta
+            List<Cuenta> accounts = context.Cuenta
                 .AsNoTracking()
                 .Where(account => account.Correo == email)
                 .ToList();
 
-            if (accounts.Count == 0)
+            if (accounts.Count == EMPTY_COLLECTION_COUNT)
             {
                 return null;
             }
 
-            var activeAccounts = accounts
+            List<Cuenta> activeAccounts = accounts
                 .Where(account => IsActiveStatus(account.Estado))
                 .ToList();
 
-            if (activeAccounts.Count == 0)
+            if (activeAccounts.Count == EMPTY_COLLECTION_COUNT)
             {
                 return null;
             }
 
-            if (activeAccounts.Count > 1)
+            if (activeAccounts.Count >= MULTIPLE_ITEMS_MIN_COUNT)
             {
-                Logger.WarnFormat(
-                    "Found {0} ACTIVE accounts with the same email {1}. Using the one with highest IdCuenta.",
+                _logger.WarnFormat(
+                    LOG_MULTIPLE_ACTIVE_ACCOUNTS_EMAIL,
                     activeAccounts.Count,
                     email);
             }
 
-            var selectedAccount = activeAccounts
+            Cuenta selectedAccount = activeAccounts
                 .OrderByDescending(account => account.IdCuenta)
                 .First();
 
@@ -391,34 +434,34 @@ namespace ServerSnakesAndLadders
                 return null;
             }
 
-            var users = context.Usuario
+            List<Usuario> users = context.Usuario
                 .AsNoTracking()
                 .Where(user => user.NombreUsuario == username)
                 .ToList();
 
-            if (users.Count == 0)
+            if (users.Count == EMPTY_COLLECTION_COUNT)
             {
                 return null;
             }
 
-            var activeUsers = users
+            List<Usuario> activeUsers = users
                 .Where(user => IsActiveStatus(user.Estado))
                 .ToList();
 
-            if (activeUsers.Count == 0)
+            if (activeUsers.Count == EMPTY_COLLECTION_COUNT)
             {
                 return null;
             }
 
-            if (activeUsers.Count > 1)
+            if (activeUsers.Count >= MULTIPLE_ITEMS_MIN_COUNT)
             {
-                Logger.WarnFormat(
-                    "Found {0} ACTIVE users with the same NombreUsuario {1}. Using the one with highest IdUsuario.",
+                _logger.WarnFormat(
+                    LOG_MULTIPLE_ACTIVE_USERS_USERNAME,
                     activeUsers.Count,
                     username);
             }
 
-            var selectedUser = activeUsers
+            Usuario selectedUser = activeUsers
                 .OrderByDescending(user => user.IdUsuario)
                 .First();
 
@@ -468,34 +511,34 @@ namespace ServerSnakesAndLadders
 
         private Cuenta GetActiveAccountForUser(SnakeAndLaddersDBEntities1 context, int userId)
         {
-            var accounts = context.Cuenta
+            List<Cuenta> accounts = context.Cuenta
                 .AsNoTracking()
                 .Where(account => account.UsuarioIdUsuario == userId)
                 .ToList();
 
-            if (accounts.Count == 0)
+            if (accounts.Count == EMPTY_COLLECTION_COUNT)
             {
                 return null;
             }
 
-            var activeAccounts = accounts
+            List<Cuenta> activeAccounts = accounts
                 .Where(account => IsActiveStatus(account.Estado))
                 .ToList();
 
-            if (activeAccounts.Count == 0)
+            if (activeAccounts.Count == EMPTY_COLLECTION_COUNT)
             {
                 return null;
             }
 
-            if (activeAccounts.Count > 1)
+            if (activeAccounts.Count >= MULTIPLE_ITEMS_MIN_COUNT)
             {
-                Logger.WarnFormat(
-                    "Found {0} ACTIVE accounts for user {1}. Using the one with highest IdCuenta.",
+                _logger.WarnFormat(
+                    LOG_MULTIPLE_ACTIVE_ACCOUNTS_FOR_USER,
                     activeAccounts.Count,
                     userId);
             }
 
-            var selectedAccount = activeAccounts
+            Cuenta selectedAccount = activeAccounts
                 .OrderByDescending(account => account.IdCuenta)
                 .First();
 
@@ -510,16 +553,21 @@ namespace ServerSnakesAndLadders
             }
 
             string trimmed = value.Trim();
-            return trimmed.Length <= maxLength
-                ? trimmed
-                : trimmed.Substring(0, maxLength);
+
+            if (trimmed.Length <= maxLength)
+            {
+                return trimmed;
+            }
+
+            return trimmed.Substring(SUBSTRING_START_INDEX, maxLength);
         }
 
         private static string RequireParam(string value, string paramName)
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                throw new ArgumentException(paramName + " is required.", paramName);
+                string message = string.Format(ERROR_REQUIRED_TEMPLATE, paramName);
+                throw new ArgumentException(message, paramName);
             }
 
             return value;
@@ -528,8 +576,8 @@ namespace ServerSnakesAndLadders
         private static bool IsActiveStatus(byte[] status)
         {
             return status != null
-                   && status.Length > 0
-                   && status[0] == STATUS_ACTIVE;
+                   && status.Length >= STATUS_MIN_LENGTH
+                   && status[STATUS_ACTIVE_INDEX] == STATUS_ACTIVE;
         }
     }
 }

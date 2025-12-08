@@ -1,18 +1,19 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.ServiceModel;
-using System.Timers;
-using log4net;
+﻿using log4net;
+using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
-using ServerSnakesAndLadders.Common;
 using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Logic.Gameplay;
+using SnakesAndLadders.Services.Wcf.Gameplay;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.ServiceModel;
+using System.Timers;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -41,14 +42,18 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const string ERROR_GRANT_REWARD_FAILED = "Error while granting special cell reward.";
 
+        private const string ERROR_INVENTORY_UNAVAILABLE =
+            "No se pudo acceder al inventario. Intenta de nuevo más tarde.";
+
+        private const string ERROR_DICE_INVENTORY_UNAVAILABLE =
+            "No se pudo acceder a los dados equipados. Intenta de nuevo más tarde.";
+
         private const string TURN_REASON_NORMAL = "NORMAL";
         private const string TURN_REASON_PLAYER_LEFT = "PLAYER_LEFT";
 
         private const string LEAVE_REASON_PLAYER_REQUEST = "PLAYER_LEFT";
         private const string LEAVE_REASON_DISCONNECTED = "DISCONNECTED";
 
-        private const string EFFECT_TOKEN_LADDER = "LADDER";
-        private const string EFFECT_TOKEN_SNAKE = "SNAKE";
         private const string EFFECT_TOKEN_ROCKET_USED = "ROCKET_USED";
         private const string EFFECT_TOKEN_ROCKET_IGNORED = "ROCKET_IGNORED";
 
@@ -59,7 +64,6 @@ namespace SnakesAndLadders.Services.Wcf
         private const string END_REASON_BOARD_WIN = "BOARD_WIN";
         private const string END_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
         private const string END_REASON_LAST_PLAYER_REMAINING = "LAST_PLAYER_REMAINING";
-
 
         private const int INVALID_USER_ID = 0;
 
@@ -79,6 +83,8 @@ namespace SnakesAndLadders.Services.Wcf
         private readonly IInventoryRepository inventoryRepository;
         private readonly IGameResultsRepository gameResultsRepository;
 
+        private readonly GameplayInventoryService inventoryService;
+
         private readonly ConcurrentDictionary<int, GameplayLogic> gameplayByGameId =
             new ConcurrentDictionary<int, GameplayLogic>();
 
@@ -87,9 +93,6 @@ namespace SnakesAndLadders.Services.Wcf
 
         private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, string>> userNamesByGameId =
             new ConcurrentDictionary<int, ConcurrentDictionary<int, string>>();
-
-        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, PendingRocketUsage>> pendingRocketsByGameId =
-            new ConcurrentDictionary<int, ConcurrentDictionary<int, PendingRocketUsage>>();
 
         private readonly ConcurrentDictionary<int, TurnTimerState> turnTimersByGameId =
             new ConcurrentDictionary<int, TurnTimerState>();
@@ -111,6 +114,10 @@ namespace SnakesAndLadders.Services.Wcf
 
             this.gameResultsRepository = gameResultsRepository
                 ?? throw new ArgumentNullException(nameof(gameResultsRepository));
+
+            inventoryService = new GameplayInventoryService(
+                this.inventoryRepository,
+                Logger);
         }
 
         public RollDiceResponseDto RollDice(RollDiceRequestDto request)
@@ -126,9 +133,12 @@ namespace SnakesAndLadders.Services.Wcf
 
             if (request.DiceSlotNumber.HasValue)
             {
-                equippedDice = ResolveEquippedDiceForSlot(
+                equippedDice = inventoryService.ResolveEquippedDiceForSlot(
                     request.PlayerUserId,
-                    request.DiceSlotNumber.Value);
+                    request.DiceSlotNumber.Value,
+                    ERROR_USE_DICE_NO_DICE_IN_SLOT,
+                    ERROR_USE_DICE_NO_QUANTITY,
+                    ERROR_DICE_INVENTORY_UNAVAILABLE);
 
                 diceCode = equippedDice.DiceCode;
                 diceIdToConsume = equippedDice.DiceId;
@@ -140,9 +150,10 @@ namespace SnakesAndLadders.Services.Wcf
                     request.PlayerUserId,
                     diceCode);
 
-                GrantRewardsFromSpecialCells(
+                inventoryService.GrantRewardsFromSpecialCells(
                     request.PlayerUserId,
-                    moveResult);
+                    moveResult,
+                    ERROR_GRANT_REWARD_FAILED);
 
                 if (diceIdToConsume.HasValue && !string.IsNullOrWhiteSpace(diceCode))
                 {
@@ -154,14 +165,17 @@ namespace SnakesAndLadders.Services.Wcf
                     }
                     catch (Exception ex)
                     {
+                        // Error técnico, pero no detenemos la partida
                         Logger.Error("Error while consuming dice after roll.", ex);
                     }
                 }
 
-                HandlePendingRocketConsumption(
+                inventoryService.HandlePendingRocketConsumption(
                     session.GameId,
                     request.PlayerUserId,
-                    moveResult);
+                    moveResult,
+                    EFFECT_TOKEN_ROCKET_USED,
+                    EFFECT_TOKEN_ROCKET_IGNORED);
 
                 session.IsFinished = moveResult.IsGameOver;
 
@@ -184,7 +198,7 @@ namespace SnakesAndLadders.Services.Wcf
                     gameSessionStore.UpdateSession(session);
                 }
 
-                RollDiceResponseDto rollResponse = BuildRollDiceResponse(
+                RollDiceResponseDto rollResponse = GameplayResponseBuilder.BuildRollDiceResponse(
                     request,
                     moveResult);
 
@@ -387,7 +401,6 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
-
         public UseItemResponseDto UseItem(UseItemRequestDto request)
         {
             if (request == null)
@@ -413,9 +426,22 @@ namespace SnakesAndLadders.Services.Wcf
             GameSession session = GetSessionOrThrow(request.GameId);
             GameplayLogic logic = GetOrCreateGameplayLogic(session);
 
-            InventoryItemDto equippedItem = ResolveEquippedItemForSlot(
-                request.PlayerUserId,
-                request.ItemSlotNumber);
+            InventoryItemDto equippedItem;
+
+            try
+            {
+                equippedItem = inventoryService.ResolveEquippedItemForSlot(
+                    request.PlayerUserId,
+                    request.ItemSlotNumber,
+                    ERROR_USE_ITEM_NO_ITEM_IN_SLOT,
+                    ERROR_USE_ITEM_NO_QUANTITY,
+                    ERROR_INVENTORY_UNAVAILABLE);
+            }
+            catch (FaultException)
+            {
+                // Se deja pasar tal cual al cliente con mensaje amigable
+                throw;
+            }
 
             try
             {
@@ -440,7 +466,7 @@ namespace SnakesAndLadders.Services.Wcf
 
                 if (isRocket && !effectResult.WasBlockedByShield)
                 {
-                    TrackPendingRocket(
+                    inventoryService.TrackPendingRocket(
                         session.GameId,
                         request.PlayerUserId,
                         request.ItemSlotNumber,
@@ -450,13 +476,21 @@ namespace SnakesAndLadders.Services.Wcf
 
                 if (shouldConsume)
                 {
-                    inventoryRepository.ConsumeItem(
-                        request.PlayerUserId,
-                        equippedItem.ObjectId);
+                    try
+                    {
+                        inventoryRepository.ConsumeItem(
+                            request.PlayerUserId,
+                            equippedItem.ObjectId);
 
-                    inventoryRepository.RemoveItemFromSlot(
-                        request.PlayerUserId,
-                        request.ItemSlotNumber);
+                        inventoryRepository.RemoveItemFromSlot(
+                            request.PlayerUserId,
+                            request.ItemSlotNumber);
+                    }
+                    catch (Exception ex)
+                    {
+                        // No cancelamos el efecto del ítem, solo registramos el fallo de inventario
+                        Logger.Error("Unexpected error while consuming item after usage.", ex);
+                    }
                 }
 
                 GetGameStateResponseDto updatedGameState = GetGameState(
@@ -517,6 +551,10 @@ namespace SnakesAndLadders.Services.Wcf
                     EffectType = ItemEffectType.None,
                     UpdatedGameState = null
                 };
+            }
+            catch (FaultException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -613,74 +651,16 @@ namespace SnakesAndLadders.Services.Wcf
             return session;
         }
 
-        private static RollDiceResponseDto BuildRollDiceResponse(
-            RollDiceRequestDto request,
-            RollDiceResult moveResult)
-        {
-            if (request == null)
-            {
-                throw new ArgumentNullException(nameof(request));
-            }
-
-            if (moveResult == null)
-            {
-                throw new ArgumentNullException(nameof(moveResult));
-            }
-
-            MoveEffectType effectType = MapMoveEffectType(moveResult.ExtraInfo);
-
-            return new RollDiceResponseDto
-            {
-                Success = true,
-                FailureReason = null,
-                PlayerUserId = request.PlayerUserId,
-                FromCellIndex = moveResult.FromCellIndex,
-                ToCellIndex = moveResult.ToCellIndex,
-                DiceValue = moveResult.DiceValue,
-                MoveResult = effectType,
-                ExtraInfo = moveResult.ExtraInfo,
-                MessageIndex = moveResult.MessageIndex,
-                UpdatedTokens = null,
-                GrantedItemCode = moveResult.GrantedItemCode,
-                GrantedDiceCode = moveResult.GrantedDiceCode
-            };
-        }
-
-        private static MoveEffectType MapMoveEffectType(string extraInfo)
-        {
-            if (string.IsNullOrWhiteSpace(extraInfo))
-            {
-                return MoveEffectType.None;
-            }
-
-            string normalized = extraInfo.ToUpperInvariant();
-
-            if (normalized.Contains(EFFECT_TOKEN_LADDER))
-            {
-                return MoveEffectType.Ladder;
-            }
-
-            if (normalized.Contains(EFFECT_TOKEN_SNAKE))
-            {
-                return MoveEffectType.Snake;
-            }
-
-            return MoveEffectType.None;
-        }
-
         private static int GetCoinsForPosition(int position)
         {
             switch (position)
             {
                 case 1:
                     return COINS_FIRST_PLACE;
-
                 case 2:
                     return COINS_SECOND_PLACE;
-
                 case 3:
                     return COINS_THIRD_PLACE;
-
                 default:
                     return 0;
             }
@@ -799,8 +779,7 @@ namespace SnakesAndLadders.Services.Wcf
                 gameSessionStore.UpdateSession(session);
 
                 Logger.InfoFormat(
-                    "Game finalized successfully. GameId={0}, WinnerUserId={1}, RewardedUsers={2}" +
-                    string.Empty,
+                    "Game finalized successfully. GameId={0}, WinnerUserId={1}, RewardedUsers={2}",
                     session.GameId,
                     session.WinnerUserId,
                     coinsByUserId.Count);
@@ -821,7 +800,7 @@ namespace SnakesAndLadders.Services.Wcf
                 return;
             }
 
-            PlayerMoveResultDto moveDto = BuildPlayerMoveResultDto(
+            PlayerMoveResultDto moveDto = GameplayResponseBuilder.BuildPlayerMoveResultDto(
                 previousTurnUserId,
                 moveResult);
 
@@ -871,33 +850,6 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
-        private static PlayerMoveResultDto BuildPlayerMoveResultDto(
-            int userId,
-            RollDiceResult moveResult)
-        {
-            if (moveResult == null)
-            {
-                throw new ArgumentNullException(nameof(moveResult));
-            }
-
-            MoveEffectType effectType = MapMoveEffectType(moveResult.ExtraInfo);
-
-            return new PlayerMoveResultDto
-            {
-                UserId = userId,
-                FromCellIndex = moveResult.FromCellIndex,
-                ToCellIndex = moveResult.ToCellIndex,
-                DiceValue = moveResult.DiceValue,
-                HasExtraTurn = false,
-                HasWon = moveResult.IsGameOver,
-                Message = moveResult.ExtraInfo,
-                EffectType = effectType,
-                MessageIndex = moveResult.MessageIndex,
-                GrantedItemCode = moveResult.GrantedItemCode,
-                GrantedDiceCode = moveResult.GrantedDiceCode
-            };
-        }
-
         private GameStateSnapshot GetCurrentStateSafe(GameSession session)
         {
             try
@@ -912,26 +864,6 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
-        private InventoryItemDto ResolveEquippedItemForSlot(int userId, byte slotNumber)
-        {
-            var items = inventoryRepository.GetUserItems(userId);
-
-            InventoryItemDto equippedItem = items
-                .FirstOrDefault(i => i.SlotNumber.HasValue && i.SlotNumber.Value == slotNumber);
-
-            if (equippedItem == null)
-            {
-                throw new FaultException(ERROR_USE_ITEM_NO_ITEM_IN_SLOT);
-            }
-
-            if (equippedItem.Quantity <= 0)
-            {
-                throw new FaultException(ERROR_USE_ITEM_NO_QUANTITY);
-            }
-
-            return equippedItem;
-        }
-
         public void RegisterTurnTimeout(int gameId)
         {
             if (gameId <= 0)
@@ -942,84 +874,6 @@ namespace SnakesAndLadders.Services.Wcf
             Logger.InfoFormat(
                 "RegisterTurnTimeout called for GameId={0}, but timeouts are handled by server timer.",
                 gameId);
-        }
-
-        private InventoryDiceDto ResolveEquippedDiceForSlot(int userId, byte slotNumber)
-        {
-            var diceList = inventoryRepository.GetUserDice(userId);
-
-            InventoryDiceDto equippedDice = diceList
-                .FirstOrDefault(d => d.SlotNumber.HasValue && d.SlotNumber.Value == slotNumber);
-
-            if (equippedDice == null)
-            {
-                throw new FaultException(ERROR_USE_DICE_NO_DICE_IN_SLOT);
-            }
-
-            if (equippedDice.Quantity <= 0)
-            {
-                throw new FaultException(ERROR_USE_DICE_NO_QUANTITY);
-            }
-
-            return equippedDice;
-        }
-
-        private void TrackPendingRocket(
-            int gameId,
-            int userId,
-            byte slotNumber,
-            int objectId,
-            string itemCode)
-        {
-            var pendingForGame = pendingRocketsByGameId.GetOrAdd(
-                gameId,
-                _ => new ConcurrentDictionary<int, PendingRocketUsage>());
-
-            pendingForGame[userId] = new PendingRocketUsage
-            {
-                GameId = gameId,
-                UserId = userId,
-                SlotNumber = slotNumber,
-                ObjectId = objectId,
-                ItemCode = itemCode
-            };
-        }
-
-        private void HandlePendingRocketConsumption(
-            int gameId,
-            int userId,
-            RollDiceResult moveResult)
-        {
-            if (!pendingRocketsByGameId.TryGetValue(gameId, out var pendingForGame))
-            {
-                return;
-            }
-
-            if (!pendingForGame.TryGetValue(userId, out PendingRocketUsage pending))
-            {
-                return;
-            }
-
-            string extraInfo = moveResult.ExtraInfo ?? string.Empty;
-            string normalized = extraInfo.ToUpperInvariant();
-
-            bool rocketUsed = normalized.Contains(EFFECT_TOKEN_ROCKET_USED);
-            bool rocketIgnored = normalized.Contains(EFFECT_TOKEN_ROCKET_IGNORED);
-
-            if (rocketUsed)
-            {
-                try
-                {
-                    inventoryRepository.ConsumeItem(userId, pending.ObjectId);
-                    inventoryRepository.RemoveItemFromSlot(userId, pending.SlotNumber);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error("Error while consuming rocket item after dice roll.", ex);
-                }
-            }
-
-            pendingForGame.TryRemove(userId, out _);
         }
 
         private void RegisterCallback(
@@ -1071,7 +925,6 @@ namespace SnakesAndLadders.Services.Wcf
             {
                 if (gameSessionStore.TryGetSession(gameId, out session))
                 {
-                    // 1) Sacar al jugador de la lista de jugadores activos de la partida
                     var updatedPlayers = session.PlayerUserIds
                         .Where(id => id != userId && id != INVALID_USER_ID)
                         .ToList();
@@ -1093,7 +946,6 @@ namespace SnakesAndLadders.Services.Wcf
                         }
                     }
 
-                    // 2) Regla: si solo queda 1 jugador en la partida, la partida termina
                     int activePlayersCount = session.PlayerUserIds
                         .Where(id => id != INVALID_USER_ID)
                         .Count();
@@ -1143,7 +995,6 @@ namespace SnakesAndLadders.Services.Wcf
 
             NotifyPlayerLeft(leftDto);
 
-            // Si la partida terminó por quedar solo uno, no hay nuevo turno.
             if (!gameFinishedByLastPlayer &&
                 wasCurrentTurn &&
                 newCurrentTurnUserId.HasValue &&
@@ -1174,7 +1025,6 @@ namespace SnakesAndLadders.Services.Wcf
 
             CleanupDictionariesIfEmpty(gameId, callbacksForGame);
         }
-
 
         private static int FindNextPlayerId(GameSession session, int leavingUserId)
         {
@@ -1209,7 +1059,6 @@ namespace SnakesAndLadders.Services.Wcf
 
             callbacksByGameId.TryRemove(gameId, out _);
             userNamesByGameId.TryRemove(gameId, out _);
-            pendingRocketsByGameId.TryRemove(gameId, out _);
 
             StopTurnTimer(gameId);
         }
@@ -1451,57 +1300,6 @@ namespace SnakesAndLadders.Services.Wcf
                     CurrentTurnUserId = state.CurrentTurnUserId,
                     RemainingSeconds = newRemaining
                 });
-        }
-
-        private void GrantRewardsFromSpecialCells(
-            int userId,
-            RollDiceResult moveResult)
-        {
-            if (moveResult == null)
-            {
-                return;
-            }
-
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(moveResult.GrantedItemCode))
-                {
-                    OperationResult<bool> itemResult = inventoryRepository.GrantItemToUser(
-                        userId,
-                        moveResult.GrantedItemCode);
-
-                    if (!itemResult.IsSuccess)
-                    {
-                        Logger.WarnFormat(
-                            "{0} ItemCode={1}, UserId={2}, Reason={3}",
-                            ERROR_GRANT_REWARD_FAILED,
-                            moveResult.GrantedItemCode,
-                            userId,
-                            itemResult.ErrorMessage);
-                    }
-                }
-
-                if (!string.IsNullOrWhiteSpace(moveResult.GrantedDiceCode))
-                {
-                    OperationResult<bool> diceResult = inventoryRepository.GrantDiceToUser(
-                        userId,
-                        moveResult.GrantedDiceCode);
-
-                    if (!diceResult.IsSuccess)
-                    {
-                        Logger.WarnFormat(
-                            "{0} DiceCode={1}, UserId={2}, Reason={3}",
-                            ERROR_GRANT_REWARD_FAILED,
-                            moveResult.GrantedDiceCode,
-                            userId,
-                            diceResult.ErrorMessage);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ERROR_GRANT_REWARD_FAILED, ex);
-            }
         }
     }
 }

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Configuration;
-using System.IO;
-using System.ServiceModel;
-using log4net;
+﻿using log4net;
 using log4net.Config;
 using ServerSnakesAndLadders;
 using SnakeAndLadders.Contracts.Interfaces;
@@ -12,7 +8,12 @@ using SnakesAndLadders.Host.Helpers;
 using SnakesAndLadders.Server.Helpers;
 using SnakesAndLadders.Services;
 using SnakesAndLadders.Services.Logic;
+using SnakesAndLadders.Services.Logic.Auth;
 using SnakesAndLadders.Services.Wcf;
+using System;
+using System.Configuration;
+using System.IO;
+using System.ServiceModel;
 
 internal static class ServerLogBootstrap
 {
@@ -61,6 +62,10 @@ internal static class Program
                 ConfigurationManager.AppSettings["ChatFilePath"] ??
                 @"%LOCALAPPDATA%\SnakesAndLadders\Chat\");
 
+
+            var tokenService = new TokenService();
+            var verificationCodeStore = new VerificationCodeStore();
+
             var accountsRepo = new AccountsRepository();
             var userRepo = new UserRepository();
             var lobbyRepo = new LobbyRepository();
@@ -92,7 +97,7 @@ internal static class Program
             var playerReportApp = new PlayerReportAppService( reportRepo, sanctionRepo, 
                 accountStatusRepo, playerSessionManager);
             var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp, 
-                userRepository);
+                userRepository,tokenService,verificationCodeStore);
             Func<string, int> getUserId = token => authApp.GetUserIdFromToken(token);
             var userApp = new UserAppService(userRepo, accountStatusRepo);
             var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);

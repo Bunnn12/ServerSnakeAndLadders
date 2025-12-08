@@ -7,7 +7,7 @@ using log4net;
 
 namespace SnakesAndLadders.Services.Logic
 {
-    internal sealed class GameBoardBuilder
+    public sealed class GameBoardBuilder
     {
 
         private static readonly ILog Logger = LogManager.GetLogger(typeof(GameBoardBuilder));
@@ -21,7 +21,7 @@ namespace SnakesAndLadders.Services.Logic
         private const int BOARD_SIZE_12_ROWS = 12;
         private const int BOARD_SIZE_12_COLUMNS = 12;
 
-        private const int SPECIAL_CELLS_8_ONE_TYPE = 30;
+        private const int SPECIAL_CELLS_8_ONE_TYPE = 3;
         private const int SPECIAL_CELLS_8_TWO_TYPES = 4;
         private const int SPECIAL_CELLS_8_THREE_TYPES = 6;
 
@@ -42,7 +42,7 @@ namespace SnakesAndLadders.Services.Logic
 
         private const int SNAKES_8_EASY = 4;
         private const int SNAKES_8_MEDIUM = 5;
-        private const int SNAKES_8_HARD = 20; //6
+        private const int SNAKES_8_HARD = 6; 
 
         private const int SNAKES_10_EASY = 5;
         private const int SNAKES_10_MEDIUM = 6;

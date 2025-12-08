@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.Entity.Infrastructure;
 using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using log4net;
 using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
@@ -16,15 +14,93 @@ namespace SnakesAndLadders.Data.Repositories
 {
     public sealed class ShopRepository : IShopRepository
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(ShopRepository));
-        private static readonly Random RandomInstance = new Random();
-        private const byte STATUS_ACTIVE = 0x01;
+        private static readonly ILog _logger = LogManager.GetLogger(typeof(ShopRepository));
+        private static readonly Random _random = new Random();
 
-        private readonly Func<SnakeAndLaddersDBEntities1> contextFactory;
+        private const byte STATUS_ACTIVE = 0x01;
+        private const int STATUS_MIN_LENGTH = 1;
+        private const int STATUS_ACTIVE_INDEX = 0;
+
+        private const int MIN_VALID_DICE_ID = 1;
+        private const int RANDOM_MIN_VALUE = 0;
+
+        private const string LOG_WARN_NO_AVATAR_CANDIDATES_FOR_RARITY =
+            "No avatar candidates found for rarity {0}.";
+
+        private const string LOG_WARN_ITEM_NOT_FOUND_FOR_CODE =
+            "Item not found for code {0}.";
+
+        private const string LOG_SQL_ERROR_PURCHASE_AVATAR_CHEST =
+            "SQL error while purchasing avatar chest.";
+
+        private const string LOG_EF_ERROR_PURCHASE_AVATAR_CHEST =
+            "EF error while purchasing avatar chest.";
+
+        private const string LOG_UNEXPECTED_ERROR_PURCHASE_AVATAR_CHEST =
+            "Unexpected error while purchasing avatar chest.";
+
+        private const string LOG_FATAL_ERROR_CREATE_CONTEXT_AVATAR_CHEST =
+            "Fatal error creating EF context for avatar chest.";
+
+        private const string LOG_SQL_ERROR_PURCHASE_STICKER_CHEST =
+            "SQL error while purchasing sticker chest.";
+
+        private const string LOG_EF_ERROR_PURCHASE_STICKER_CHEST =
+            "EF error while purchasing sticker chest.";
+
+        private const string LOG_UNEXPECTED_ERROR_PURCHASE_STICKER_CHEST =
+            "Unexpected error while purchasing sticker chest.";
+
+        private const string LOG_FATAL_ERROR_CREATE_CONTEXT_STICKER_CHEST =
+            "Fatal error creating EF context for sticker chest.";
+
+        private const string LOG_SQL_ERROR_PURCHASE_DICE =
+            "SQL error while purchasing dice.";
+
+        private const string LOG_EF_ERROR_PURCHASE_DICE =
+            "EF error while purchasing dice.";
+
+        private const string LOG_UNEXPECTED_ERROR_PURCHASE_DICE =
+            "Unexpected error while purchasing dice.";
+
+        private const string LOG_FATAL_ERROR_CREATE_CONTEXT_DICE =
+            "Fatal error creating EF context for dice purchase.";
+
+        private const string LOG_SQL_ERROR_PURCHASE_ITEM_CHEST =
+            "SQL error while purchasing item chest.";
+
+        private const string LOG_EF_ERROR_PURCHASE_ITEM_CHEST =
+            "EF error while purchasing item chest.";
+
+        private const string LOG_UNEXPECTED_ERROR_PURCHASE_ITEM_CHEST =
+            "Unexpected error while purchasing item chest.";
+
+        private const string LOG_FATAL_ERROR_CREATE_CONTEXT_ITEM_CHEST =
+            "Fatal error creating EF context for item chest.";
+
+        private const string LOG_SQL_ERROR_GET_CURRENT_COINS =
+            "SQL error while getting current coins.";
+
+        private const string LOG_EF_ERROR_GET_CURRENT_COINS =
+            "EF error while getting current coins.";
+
+        private const string LOG_UNEXPECTED_ERROR_GET_CURRENT_COINS =
+            "Unexpected error while getting current coins.";
+
+        private const string LOG_SQL_ERROR_GET_STICKERS_FOR_USER =
+            "SQL error while getting stickers for user.";
+
+        private const string LOG_EF_ERROR_GET_STICKERS_FOR_USER =
+            "EF error while getting stickers for user.";
+
+        private const string LOG_UNEXPECTED_ERROR_GET_STICKERS_FOR_USER =
+            "Unexpected error while getting stickers for user.";
+
+        private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
 
         public ShopRepository(Func<SnakeAndLaddersDBEntities1> contextFactory = null)
         {
-            this.contextFactory = contextFactory ?? (() => new SnakeAndLaddersDBEntities1());
+            _contextFactory = contextFactory ?? (() => new SnakeAndLaddersDBEntities1());
         }
 
         public OperationResult<ShopRewardDto> PurchaseAvatarChest(AvatarChestPurchaseDto request)
@@ -41,7 +117,7 @@ namespace SnakesAndLadders.Data.Repositories
 
             try
             {
-                using (SnakeAndLaddersDBEntities1 context = contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 using (DbContextTransaction transaction = context.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
                 {
                     try
@@ -70,7 +146,10 @@ namespace SnakesAndLadders.Data.Repositories
 
                         if (!candidates.Any())
                         {
-                            Logger.WarnFormat("No avatar candidates found for rarity {0}.", rarityText);
+                            _logger.WarnFormat(
+                                LOG_WARN_NO_AVATAR_CANDIDATES_FOR_RARITY,
+                                rarityText);
+
                             return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_NO_AVATARS_FOR_RARITY);
                         }
 
@@ -78,7 +157,10 @@ namespace SnakesAndLadders.Data.Repositories
                             .Where(a => !unlockedIds.Contains(a.IdAvatar))
                             .ToList();
 
-                        List<Avatar> selectionPool = notOwned.Any() ? notOwned : candidates;
+                        List<Avatar> selectionPool = notOwned.Any()
+                            ? notOwned
+                            : candidates;
+
                         Avatar selectedAvatar = GetRandomAvatar(selectionPool);
 
                         bool isNewForUser = !unlockedIds.Contains(selectedAvatar.IdAvatar);
@@ -117,26 +199,26 @@ namespace SnakesAndLadders.Data.Repositories
                     catch (SqlException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("SQL error while purchasing avatar chest.", ex);
+                        _logger.Error(LOG_SQL_ERROR_PURCHASE_AVATAR_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_DB);
                     }
                     catch (DbUpdateException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("EF error while purchasing avatar chest.", ex);
+                        _logger.Error(LOG_EF_ERROR_PURCHASE_AVATAR_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_PERSISTENCE);
                     }
                     catch (Exception ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("Unexpected error while purchasing avatar chest.", ex);
+                        _logger.Error(LOG_UNEXPECTED_ERROR_PURCHASE_AVATAR_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_UNEXPECTED);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error("Fatal error creating EF context for avatar chest.", ex);
+                _logger.Error(LOG_FATAL_ERROR_CREATE_CONTEXT_AVATAR_CHEST, ex);
                 return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_FATAL);
             }
         }
@@ -148,21 +230,29 @@ namespace SnakesAndLadders.Data.Repositories
                 return ShopChestRarity.Common;
             }
 
-            switch (packCode.ToUpperInvariant())
+            string normalizedCode = packCode.ToUpperInvariant();
+
+            if (string.Equals(normalizedCode, ShopRulesRepository.STICKER_PACK_SAUL, StringComparison.Ordinal))
             {
-                case ShopRulesRepository.STICKER_PACK_SAUL:
-                    return ShopChestRarity.Epic;
-
-                case ShopRulesRepository.STICKER_PACK_LIZ:
-                    return ShopChestRarity.Epic;
-
-                case ShopRulesRepository.STICKER_PACK_REVO:
-                case ShopRulesRepository.STICKER_PACK_OCHARAN:
-                    return ShopChestRarity.Legendary;
-
-                default:
-                    return ShopChestRarity.Common;
+                return ShopChestRarity.Epic;
             }
+
+            if (string.Equals(normalizedCode, ShopRulesRepository.STICKER_PACK_LIZ, StringComparison.Ordinal))
+            {
+                return ShopChestRarity.Epic;
+            }
+
+            if (string.Equals(normalizedCode, ShopRulesRepository.STICKER_PACK_REVO, StringComparison.Ordinal))
+            {
+                return ShopChestRarity.Legendary;
+            }
+
+            if (string.Equals(normalizedCode, ShopRulesRepository.STICKER_PACK_OCHARAN, StringComparison.Ordinal))
+            {
+                return ShopChestRarity.Legendary;
+            }
+
+            return ShopChestRarity.Common;
         }
 
         public OperationResult<ShopRewardDto> PurchaseStickerChest(StickerChestPurchaseDto request)
@@ -179,7 +269,7 @@ namespace SnakesAndLadders.Data.Repositories
 
             try
             {
-                using (SnakeAndLaddersDBEntities1 context = contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 using (DbContextTransaction transaction = context.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
                 {
                     try
@@ -210,7 +300,10 @@ namespace SnakesAndLadders.Data.Repositories
 
                         if (!candidates.Any())
                         {
-                            Logger.WarnFormat("No sticker pack candidates found for rarity {0}.", request.Rarity);
+                            _logger.WarnFormat(
+                                "No sticker pack candidates found for rarity {0}.",
+                                request.Rarity);
+
                             return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_NO_STICKER_PACKS);
                         }
 
@@ -218,7 +311,10 @@ namespace SnakesAndLadders.Data.Repositories
                             .Where(p => !ownedPackIds.Contains(p.IdPaqueteStickers))
                             .ToList();
 
-                        List<PaqueteStickers> selectionPool = notOwned.Any() ? notOwned : candidates;
+                        List<PaqueteStickers> selectionPool = notOwned.Any()
+                            ? notOwned
+                            : candidates;
+
                         PaqueteStickers selectedPack = GetRandomStickerPack(selectionPool);
 
                         bool isNewForUser = !ownedPackIds.Contains(selectedPack.IdPaqueteStickers);
@@ -257,26 +353,26 @@ namespace SnakesAndLadders.Data.Repositories
                     catch (SqlException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("SQL error while purchasing sticker chest.", ex);
+                        _logger.Error(LOG_SQL_ERROR_PURCHASE_STICKER_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_DB);
                     }
                     catch (DbUpdateException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("EF error while purchasing sticker chest.", ex);
+                        _logger.Error(LOG_EF_ERROR_PURCHASE_STICKER_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_PERSISTENCE);
                     }
                     catch (Exception ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("Unexpected error while purchasing sticker chest.", ex);
+                        _logger.Error(LOG_UNEXPECTED_ERROR_PURCHASE_STICKER_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_UNEXPECTED);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error("Fatal error creating EF context for sticker chest.", ex);
+                _logger.Error(LOG_FATAL_ERROR_CREATE_CONTEXT_STICKER_CHEST, ex);
                 return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_FATAL);
             }
         }
@@ -293,14 +389,14 @@ namespace SnakesAndLadders.Data.Repositories
                 return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_INVALID_USER_ID);
             }
 
-            if (request.DiceId < 1)
+            if (request.DiceId < MIN_VALID_DICE_ID)
             {
                 return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_INVALID_DICE_ID);
             }
 
             try
             {
-                using (SnakeAndLaddersDBEntities1 context = contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 using (DbContextTransaction transaction = context.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
                 {
                     try
@@ -368,26 +464,26 @@ namespace SnakesAndLadders.Data.Repositories
                     catch (SqlException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("SQL error while purchasing dice.", ex);
+                        _logger.Error(LOG_SQL_ERROR_PURCHASE_DICE, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_DB);
                     }
                     catch (DbUpdateException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("EF error while purchasing dice.", ex);
+                        _logger.Error(LOG_EF_ERROR_PURCHASE_DICE, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_PERSISTENCE);
                     }
                     catch (Exception ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("Unexpected error while purchasing dice.", ex);
+                        _logger.Error(LOG_UNEXPECTED_ERROR_PURCHASE_DICE, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_UNEXPECTED);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error("Fatal error creating EF context for dice purchase.", ex);
+                _logger.Error(LOG_FATAL_ERROR_CREATE_CONTEXT_DICE, ex);
                 return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_FATAL);
             }
         }
@@ -406,7 +502,7 @@ namespace SnakesAndLadders.Data.Repositories
 
             try
             {
-                using (SnakeAndLaddersDBEntities1 context = contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 using (DbContextTransaction transaction = context.Database.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
                 {
                     try
@@ -429,7 +525,10 @@ namespace SnakesAndLadders.Data.Repositories
 
                         if (item == null)
                         {
-                            Logger.WarnFormat("Item not found for code {0}.", itemCode);
+                            _logger.WarnFormat(
+                                LOG_WARN_ITEM_NOT_FOUND_FOR_CODE,
+                                itemCode);
+
                             return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_ITEM_NOT_FOUND);
                         }
 
@@ -479,26 +578,26 @@ namespace SnakesAndLadders.Data.Repositories
                     catch (SqlException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("SQL error while purchasing item chest.", ex);
+                        _logger.Error(LOG_SQL_ERROR_PURCHASE_ITEM_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_DB);
                     }
                     catch (DbUpdateException ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("EF error while purchasing item chest.", ex);
+                        _logger.Error(LOG_EF_ERROR_PURCHASE_ITEM_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_PERSISTENCE);
                     }
                     catch (Exception ex)
                     {
                         transaction.Rollback();
-                        Logger.Error("Unexpected error while purchasing item chest.", ex);
+                        _logger.Error(LOG_UNEXPECTED_ERROR_PURCHASE_ITEM_CHEST, ex);
                         return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_UNEXPECTED);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error("Fatal error creating EF context for item chest.", ex);
+                _logger.Error(LOG_FATAL_ERROR_CREATE_CONTEXT_ITEM_CHEST, ex);
                 return OperationResult<ShopRewardDto>.Failure(ShopRulesRepository.ERROR_FATAL);
             }
         }
@@ -510,9 +609,9 @@ namespace SnakesAndLadders.Data.Repositories
                 throw new ArgumentOutOfRangeException(nameof(maxExclusive));
             }
 
-            lock (RandomInstance)
+            lock (_random)
             {
-                return RandomInstance.Next(0, maxExclusive);
+                return _random.Next(RANDOM_MIN_VALUE, maxExclusive);
             }
         }
 
@@ -527,9 +626,9 @@ namespace SnakesAndLadders.Data.Repositories
 
             int roll;
 
-            lock (RandomInstance)
+            lock (_random)
             {
-                roll = RandomInstance.Next(0, totalWeight);
+                roll = _random.Next(RANDOM_MIN_VALUE, totalWeight);
             }
 
             if (roll < ShopRulesRepository.ITEM_WEIGHT_ROCKET)
@@ -570,7 +669,7 @@ namespace SnakesAndLadders.Data.Repositories
 
             try
             {
-                using (SnakeAndLaddersDBEntities1 context = contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 {
                     Usuario user = context.Usuario.SingleOrDefault(u => u.IdUsuario == userId);
                     if (user == null)
@@ -584,17 +683,17 @@ namespace SnakesAndLadders.Data.Repositories
             }
             catch (SqlException ex)
             {
-                Logger.Error("SQL error while getting current coins.", ex);
+                _logger.Error(LOG_SQL_ERROR_GET_CURRENT_COINS, ex);
                 return OperationResult<int>.Failure(ShopRulesRepository.ERROR_DB);
             }
             catch (DbUpdateException ex)
             {
-                Logger.Error("EF error while getting current coins.", ex);
+                _logger.Error(LOG_EF_ERROR_GET_CURRENT_COINS, ex);
                 return OperationResult<int>.Failure(ShopRulesRepository.ERROR_PERSISTENCE);
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error while getting current coins.", ex);
+                _logger.Error(LOG_UNEXPECTED_ERROR_GET_CURRENT_COINS, ex);
                 return OperationResult<int>.Failure(ShopRulesRepository.ERROR_UNEXPECTED);
             }
         }
@@ -603,7 +702,7 @@ namespace SnakesAndLadders.Data.Repositories
         {
             if (avatar == null)
             {
-                return 0;
+                return ShopRulesRepository.AVATAR_WEIGHT_DEFAULT;
             }
 
             string code = avatar.CodigoAvatar;
@@ -668,9 +767,9 @@ namespace SnakesAndLadders.Data.Repositories
 
             int roll;
 
-            lock (RandomInstance)
+            lock (_random)
             {
-                roll = RandomInstance.Next(0, totalWeight);
+                roll = _random.Next(RANDOM_MIN_VALUE, totalWeight);
             }
 
             foreach (Avatar avatar in avatars)
@@ -697,7 +796,7 @@ namespace SnakesAndLadders.Data.Repositories
         {
             if (pack == null)
             {
-                return 0;
+                return ShopRulesRepository.STICKER_PACK_WEIGHT_DEFAULT;
             }
 
             string code = pack.CodigoPaqueteStickers;
@@ -757,9 +856,9 @@ namespace SnakesAndLadders.Data.Repositories
 
             int roll;
 
-            lock (RandomInstance)
+            lock (_random)
             {
-                roll = RandomInstance.Next(0, totalWeight);
+                roll = _random.Next(RANDOM_MIN_VALUE, totalWeight);
             }
 
             foreach (PaqueteStickers pack in packs)
@@ -781,6 +880,7 @@ namespace SnakesAndLadders.Data.Repositories
 
             return packs[packs.Count - 1];
         }
+
         public OperationResult<List<StickerDto>> GetUserStickers(int userId)
         {
             if (userId < ShopRulesRepository.MIN_USER_ID)
@@ -790,7 +890,7 @@ namespace SnakesAndLadders.Data.Repositories
 
             try
             {
-                using (SnakeAndLaddersDBEntities1 context = contextFactory())
+                using (SnakeAndLaddersDBEntities1 context = _contextFactory())
                 {
                     int? defaultPackId = context.PaqueteStickers
                         .Where(p => p.CodigoPaqueteStickers == ShopRulesRepository.STICKER_PACK_DEFAULT)
@@ -821,8 +921,8 @@ namespace SnakesAndLadders.Data.Repositories
                     List<Sticker> activeStickers = dbStickers
                         .Where(s =>
                             s.Estado != null &&
-                            s.Estado.Length > 0 &&
-                            s.Estado[0] == STATUS_ACTIVE)
+                            s.Estado.Length >= STATUS_MIN_LENGTH &&
+                            s.Estado[STATUS_ACTIVE_INDEX] == STATUS_ACTIVE)
                         .ToList();
 
                     if (activeStickers.Count == 0)
@@ -847,20 +947,19 @@ namespace SnakesAndLadders.Data.Repositories
             }
             catch (SqlException ex)
             {
-                Logger.Error("SQL error while getting stickers for user.", ex);
+                _logger.Error(LOG_SQL_ERROR_GET_STICKERS_FOR_USER, ex);
                 return OperationResult<List<StickerDto>>.Failure(ShopRulesRepository.ERROR_DB);
             }
             catch (DbUpdateException ex)
             {
-                Logger.Error("EF error while getting stickers for user.", ex);
+                _logger.Error(LOG_EF_ERROR_GET_STICKERS_FOR_USER, ex);
                 return OperationResult<List<StickerDto>>.Failure(ShopRulesRepository.ERROR_PERSISTENCE);
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error while getting stickers for user.", ex);
+                _logger.Error(LOG_UNEXPECTED_ERROR_GET_STICKERS_FOR_USER, ex);
                 return OperationResult<List<StickerDto>>.Failure(ShopRulesRepository.ERROR_UNEXPECTED);
             }
         }
     }
-
 }

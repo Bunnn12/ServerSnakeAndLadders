@@ -48,15 +48,27 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Logic\AuthAppService.cs" />
+    <Compile Include="Logic\Auth\ITokenService.cs" />
+    <Compile Include="Logic\Auth\IVerificationCodeStore.cs" />
+    <Compile Include="Logic\Auth\TokenService.cs" />
+    <Compile Include="Logic\Auth\VerificationCodeEntry.cs" />
+    <Compile Include="Logic\Auth\VerificationCodeStore.cs" />
     <Compile Include="Logic\ChatAppService.cs" />
     <Compile Include="Logic\FriendsAppService.cs" />
     <Compile Include="Logic\GameBoardBuilder.cs" />
     <Compile Include="Logic\GameplayLogic.cs" />
+    <Compile Include="Logic\Gameplay\BoardNavigator.cs" />
+    <Compile Include="Logic\Gameplay\DiceManager.cs" />
     <Compile Include="Logic\Gameplay\GameStateSnapshot.cs" />
+    <Compile Include="Logic\Gameplay\IBoardNavigator.cs" />
+    <Compile Include="Logic\Gameplay\IDiceManager.cs" />
+    <Compile Include="Logic\Gameplay\IItemEffectManager.cs" />
+    <Compile Include="Logic\Gameplay\ItemEffectManager.cs" />
     <Compile Include="Logic\Gameplay\ItemEffectResult.cs" />
     <Compile Include="Logic\Gameplay\PendingRocketUsage.cs" />
     <Compile Include="Logic\Gameplay\PlayerRuntimeState.cs" />
     <Compile Include="Logic\Gameplay\RollDiceResult.cs" />
+    <Compile Include="Logic\Gameplay\SpecialCellResult.cs" />
     <Compile Include="Logic\Gameplay\TurnTimeoutResult.cs" />
     <Compile Include="Logic\Gameplay\TurnTimerState.cs" />
     <Compile Include="Logic\InMemoryGameSessionStore.cs" />
@@ -73,6 +85,9 @@
     <Compile Include="Wcf\FriendsService.cs" />
     <Compile Include="Wcf\GameBoardService.cs" />
     <Compile Include="Wcf\GameplayService.cs" />
+    <Compile Include="Wcf\Gameplay\GameplayInventoryService.cs" />
+    <Compile Include="Wcf\Gameplay\GameplayResponseBuilder.cs" />
+    <Compile Include="Wcf\Gameplay\PendingRocketUsage.cs" />
     <Compile Include="Wcf\InventoryService.cs" />
     <Compile Include="Wcf\LobbyService.cs" />
     <Compile Include="Wcf\MatchInvitationService.cs" />
@@ -96,5 +111,6 @@
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

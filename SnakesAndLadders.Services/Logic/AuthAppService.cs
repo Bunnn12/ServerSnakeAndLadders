@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data.SqlClient;
@@ -9,91 +8,155 @@ using log4net;
 using ServerSnakesAndLadders.Common;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Services.Logic.Auth;
 
 namespace SnakesAndLadders.Services.Logic
 {
     public sealed class AuthAppService : IAuthAppService
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(AuthAppService));
+        private static readonly ILog _logger = LogManager.GetLogger(typeof(AuthAppService));
 
         private readonly IAccountsRepository _accountsRepository;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IEmailSender _emailSender;
         private readonly IPlayerReportAppService _playerReportAppService;
         private readonly IUserRepository _userRepository;
+        private readonly ITokenService _tokenService;
+        private readonly IVerificationCodeStore _verificationCodeStore;
 
-        private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpiresUtc, DateTime LastSentUtc)> _verificationCodesCache =
-            new ConcurrentDictionary<string, (string, DateTime, DateTime)>(StringComparer.OrdinalIgnoreCase);
+        private const int VerificationCodeDigits = 6;
+        private const int RandomBytesLength = 4;
 
-        private const int VERIFICATION_CODE_DIGITS = 6;
-        private const int RANDOM_BYTES_LENGTH = 4;
+        private const int DefaultTokenMinutes = 10080;
 
-        private static readonly TimeSpan VERIFICATION_TTL = TimeSpan.FromMinutes(10);
-        private static readonly TimeSpan RESEND_WINDOW = TimeSpan.FromSeconds(45);
+        private const int PasswordMinLength = 8;
+        private const int PasswordMaxLength = 64;
+        private const int PasswordHistoryLimit = 3;
 
-        private const string AUTH_CODE_OK = "Auth.Ok";
-        private const string AUTH_CODE_BANNED = "Auth.Banned";
-        private const string AUTH_CODE_INVALID_REQUEST = "Auth.InvalidRequest";
-        private const string AUTH_CODE_EMAIL_ALREADY_EXISTS = "Auth.EmailAlreadyExists";
-        private const string AUTH_CODE_SERVER_ERROR = "Auth.ServerError";
-        private const string AUTH_CODE_INVALID_CREDENTIALS = "Auth.InvalidCredentials";
-        private const string AUTH_CODE_EMAIL_REQUIRED = "Auth.EmailRequired";
-        private const string AUTH_CODE_THROTTLE_WAIT = "Auth.ThrottleWait";
-        private const string AUTH_CODE_EMAIL_SEND_FAILED = "Auth.EmailSendFailed";
-        private const string AUTH_CODE_CODE_NOT_REQUESTED = "Auth.CodeNotRequested";
-        private const string AUTH_CODE_CODE_EXPIRED = "Auth.CodeExpired";
-        private const string AUTH_CODE_CODE_INVALID = "Auth.CodeInvalid";
-        private const string AUTH_CODE_PASSWORD_WEAK = "Auth.PasswordWeak";
-        private const string AUTH_CODE_PASSWORD_REUSED = "Auth.PasswordReused";
-        private const string AUTH_CODE_EMAIL_NOT_FOUND = "Auth.EmailNotFound";
+        private const int InvalidUserId = 0;
+        private const int MinValidUserId = 1;
 
-        private const string META_KEY_SANCTION_TYPE = "sanctionType";
-        private const string META_KEY_BAN_ENDS_AT_UTC = "banEndsAtUtc";
-        private const string META_KEY_SECONDS = "seconds";
-        private const string META_KEY_REASON = "reason";
+        private const long MinValidUnixTimestamp = 1;
 
-        private const int DEFAULT_TOKEN_MINUTES = 10080;
-        private const string APP_KEY_SECRET = "Auth:Secret";
-        private const string APP_KEY_TOKEN_MINUTES = "Auth:TokenMinutes";
+        private const int FirstByteIndex = 0;
+        private const int DecimalBase = 10;
+        private const char VerificationCodePadChar = '0';
 
-        private const int PASSWORD_MIN_LENGTH = 8;
-        private const int PASSWORD_MAX_LENGTH = 64;
-        private const int PASSWORD_HISTORY_LIMIT = 3;
+        private const int ResendWindowSeconds = 45;
+
+        private static readonly TimeSpan ResendWindow = TimeSpan.FromSeconds(ResendWindowSeconds);
+
+        private const string AuthCodeOk = "Auth.Ok";
+        private const string AuthCodeBanned = "Auth.Banned";
+        private const string AuthCodeInvalidRequest = "Auth.InvalidRequest";
+        private const string AuthCodeEmailAlreadyExists = "Auth.EmailAlreadyExists";
+        private const string AuthCodeServerError = "Auth.ServerError";
+        private const string AuthCodeInvalidCredentials = "Auth.InvalidCredentials";
+        private const string AuthCodeEmailRequired = "Auth.EmailRequired";
+        private const string AuthCodeThrottleWait = "Auth.ThrottleWait";
+        private const string AuthCodeEmailSendFailed = "Auth.EmailSendFailed";
+        private const string AuthCodeCodeNotRequested = "Auth.CodeNotRequested";
+        private const string AuthCodeCodeExpired = "Auth.CodeExpired";
+        private const string AuthCodeCodeInvalid = "Auth.CodeInvalid";
+        private const string AuthCodePasswordWeak = "Auth.PasswordWeak";
+        private const string AuthCodePasswordReused = "Auth.PasswordReused";
+        private const string AuthCodeEmailNotFound = "Auth.EmailNotFound";
+        private const string AuthCodeSessionAlreadyActive = "Auth.SessionAlreadyActive";
+
+        private const string MetaKeySanctionType = "sanctionType";
+        private const string MetaKeyBanEndsAtUtc = "banEndsAtUtc";
+        private const string MetaKeySeconds = "seconds";
+        private const string MetaKeyReason = "reason";
+        private const string MetaKeyErrorType = "errorType";
+
+        private const string ErrorTypeSql = "SqlError";
+        private const string ErrorTypeConfig = "ConfigError";
+        private const string ErrorTypeCrypto = "CryptoError";
+        private const string ErrorTypeEmailSend = "EmailSendError";
+        private const string ErrorTypeUnexpected = "UnexpectedError";
+
+        private const string AppKeyTokenMinutes = "Auth:TokenMinutes";
 
         public AuthAppService(
             IAccountsRepository accountsRepository,
             IPasswordHasher passwordHasher,
             IEmailSender emailSender,
             IPlayerReportAppService playerReportAppService,
-            IUserRepository userRepository)
+            IUserRepository userRepository,
+            ITokenService tokenService,
+            IVerificationCodeStore verificationCodeStore)
         {
             _accountsRepository = accountsRepository ?? throw new ArgumentNullException(nameof(accountsRepository));
             _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
             _emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
             _playerReportAppService = playerReportAppService ?? throw new ArgumentNullException(nameof(playerReportAppService));
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+            _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+            _verificationCodeStore = verificationCodeStore ?? throw new ArgumentNullException(nameof(verificationCodeStore));
         }
 
         public AuthResult RegisterUser(RegistrationDto registration)
+        {
+            AuthResult validationError = ValidateRegistrationRequest(registration);
+            if (validationError != null)
+            {
+                return validationError;
+            }
+
+            OperationResult<int> createResult = CreateUserAccount(registration);
+
+            if (!createResult.IsSuccess)
+            {
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+            }
+
+            int newUserId = createResult.Data;
+            return OkWithUser(newUserId, registration.UserName);
+        }
+
+        private AuthResult ValidateRegistrationRequest(RegistrationDto registration)
         {
             if (registration == null
                 || string.IsNullOrWhiteSpace(registration.Email)
                 || string.IsNullOrWhiteSpace(registration.Password)
                 || string.IsNullOrWhiteSpace(registration.UserName))
             {
-                return Fail(AUTH_CODE_INVALID_REQUEST);
+                return Fail(AuthCodeInvalidRequest);
             }
 
-            if (_accountsRepository.IsEmailRegistered(registration.Email))
+            try
             {
-                return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS);
-            }
+                if (_accountsRepository.IsEmailRegistered(registration.Email))
+                {
+                    return Fail(AuthCodeEmailAlreadyExists);
+                }
 
-            if (_accountsRepository.IsUserNameTaken(registration.UserName))
+                if (_accountsRepository.IsUserNameTaken(registration.UserName))
+                {
+                    return Fail(AuthCodeEmailAlreadyExists.Replace("Email", "UserName"));
+                }
+            }
+            catch (SqlException ex)
             {
-                return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS.Replace("Email", "UserName"));
+                _logger.Error("SQL error while validating registration request.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while validating registration request.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while validating registration request.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
             }
 
+            return null;
+        }
+
+        private OperationResult<int> CreateUserAccount(RegistrationDto registration)
+        {
             string passwordHash = _passwordHasher.Hash(registration.Password);
 
             var requestDto = new CreateAccountRequestDto
@@ -105,113 +168,89 @@ namespace SnakesAndLadders.Services.Logic
                 PasswordHash = passwordHash
             };
 
-            OperationResult<int> createResult = _accountsRepository.CreateUserWithAccountAndPassword(requestDto);
-
-            if (!createResult.IsSuccess)
+            try
             {
-                return Fail(AUTH_CODE_SERVER_ERROR);
+                return _accountsRepository.CreateUserWithAccountAndPassword(requestDto);
             }
-
-            int newUserId = createResult.Data;
-
-            return OkWithUser(newUserId, registration.UserName);
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while creating user account.", ex);
+                return OperationResult<int>.Failure("SQL error while creating user account.");
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while creating user account.", ex);
+                return OperationResult<int>.Failure("Configuration error while creating user account.");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while creating user account.", ex);
+                return OperationResult<int>.Failure("Unexpected error while creating user account.");
+            }
         }
+
 
         public AuthResult Login(LoginDto request)
         {
-            if (request == null
-                || string.IsNullOrWhiteSpace(request.Password)
-                || string.IsNullOrWhiteSpace(request.Email))
+            AuthResult validationError = ValidateLoginRequest(request);
+            if (validationError != null)
             {
-                return Fail(AUTH_CODE_INVALID_REQUEST);
+                return validationError;
             }
 
-            OperationResult<AuthCredentialsDto> authResult =
-                _accountsRepository.GetAuthByIdentifier(request.Email);
+            AuthResult errorResult;
 
-            if (!authResult.IsSuccess || authResult.Data == null)
+            if (!TryGetAuthCredentials(
+                    request.Email,
+                    out AuthCredentialsDto authCredentials,
+                    out errorResult))
             {
-                return Fail(AUTH_CODE_INVALID_CREDENTIALS);
+                return errorResult;
             }
 
-            AuthCredentialsDto auth = authResult.Data;
-
-            int userId = auth.UserId;
-            string passwordHash = auth.PasswordHash;
-            string displayName = auth.DisplayName;
-            string profilePhotoId = auth.ProfilePhotoId;
+            int userId = authCredentials.UserId;
+            string passwordHash = authCredentials.PasswordHash;
+            string displayName = authCredentials.DisplayName;
+            string profilePhotoId = authCredentials.ProfilePhotoId;
 
             if (!_passwordHasher.Verify(request.Password, passwordHash))
             {
-                return Fail(AUTH_CODE_INVALID_CREDENTIALS);
+                return Fail(AuthCodeInvalidCredentials);
             }
 
-            try
+            if (!TryCheckBan(userId, out errorResult))
             {
-                var banInfo = _playerReportAppService.GetCurrentBan(userId);
-
-                if (banInfo != null && banInfo.IsBanned)
-                {
-                    var meta = new Dictionary<string, string>();
-
-                    if (!string.IsNullOrWhiteSpace(banInfo.SanctionType))
-                    {
-                        meta[META_KEY_SANCTION_TYPE] = banInfo.SanctionType;
-                    }
-
-                    if (banInfo.BanEndsAtUtc.HasValue)
-                    {
-                        meta[META_KEY_BAN_ENDS_AT_UTC] = banInfo.BanEndsAtUtc.Value.ToString("o");
-                    }
-
-                    return Fail(AUTH_CODE_BANNED, meta);
-                }
+                return errorResult;
             }
-            catch (Exception ex)
+
+            if (!TryLoadAccount(userId, out AccountDto account, out errorResult))
             {
-                Logger.Error("Error while checking ban state for login.", ex);
-                return Fail(AUTH_CODE_SERVER_ERROR);
+                return errorResult;
             }
 
-            AccountDto account;
-
-            try
-            {
-                account = _userRepository.GetByUserId(userId);
-
-                if (account == null)
-                {
-                    Logger.WarnFormat(
-                        "Login credentials valid but account/profile not found. UserId={0}. Treating as invalid credentials.",
-                        userId);
-
-                    return Fail(AUTH_CODE_INVALID_CREDENTIALS);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error while loading account data for login.", ex);
-                return Fail(AUTH_CODE_SERVER_ERROR);
-            }
-
-            string ttlText = ConfigurationManager.AppSettings[APP_KEY_TOKEN_MINUTES];
-            int ttlMinutes;
-            if (!int.TryParse(ttlText, out ttlMinutes) || ttlMinutes <= 0)
-            {
-                ttlMinutes = DEFAULT_TOKEN_MINUTES;
-            }
-
+            int ttlMinutes = GetTokenTtlMinutes();
             DateTime expiresAtUtc = DateTime.UtcNow.AddMinutes(ttlMinutes);
 
-            string token;
-            try
+            if (!TryIssueToken(userId, expiresAtUtc, out string token, out errorResult))
             {
-                token = IssueToken(userId, expiresAtUtc);
+                return errorResult;
             }
-            catch (Exception ex)
+
+            string sessionErrorCode;
+            bool sessionRegistered = InMemorySessionManager.TryRegisterNewSession(
+                userId,
+                token,
+                out sessionErrorCode);
+
+            if (!sessionRegistered)
             {
-                Logger.Error("Error while issuing auth token.", ex);
-                return Fail(AUTH_CODE_SERVER_ERROR);
+                _logger.WarnFormat(
+                    "Login rejected for user {0} due to active session. SessionErrorCode={1}",
+                    userId,
+                    sessionErrorCode);
+
+                // Negocio: no permitimos segundo login del mismo usuario
+                return Fail(AuthCodeSessionAlreadyActive);
             }
 
             AuthResult result = OkWithUserProfile(
@@ -227,39 +266,343 @@ namespace SnakesAndLadders.Services.Logic
             return result;
         }
 
+        public AuthResult Logout(LogoutRequestDto request)
+        {
+            if (request == null)
+            {
+                return Fail(AuthCodeInvalidRequest);
+            }
+
+            string normalizedToken = (request.Token ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(normalizedToken))
+            {
+                return Fail(AuthCodeInvalidRequest);
+            }
+
+            int userId;
+
+            try
+            {
+                userId = _tokenService.GetUserIdFromToken(normalizedToken);
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while resolving user id from token in logout.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+            }
+            catch (CryptographicException ex)
+            {
+                _logger.Error("Cryptographic error while resolving user id from token in logout.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeCrypto);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while resolving user id from token in logout.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+            }
+
+            if (userId < MinValidUserId)
+            {
+                return Fail(AuthCodeInvalidRequest);
+            }
+
+            InMemorySessionManager.Logout(userId, normalizedToken);
+
+            _logger.InfoFormat(
+                "Logout completed for user {0}.",
+                userId);
+
+            return OkWithCustomCode(AuthCodeOk, userId);
+        }
+
+        private AuthResult ValidateLoginRequest(LoginDto request)
+        {
+            if (request == null
+                || string.IsNullOrWhiteSpace(request.Password)
+                || string.IsNullOrWhiteSpace(request.Email))
+            {
+                return Fail(AuthCodeInvalidRequest);
+            }
+
+            return null;
+        }
+
+        private bool TryGetAuthCredentials(
+    string email,
+    out AuthCredentialsDto authCredentials,
+    out AuthResult errorResult)
+        {
+            authCredentials = null;
+            errorResult = null;
+
+            OperationResult<AuthCredentialsDto> authResult;
+
+            try
+            {
+                authResult = _accountsRepository.GetAuthByIdentifier(email);
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while loading credentials for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+                return false;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while loading credentials for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while loading credentials for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+                return false;
+            }
+
+            if (!authResult.IsSuccess || authResult.Data == null)
+            {
+                errorResult = Fail(AuthCodeInvalidCredentials);
+                return false;
+            }
+
+            authCredentials = authResult.Data;
+            return true;
+        }
+
+        private bool TryCheckBan(int userId, out AuthResult errorResult)
+        {
+            errorResult = null;
+
+            try
+            {
+                var banInfo = _playerReportAppService.GetCurrentBan(userId);
+
+                if (banInfo != null && banInfo.IsBanned)
+                {
+                    var meta = new Dictionary<string, string>();
+
+                    if (!string.IsNullOrWhiteSpace(banInfo.SanctionType))
+                    {
+                        meta[MetaKeySanctionType] = banInfo.SanctionType;
+                    }
+
+                    if (banInfo.BanEndsAtUtc.HasValue)
+                    {
+                        meta[MetaKeyBanEndsAtUtc] = banInfo.BanEndsAtUtc.Value.ToString("o");
+                    }
+
+                    errorResult = Fail(AuthCodeBanned, meta);
+                    return false;
+                }
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while checking ban state for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+                return false;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while checking ban state for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while checking ban state for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryLoadAccount(
+    int userId,
+    out AccountDto account,
+    out AuthResult errorResult)
+        {
+            account = null;
+            errorResult = null;
+
+            try
+            {
+                account = _userRepository.GetByUserId(userId);
+
+                if (account == null)
+                {
+                    _logger.WarnFormat(
+                        "Login credentials valid but account/profile not found. UserId={0}. Treating as invalid credentials.",
+                        userId);
+
+                    errorResult = Fail(AuthCodeInvalidCredentials);
+                    return false;
+                }
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while loading account data for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+                return false;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while loading account data for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while loading account data for login.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+                return false;
+            }
+
+            return true;
+        }
+
+        private int GetTokenTtlMinutes()
+        {
+            string ttlText;
+            int ttlMinutes;
+
+            try
+            {
+                ttlText = ConfigurationManager.AppSettings[AppKeyTokenMinutes];
+
+                if (!int.TryParse(ttlText, out ttlMinutes) || ttlMinutes <= InvalidUserId)
+                {
+                    ttlMinutes = DefaultTokenMinutes;
+                }
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while reading token TTL.", ex);
+                ttlMinutes = DefaultTokenMinutes;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while reading token TTL.", ex);
+                ttlMinutes = DefaultTokenMinutes;
+            }
+
+            return ttlMinutes;
+        }
+
+        private bool TryIssueToken(
+    int userId,
+    DateTime expiresAtUtc,
+    out string token,
+    out AuthResult errorResult)
+        {
+            token = string.Empty;
+            errorResult = null;
+
+            try
+            {
+                token = _tokenService.IssueToken(userId, expiresAtUtc);
+                return true;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while issuing auth token.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+                return false;
+            }
+            catch (CryptographicException ex)
+            {
+                _logger.Error("Cryptographic error while issuing auth token.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeCrypto);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while issuing auth token.", ex);
+                errorResult = FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+                return false;
+            }
+        }
+
+
+
+
+
+
+
+
         public AuthResult RequestEmailVerification(string email)
         {
             email = (email ?? string.Empty).Trim().ToLowerInvariant();
 
             if (string.IsNullOrWhiteSpace(email))
             {
-                return Fail(AUTH_CODE_EMAIL_REQUIRED);
+                return Fail(AuthCodeEmailRequired);
             }
 
-            if (_accountsRepository.IsEmailRegistered(email))
+            bool isRegistered;
+
+            try
             {
-                return Fail(AUTH_CODE_EMAIL_ALREADY_EXISTS);
+                isRegistered = _accountsRepository.IsEmailRegistered(email);
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while checking email for verification.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while checking email for verification.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while checking email for verification.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
             }
 
-            if (_verificationCodesCache.TryGetValue(email, out var entry))
+            if (isRegistered)
             {
-                TimeSpan elapsed = DateTime.UtcNow - entry.LastSentUtc;
-                if (elapsed < RESEND_WINDOW)
+                return Fail(AuthCodeEmailAlreadyExists);
+            }
+
+            VerificationCodeEntry existingEntry;
+            if (_verificationCodeStore.TryGet(email, out existingEntry))
+            {
+                TimeSpan elapsed = DateTime.UtcNow - existingEntry.LastSentUtc;
+                if (elapsed < ResendWindow)
                 {
-                    int secondsToWait = (int)(RESEND_WINDOW - elapsed).TotalSeconds;
+                    int secondsToWait = (int)(ResendWindow - elapsed).TotalSeconds;
                     var meta = new Dictionary<string, string>
                     {
-                        [META_KEY_SECONDS] = secondsToWait.ToString()
+                        [MetaKeySeconds] = secondsToWait.ToString()
                     };
 
-                    return Fail(AUTH_CODE_THROTTLE_WAIT, meta);
+                    return Fail(AuthCodeThrottleWait, meta);
                 }
             }
 
-            string code = GenerateCode(VERIFICATION_CODE_DIGITS);
+            string code;
             DateTime nowUtc = DateTime.UtcNow;
 
-            _verificationCodesCache[email] = (code, nowUtc.Add(VERIFICATION_TTL), nowUtc);
+            try
+            {
+                code = GenerateCode(VerificationCodeDigits);
+            }
+            catch (CryptographicException ex)
+            {
+                _logger.Error("Cryptographic error while generating email verification code.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeCrypto);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while generating email verification code.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+            }
+
+            _verificationCodeStore.SaveNewCode(email, code, nowUtc);
 
             try
             {
@@ -268,15 +611,16 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (Exception ex)
             {
-                Logger.Error("Error while sending email verification code.", ex);
-                _verificationCodesCache.TryRemove(email, out _);
+                _logger.Error("Error while sending email verification code.", ex);
+                _verificationCodeStore.Remove(email);
 
                 var meta = new Dictionary<string, string>
                 {
-                    [META_KEY_REASON] = ex.GetType().Name
+                    [MetaKeyReason] = ex.GetType().Name,
+                    [MetaKeyErrorType] = ErrorTypeEmailSend
                 };
 
-                return Fail(AUTH_CODE_EMAIL_SEND_FAILED, meta);
+                return Fail(AuthCodeEmailSendFailed, meta);
             }
         }
 
@@ -287,26 +631,28 @@ namespace SnakesAndLadders.Services.Logic
 
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
             {
-                return Fail(AUTH_CODE_INVALID_REQUEST);
+                return Fail(AuthCodeInvalidRequest);
             }
 
-            if (!_verificationCodesCache.TryGetValue(email, out var entry))
+            VerificationCodeEntry entry;
+            if (!_verificationCodeStore.TryGet(email, out entry))
             {
-                return Fail(AUTH_CODE_CODE_NOT_REQUESTED);
+                return Fail(AuthCodeCodeNotRequested);
             }
 
             if (DateTime.UtcNow > entry.ExpiresUtc)
             {
-                _verificationCodesCache.TryRemove(email, out _);
-                return Fail(AUTH_CODE_CODE_EXPIRED);
+                _verificationCodeStore.Remove(email);
+                return Fail(AuthCodeCodeExpired);
             }
 
             if (!string.Equals(code, entry.Code, StringComparison.Ordinal))
             {
-                return Fail(AUTH_CODE_CODE_INVALID);
+                _verificationCodeStore.RegisterFailedAttempt(email, entry);
+                return Fail(AuthCodeCodeInvalid);
             }
 
-            _verificationCodesCache.TryRemove(email, out _);
+            _verificationCodeStore.Remove(email);
             return Ok();
         }
 
@@ -316,7 +662,7 @@ namespace SnakesAndLadders.Services.Logic
 
             if (string.IsNullOrWhiteSpace(email))
             {
-                return Fail(AUTH_CODE_EMAIL_REQUIRED);
+                return Fail(AuthCodeEmailRequired);
             }
 
             bool isRegistered;
@@ -325,38 +671,64 @@ namespace SnakesAndLadders.Services.Logic
             {
                 isRegistered = _accountsRepository.IsEmailRegistered(email);
             }
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while checking email for password change.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while checking email for password change.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+            }
             catch (Exception ex)
             {
-                Logger.Error("Error while checking email for password change.", ex);
-                return Fail(AUTH_CODE_SERVER_ERROR);
+                _logger.Error("Unexpected error while checking email for password change.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
             }
 
             if (!isRegistered)
             {
-                return Fail(AUTH_CODE_EMAIL_NOT_FOUND);
+                return Fail(AuthCodeEmailNotFound);
             }
 
-            if (_verificationCodesCache.TryGetValue(email, out var entry))
+            VerificationCodeEntry existingEntry;
+            if (_verificationCodeStore.TryGet(email, out existingEntry))
             {
-                TimeSpan elapsed = DateTime.UtcNow - entry.LastSentUtc;
+                TimeSpan elapsed = DateTime.UtcNow - existingEntry.LastSentUtc;
 
-                if (elapsed < RESEND_WINDOW)
+                if (elapsed < ResendWindow)
                 {
-                    int secondsToWait = (int)(RESEND_WINDOW - elapsed).TotalSeconds;
+                    int secondsToWait = (int)(ResendWindow - elapsed).TotalSeconds;
 
                     var meta = new Dictionary<string, string>
                     {
-                        [META_KEY_SECONDS] = secondsToWait.ToString()
+                        [MetaKeySeconds] = secondsToWait.ToString()
                     };
 
-                    return Fail(AUTH_CODE_THROTTLE_WAIT, meta);
+                    return Fail(AuthCodeThrottleWait, meta);
                 }
             }
 
-            string code = GenerateCode(VERIFICATION_CODE_DIGITS);
+            string code;
             DateTime nowUtc = DateTime.UtcNow;
 
-            _verificationCodesCache[email] = (code, nowUtc.Add(VERIFICATION_TTL), nowUtc);
+            try
+            {
+                code = GenerateCode(VerificationCodeDigits);
+            }
+            catch (CryptographicException ex)
+            {
+                _logger.Error("Cryptographic error while generating password change verification code.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeCrypto);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while generating password change verification code.", ex);
+                return FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+            }
+
+            _verificationCodeStore.SaveNewCode(email, code, nowUtc);
 
             try
             {
@@ -365,15 +737,16 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (Exception ex)
             {
-                Logger.Error("Error while sending password change verification code.", ex);
-                _verificationCodesCache.TryRemove(email, out _);
+                _logger.Error("Error while sending password change verification code.", ex);
+                _verificationCodeStore.Remove(email);
 
                 var meta = new Dictionary<string, string>
                 {
-                    [META_KEY_REASON] = ex.GetType().Name
+                    [MetaKeyReason] = ex.GetType().Name,
+                    [MetaKeyErrorType] = ErrorTypeEmailSend
                 };
 
-                return Fail(AUTH_CODE_EMAIL_SEND_FAILED, meta);
+                return Fail(AuthCodeEmailSendFailed, meta);
             }
         }
 
@@ -406,7 +779,7 @@ namespace SnakesAndLadders.Services.Logic
 
             if (IsPasswordReused(validationContext.NewPassword, passwordHistory))
             {
-                return Fail(AUTH_CODE_PASSWORD_REUSED);
+                return Fail(AuthCodePasswordReused);
             }
 
             PersistPasswordResult persistResult = PersistNewPassword(
@@ -418,97 +791,28 @@ namespace SnakesAndLadders.Services.Logic
                 return persistResult.Error;
             }
 
-            return OkWithCustomCode(AUTH_CODE_OK, validationContext.UserId);
+            return OkWithCustomCode(AuthCodeOk, validationContext.UserId);
         }
 
         public int GetUserIdFromToken(string token)
         {
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                return 0;
-            }
-
-            if (int.TryParse(token, out int userIdCompat))
-            {
-                return userIdCompat > 0 ? userIdCompat : 0;
-            }
-
-            try
-            {
-                string raw = Encoding.UTF8.GetString(Convert.FromBase64String(token));
-                string[] parts = raw.Split('|');
-
-                if (parts.Length != 3)
-                {
-                    return 0;
-                }
-
-                if (!int.TryParse(parts[0], out int userId) || userId <= 0)
-                {
-                    return 0;
-                }
-
-                if (!long.TryParse(parts[1], out long expUnix) || expUnix <= 0)
-                {
-                    return 0;
-                }
-
-                long nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                if (nowUnix > expUnix)
-                {
-                    return 0;
-                }
-
-                string secret = ConfigurationManager.AppSettings[APP_KEY_SECRET] ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(secret))
-                {
-                    return 0;
-                }
-
-                string expected = ComputeHmacHex(secret, $"{userId}|{expUnix}");
-
-                return string.Equals(expected, parts[2], StringComparison.OrdinalIgnoreCase)
-                    ? userId
-                    : 0;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error while validating auth token.", ex);
-                return 0;
-            }
-        }
-
-        private static string IssueToken(int userId, DateTime expiresAtUtc)
-        {
-            string secret = ConfigurationManager.AppSettings[APP_KEY_SECRET];
-
-            if (string.IsNullOrWhiteSpace(secret))
-            {
-                throw new InvalidOperationException("Auth secret is not configured (Auth:Secret).");
-            }
-
-            long expUnix = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds();
-            string payload = $"{userId}|{expUnix}";
-            string signatureHex = ComputeHmacHex(secret, payload);
-            string raw = $"{payload}|{signatureHex}";
-
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
+            return _tokenService.GetUserIdFromToken(token);
         }
 
         private static string GenerateCode(int digits)
         {
-            var bytes = new byte[RANDOM_BYTES_LENGTH];
+            var bytes = new byte[RandomBytesLength];
 
             using (var randomNumberGenerator = RandomNumberGenerator.Create())
             {
                 randomNumberGenerator.GetBytes(bytes);
             }
 
-            uint value = BitConverter.ToUInt32(bytes, 0);
-            uint mod = (uint)Math.Pow(10, digits);
+            uint value = BitConverter.ToUInt32(bytes, FirstByteIndex);
+            uint mod = (uint)Math.Pow(DecimalBase, digits);
             uint number = value % mod;
 
-            return number.ToString(new string('0', digits));
+            return number.ToString(new string(VerificationCodePadChar, digits));
         }
 
         private static AuthResult Ok()
@@ -516,7 +820,7 @@ namespace SnakesAndLadders.Services.Logic
             return new AuthResult
             {
                 Success = true,
-                Code = AUTH_CODE_OK,
+                Code = AuthCodeOk,
                 Meta = new Dictionary<string, string>()
             };
         }
@@ -526,7 +830,7 @@ namespace SnakesAndLadders.Services.Logic
             return new AuthResult
             {
                 Success = true,
-                Code = AUTH_CODE_OK,
+                Code = AuthCodeOk,
                 Meta = new Dictionary<string, string>(),
                 UserId = userId,
                 DisplayName = displayName
@@ -538,7 +842,7 @@ namespace SnakesAndLadders.Services.Logic
             return new AuthResult
             {
                 Success = true,
-                Code = AUTH_CODE_OK,
+                Code = AuthCodeOk,
                 Meta = new Dictionary<string, string>(),
                 UserId = userId,
                 DisplayName = displayName,
@@ -567,27 +871,21 @@ namespace SnakesAndLadders.Services.Logic
             };
         }
 
-        private static string ComputeHmacHex(string secret, string data)
+        private static AuthResult FailWithErrorType(string code, string errorType)
         {
-            using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+            var meta = new Dictionary<string, string>
             {
-                byte[] bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
-                var stringBuilder = new StringBuilder(bytes.Length * 2);
+                [MetaKeyErrorType] = errorType
+            };
 
-                for (int index = 0; index < bytes.Length; index++)
-                {
-                    stringBuilder.Append(bytes[index].ToString("x2"));
-                }
-
-                return stringBuilder.ToString();
-            }
+            return Fail(code, meta);
         }
 
         private ChangePasswordValidationContext ValidateChangePasswordRequest(ChangePasswordRequestDto request)
         {
             var context = new ChangePasswordValidationContext
             {
-                UserId = 0,
+                UserId = InvalidUserId,
                 Email = string.Empty,
                 NewPassword = string.Empty,
                 VerificationCode = string.Empty,
@@ -596,7 +894,7 @@ namespace SnakesAndLadders.Services.Logic
 
             if (request == null)
             {
-                context.Error = Fail(AUTH_CODE_INVALID_REQUEST);
+                context.Error = Fail(AuthCodeInvalidRequest);
                 return context;
             }
 
@@ -608,13 +906,13 @@ namespace SnakesAndLadders.Services.Logic
                 || string.IsNullOrWhiteSpace(newPassword)
                 || string.IsNullOrWhiteSpace(verificationCode))
             {
-                context.Error = Fail(AUTH_CODE_INVALID_REQUEST);
+                context.Error = Fail(AuthCodeInvalidRequest);
                 return context;
             }
 
             if (!IsPasswordFormatValid(newPassword))
             {
-                context.Error = Fail(AUTH_CODE_PASSWORD_WEAK);
+                context.Error = Fail(AuthCodePasswordWeak);
                 return context;
             }
 
@@ -625,16 +923,28 @@ namespace SnakesAndLadders.Services.Logic
 
                 if (!authResult.IsSuccess || authResult.Data == null)
                 {
-                    context.Error = Fail(AUTH_CODE_INVALID_CREDENTIALS);
+                    context.Error = Fail(AuthCodeInvalidCredentials);
                     return context;
                 }
 
                 context.UserId = authResult.Data.UserId;
             }
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while loading user for password change.", ex);
+                context.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+                return context;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while loading user for password change.", ex);
+                context.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+                return context;
+            }
             catch (Exception ex)
             {
-                Logger.Error("Error while loading user for password change.", ex);
-                context.Error = Fail(AUTH_CODE_SERVER_ERROR);
+                _logger.Error("Unexpected error while loading user for password change.", ex);
+                context.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
                 return context;
             }
 
@@ -656,32 +966,34 @@ namespace SnakesAndLadders.Services.Logic
 
             if (string.IsNullOrWhiteSpace(email))
             {
-                result.Error = Fail(AUTH_CODE_INVALID_REQUEST);
+                result.Error = Fail(AuthCodeInvalidRequest);
                 return result;
             }
 
             string normalizedEmail = email.Trim().ToLowerInvariant();
 
-            if (!_verificationCodesCache.TryGetValue(normalizedEmail, out var entry))
+            VerificationCodeEntry entry;
+            if (!_verificationCodeStore.TryGet(normalizedEmail, out entry))
             {
-                result.Error = Fail(AUTH_CODE_CODE_NOT_REQUESTED);
+                result.Error = Fail(AuthCodeCodeNotRequested);
                 return result;
             }
 
             if (DateTime.UtcNow > entry.ExpiresUtc)
             {
-                _verificationCodesCache.TryRemove(normalizedEmail, out _);
-                result.Error = Fail(AUTH_CODE_CODE_EXPIRED);
+                _verificationCodeStore.Remove(normalizedEmail);
+                result.Error = Fail(AuthCodeCodeExpired);
                 return result;
             }
 
             if (!string.Equals(verificationCode, entry.Code, StringComparison.Ordinal))
             {
-                result.Error = Fail(AUTH_CODE_CODE_INVALID);
+                _verificationCodeStore.RegisterFailedAttempt(normalizedEmail, entry);
+                result.Error = Fail(AuthCodeCodeInvalid);
                 return result;
             }
 
-            _verificationCodesCache.TryRemove(normalizedEmail, out _);
+            _verificationCodeStore.Remove(normalizedEmail);
 
             result.IsValid = true;
             result.Email = normalizedEmail;
@@ -698,16 +1010,38 @@ namespace SnakesAndLadders.Services.Logic
                 Error = null
             };
 
-            OperationResult<IReadOnlyList<string>> historyResult =
-                _accountsRepository.GetLastPasswordHashes(userId, PASSWORD_HISTORY_LIMIT);
+            OperationResult<IReadOnlyList<string>> historyResult;
+
+            try
+            {
+                historyResult = _accountsRepository.GetLastPasswordHashes(userId, PasswordHistoryLimit);
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while loading password history.", ex);
+                result.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+                return result;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while loading password history.", ex);
+                result.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while loading password history.", ex);
+                result.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+                return result;
+            }
 
             if (!historyResult.IsSuccess || historyResult.Data == null || historyResult.Data.Count == 0)
             {
-                Logger.WarnFormat(
+                _logger.WarnFormat(
                     "Password change requested but no password history found. UserId={0}",
                     userId);
 
-                result.Error = Fail(AUTH_CODE_SERVER_ERROR);
+                result.Error = Fail(AuthCodeServerError);
                 return result;
             }
 
@@ -743,7 +1077,7 @@ namespace SnakesAndLadders.Services.Logic
                 return false;
             }
 
-            if (password.Length < PASSWORD_MIN_LENGTH || password.Length > PASSWORD_MAX_LENGTH)
+            if (password.Length < PasswordMinLength || password.Length > PasswordMaxLength)
             {
                 return false;
             }
@@ -783,15 +1117,38 @@ namespace SnakesAndLadders.Services.Logic
 
             string newHash = _passwordHasher.Hash(newPassword);
 
-            OperationResult<bool> addResult = _accountsRepository.AddPasswordHash(userId, newHash);
+            OperationResult<bool> addResult;
+
+            try
+            {
+                addResult = _accountsRepository.AddPasswordHash(userId, newHash);
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error("SQL error while inserting new password hash.", ex);
+                result.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeSql);
+                return result;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                _logger.Error("Configuration error while inserting new password hash.", ex);
+                result.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeConfig);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Unexpected error while inserting new password hash.", ex);
+                result.Error = FailWithErrorType(AuthCodeServerError, ErrorTypeUnexpected);
+                return result;
+            }
 
             if (!addResult.IsSuccess || !addResult.Data)
             {
-                Logger.ErrorFormat(
+                _logger.ErrorFormat(
                     "Failed to insert new password hash. UserId={0}",
                     userId);
 
-                result.Error = Fail(AUTH_CODE_SERVER_ERROR);
+                result.Error = Fail(AuthCodeServerError);
                 return result;
             }
 
