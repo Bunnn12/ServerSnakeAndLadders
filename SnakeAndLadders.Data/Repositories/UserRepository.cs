@@ -99,30 +99,30 @@ namespace SnakesAndLadders.Data.Repositories
 
                     return MapToAccountDto(row.Usuario, row.AvatarDesbloqueado, row.Avatar);
                 }
-                catch (DbEntityValidationException ex)
+                catch (DbEntityValidationException)
                 {
-                    Logger.Error("DB entity validation error in GetByUsername.", ex);
-                    throw ex;
+
+                    throw ;
                 }
-                catch (DbUpdateException ex)
+                catch (DbUpdateException )
                 {
-                    Logger.Error("DB update error in GetByUsername.", ex);
-                    throw ex;
+
+                    throw ;
                 }
-                catch (EntityException ex)
+                catch (EntityException )
                 {
-                    Logger.Error("Entity framework error (connection / provider) in GetByUsername.", ex);
-                    throw ex;
+
+                    throw ;
                 }
-                catch (SqlException ex)
+                catch (SqlException)
                 {
-                    Logger.Error("SQL error in GetByUsername.", ex);
-                    throw ex;
+
+                    throw ;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Unexpected error in GetByUsername.", ex);
-                    throw ex;
+
+                    throw ;
                 }
             }
         }
