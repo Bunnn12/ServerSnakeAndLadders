@@ -1,3 +1,4 @@
-﻿C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Common\Class1.cs
+﻿C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Common\InMemorySessionManager.cs
 C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Common\OperationResult.cs
 C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Common\Properties\AssemblyInfo.cs
+C:\Users\irene\source\repos\ServerSnakeAndLadders\SnakesAndLadders.Common\packages.config
