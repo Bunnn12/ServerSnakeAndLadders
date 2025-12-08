@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Entity;
-using System.Data.Entity.Core;              // 👈 IMPORTANTE
+using System.Data.Entity.Core;              
 using System.Data.Entity.Infrastructure;
 using System.Data.Entity.Validation;
 using System.Data.SqlClient;
@@ -102,27 +102,27 @@ namespace SnakesAndLadders.Data.Repositories
                 catch (DbEntityValidationException ex)
                 {
                     Logger.Error("DB entity validation error in GetByUsername.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (DbUpdateException ex)
                 {
                     Logger.Error("DB update error in GetByUsername.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (EntityException ex)
                 {
                     Logger.Error("Entity framework error (connection / provider) in GetByUsername.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (SqlException ex)
                 {
                     Logger.Error("SQL error in GetByUsername.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("Unexpected error in GetByUsername.", ex);
-                    throw;
+                    throw ex;
                 }
             }
         }
@@ -157,27 +157,27 @@ namespace SnakesAndLadders.Data.Repositories
                 catch (DbEntityValidationException ex)
                 {
                     Logger.Error("DB entity validation error in GetPhotoByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (DbUpdateException ex)
                 {
                     Logger.Error("DB update error in GetPhotoByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (EntityException ex)
                 {
                     Logger.Error("Entity framework error (connection / provider) in GetPhotoByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (SqlException ex)
                 {
                     Logger.Error("SQL error in GetPhotoByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("Unexpected error in GetPhotoByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
             }
         }
@@ -293,27 +293,27 @@ namespace SnakesAndLadders.Data.Repositories
                 catch (DbEntityValidationException ex)
                 {
                     Logger.Error("DB entity validation error in UpdateProfile.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (DbUpdateException ex)
                 {
                     Logger.Error("DB update error in UpdateProfile.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (EntityException ex)
                 {
                     Logger.Error("Entity framework error (connection / provider) in UpdateProfile.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (SqlException ex)
                 {
                     Logger.Error("SQL error in UpdateProfile.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("Unexpected error in UpdateProfile.", ex);
-                    throw;
+                    throw ex;
                 }
             }
         }
@@ -365,27 +365,27 @@ namespace SnakesAndLadders.Data.Repositories
                 catch (DbEntityValidationException ex)
                 {
                     Logger.Error("DB entity validation error in GetByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (DbUpdateException ex)
                 {
                     Logger.Error("DB update error in GetByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (EntityException ex)
                 {
                     Logger.Error("Entity framework error (connection / provider) in GetByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (SqlException ex)
                 {
                     Logger.Error("SQL error in GetByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("Unexpected error in GetByUserId.", ex);
-                    throw;
+                    throw ex;
                 }
             }
         }
@@ -415,27 +415,27 @@ namespace SnakesAndLadders.Data.Repositories
                 catch (DbEntityValidationException ex)
                 {
                     Logger.Error("DB entity validation error in GetAvatarOptions.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (DbUpdateException ex)
                 {
                     Logger.Error("DB update error in GetAvatarOptions.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (EntityException ex)
                 {
                     Logger.Error("Entity framework error (connection / provider) in GetAvatarOptions.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (SqlException ex)
                 {
                     Logger.Error("SQL error in GetAvatarOptions.", ex);
-                    throw;
+                    throw ex;
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("Unexpected error in GetAvatarOptions.", ex);
-                    throw;
+                    throw ex;
                 }
             }
         }
