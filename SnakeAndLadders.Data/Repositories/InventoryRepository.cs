@@ -6,7 +6,6 @@ using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data;
 using System;
 using System.Collections.Generic;
-using ServerSnakesAndLadders.Common;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.SqlClient;
@@ -226,14 +225,12 @@ namespace ServerSnakesAndLadders
 
                     context.SaveChanges();
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("Error SQL al actualizar los objetos seleccionados del usuario.", ex);
                     throw;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Error inesperado al actualizar los objetos seleccionados del usuario.", ex);
                     throw;
                 }
             }
@@ -308,14 +305,12 @@ namespace ServerSnakesAndLadders
 
                     context.SaveChanges();
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("Error SQL al actualizar los dados seleccionados del usuario.", ex);
                     throw;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Error inesperado al actualizar los dados seleccionados del usuario.", ex);
                     throw;
                 }
             }
@@ -350,14 +345,12 @@ namespace ServerSnakesAndLadders
                         context.SaveChanges();
                     }
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("Error SQL al quitar el objeto seleccionado del slot.", ex);
                     throw;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Error inesperado al quitar el objeto seleccionado del slot.", ex);
                     throw;
                 }
             }
@@ -392,14 +385,12 @@ namespace ServerSnakesAndLadders
                         context.SaveChanges();
                     }
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("Error SQL al quitar el dado seleccionado del slot.", ex);
                     throw;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Error inesperado al quitar el dado seleccionado del slot.", ex);
                     throw;
                 }
             }
@@ -461,14 +452,12 @@ namespace ServerSnakesAndLadders
                     context.Entry(userObject).State = EntityState.Modified;
                     context.SaveChanges();
                 }
-                catch (SqlException ex)
+                catch (SqlException)
                 {
-                    Logger.Error("Error SQL al consumir un objeto del inventario del usuario.", ex);
                     throw;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Error inesperado al consumir un objeto del inventario del usuario.", ex);
                     throw;
                 }
             }
@@ -531,14 +520,12 @@ namespace ServerSnakesAndLadders
                     context.Entry(userDice).State = EntityState.Modified;
                     context.SaveChanges();
                 }
-                catch (SqlException ex)
+                catch (SqlException )
                 {
-                    Logger.Error("Error SQL al consumir un dado del inventario del usuario.", ex);
                     throw;
                 }
-                catch (Exception ex)
+                catch (Exception )
                 {
-                    Logger.Error("Error inesperado al consumir un dado del inventario del usuario.", ex);
                     throw;
                 }
             }
