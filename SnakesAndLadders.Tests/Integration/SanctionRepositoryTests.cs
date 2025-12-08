@@ -50,7 +50,6 @@ namespace SnakesAndLadders.Tests.Integration
             }
         }
 
-        // InsertSanction
 
         [Fact]
         public void TestInsertSanctionWhenDtoIsNullThrowsArgumentNullException()
@@ -107,8 +106,6 @@ namespace SnakesAndLadders.Tests.Integration
                 Assert.True(isOk);
             }
         }
-
-        // GetLastSanctionForUser
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]
@@ -189,7 +186,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // GetSanctionsHistory
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]

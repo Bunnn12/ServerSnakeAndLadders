@@ -11,8 +11,6 @@ using Xunit;
 
 namespace SnakesAndLadders.Tests.Integration
 {
-    // Esta colección desactiva el paralelismo para estas pruebas,
-    // evitando deadlocks en la misma BD de pruebas.
     [CollectionDefinition("AccountStatusRepositoryTestsCollection", DisableParallelization = true)]
     public sealed class AccountStatusRepositoryTestsCollection
     {
@@ -33,7 +31,6 @@ namespace SnakesAndLadders.Tests.Integration
         private const string EXPECTED_EMAIL_PREFIX = "deleted+";
         private const string EXPECTED_EMAIL_DOMAIN = "invalid.local";
 
-        // TC-043 – userId inválido lanza ArgumentOutOfRangeException
         [Fact]
         public void TestSetUserAndAccountActiveStateWhenUserIdIsInvalidThrowsArgumentOutOfRange()
         {

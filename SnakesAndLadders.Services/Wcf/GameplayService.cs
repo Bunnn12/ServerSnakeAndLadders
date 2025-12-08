@@ -165,7 +165,6 @@ namespace SnakesAndLadders.Services.Wcf
                     }
                     catch (Exception ex)
                     {
-                        // Error técnico, pero no detenemos la partida
                         Logger.Error("Error while consuming dice after roll.", ex);
                     }
                 }
@@ -439,7 +438,6 @@ namespace SnakesAndLadders.Services.Wcf
             }
             catch (FaultException)
             {
-                // Se deja pasar tal cual al cliente con mensaje amigable
                 throw;
             }
 
@@ -488,7 +486,6 @@ namespace SnakesAndLadders.Services.Wcf
                     }
                     catch (Exception ex)
                     {
-                        // No cancelamos el efecto del ítem, solo registramos el fallo de inventario
                         Logger.Error("Unexpected error while consuming item after usage.", ex);
                     }
                 }

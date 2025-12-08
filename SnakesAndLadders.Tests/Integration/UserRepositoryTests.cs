@@ -40,7 +40,6 @@ namespace SnakesAndLadders.Tests.Integration
 
         private const string AVATAR_NAME_SPECIAL = "AvatarEspecial";
 
-        // TC-154 – username null / vacío / espacios -> ArgumentException
         [Theory]
         [InlineData(null)]
         [InlineData("")]
@@ -54,7 +53,7 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentException>(action);
         }
 
-        // TC-155
+
         [Fact]
         public void TestGetByUsernameWhenUserNameExceedsMaxLengthThrowsArgumentException()
         {
@@ -66,7 +65,7 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentException>(action);
         }
 
-        // TC-156
+
         [Fact]
         public void TestGetByUsernameWhenUserNotFoundReturnsNull()
         {
@@ -84,7 +83,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Null(result);
         }
 
-        // TC-157
         [Fact]
         public void TestGetByUsernameWhenUserInactiveReturnsNull()
         {
@@ -117,7 +115,6 @@ namespace SnakesAndLadders.Tests.Integration
         }
 
 
-        // TC-158
         [Fact]
         public void TestGetByUsernameWhenUserActiveReturnsAccountDtoWithUserId()
         {
@@ -143,7 +140,7 @@ namespace SnakesAndLadders.Tests.Integration
                 db.Usuario.Add(user);
                 db.SaveChanges();
 
-                userId = user.IdUsuario; // ID real generado
+                userId = user.IdUsuario; 
             }
 
             UserRepository repository = new UserRepository(CreateContext);
@@ -153,7 +150,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Equal(userId, result.UserId);
         }
 
-        // TC-159 – userId <= 0 para GetPhotoByUserId
         [Theory]
         [InlineData(0)]
         [InlineData(-1)]
@@ -166,7 +162,7 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentOutOfRangeException>(action);
         }
 
-        // TC-160
+
         [Fact]
         public void TestGetPhotoByUserIdWhenUserNotFoundReturnsNull()
         {
@@ -199,7 +195,6 @@ namespace SnakesAndLadders.Tests.Integration
                     Nombre = "Photo",
                     Apellidos = "User",
                     DescripcionPerfil = null,
-                    // IMPORTANTE: máx 5 caracteres
                     FotoPerfil = "A0001",
                     Monedas = 0,
                     Estado = new[] { STATUS_ACTIVE }
@@ -219,8 +214,6 @@ namespace SnakesAndLadders.Tests.Integration
         }
 
 
-
-        // TC-162
         [Fact]
         public void TestUpdateProfileWhenRequestIsNullThrowsArgumentNullException()
         {
@@ -231,7 +224,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentNullException>(action);
         }
 
-        // TC-163 – userId <= 0 para UpdateProfile
         [Theory]
         [InlineData(0)]
         [InlineData(-1)]
@@ -249,7 +241,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentOutOfRangeException>(action);
         }
 
-        // TC-164
         [Fact]
         public void TestUpdateProfileWhenFirstNameExceedsMaxLengthThrowsArgumentException()
         {
@@ -266,7 +257,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentException>(action);
         }
 
-        // TC-165
         [Fact]
         public void TestUpdateProfileWhenLastNameExceedsMaxLengthThrowsArgumentException()
         {
@@ -283,7 +273,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentException>(action);
         }
 
-        // TC-166
         [Fact]
         public void TestUpdateProfileWhenProfileDescriptionExceedsMaxLengthThrowsArgumentException()
         {
@@ -355,7 +344,6 @@ namespace SnakesAndLadders.Tests.Integration
                     Nombre = "NombreOriginal",
                     Apellidos = "ApellidoOriginal",
                     DescripcionPerfil = "DescOriginal",
-                    // máx 5 caracteres
                     FotoPerfil = "A0001",
                     Monedas = 10,
                     Estado = new[] { STATUS_ACTIVE }
@@ -374,7 +362,6 @@ namespace SnakesAndLadders.Tests.Integration
                 FirstName = "NuevoNombre",
                 LastName = "NuevoApellido",
                 ProfileDescription = "NuevaDesc",
-                // también máx 5
                 ProfilePhotoId = "A0002"
             };
 
@@ -384,9 +371,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-
-
-        // TC-169 – userId <= 0 para GetByUserId
         [Theory]
         [InlineData(0)]
         [InlineData(-5)]
@@ -399,7 +383,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentOutOfRangeException>(action);
         }
 
-        // TC-170
         [Fact]
         public void TestGetByUserIdWhenUserNotFoundReturnsNull()
         {
@@ -416,7 +399,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Null(result);
         }
 
-        // TC-171
         [Fact]
         public void TestGetByUserIdWhenUserExistsWithoutAvatarReturnsAccountDto()
         {
@@ -450,7 +432,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Equal(userId, result.UserId);
         }
 
-        // TC-172 – userId <= 0 para GetAvatarOptions
         [Theory]
         [InlineData(0)]
         [InlineData(-3)]
@@ -463,7 +444,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<ArgumentOutOfRangeException>(action);
         }
 
-        // TC-173
         [Fact]
         public void TestGetAvatarOptionsWhenUserNotFoundThrowsInvalidOperationException()
         {
@@ -480,7 +460,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.Throws<InvalidOperationException>(action);
         }
 
-        // TC-174
         [Fact]
         public void TestGetAvatarOptionsWhenUserInactiveThrowsInvalidOperationException()
         {
@@ -526,20 +505,18 @@ namespace SnakesAndLadders.Tests.Integration
                 db.Avatar.RemoveRange(db.Avatar);
                 db.SaveChanges();
 
-                // 1) Avatar válido según la BD
                 Avatar avatar = new Avatar
                 {
-                    NombreAvatar = AVATAR_NAME_SPECIAL,      // "AvatarEspecial"
-                    RarezaAvatar = AVATAR_RARITY_COMMON,     // "COMUN"
-                    CajaAvatarIdCajaAvatar = null,           // es NULLABLE
-                    Estado = new[] { STATUS_ACTIVE },        // 0x01
-                    CodigoAvatar = AVATAR_CODE_SPECIAL       // "001" (3 chars)
+                    NombreAvatar = AVATAR_NAME_SPECIAL,      
+                    RarezaAvatar = AVATAR_RARITY_COMMON,     
+                    CajaAvatarIdCajaAvatar = null,           
+                    Estado = new[] { STATUS_ACTIVE },        
+                    CodigoAvatar = AVATAR_CODE_SPECIAL       
                 };
 
                 db.Avatar.Add(avatar);
                 db.SaveChanges();
 
-                // 2) Usuario activo
                 Usuario user = new Usuario
                 {
                     NombreUsuario = USERNAME_AVATAR,
@@ -555,7 +532,6 @@ namespace SnakesAndLadders.Tests.Integration
                 db.SaveChanges();
                 userId = user.IdUsuario;
 
-                // 3) Lo desbloquea
                 AvatarDesbloqueado unlocked = new AvatarDesbloqueado
                 {
                     AvatarIdAvatar = avatar.IdAvatar,
@@ -566,7 +542,6 @@ namespace SnakesAndLadders.Tests.Integration
                 db.AvatarDesbloqueado.Add(unlocked);
                 db.SaveChanges();
 
-                // 4) Lo marcamos como actual
                 user.IdAvatarDesbloqueadoActual = unlocked.IdAvatarDesbloqueado;
                 db.SaveChanges();
             }

@@ -14,7 +14,6 @@ namespace SnakesAndLadders.Tests.Integration
         private const byte STATUS_ACTIVE = 1;
         private const int INITIAL_COINS = 0;
 
-        // TC-001
         [Fact]
         public void TestCreateUserWithValidDataPersistsUserAccountAndPassword()
         {
@@ -59,7 +58,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // TC-002
         [Fact]
         public void TestCreateUserWhenRequestIsNullFailure()
         {
@@ -71,7 +69,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isFailure);
         }
 
-        // TC-003
         [Fact]
         public void TestCreateUserWhenUsernameIsMissingFailure()
         {
@@ -97,7 +94,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isFailure);
         }
 
-        // TC-004
         [Fact]
         public void TestCreateUserWhenEmailIsMissingFailure()
         {
@@ -123,7 +119,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isFailure);
         }
 
-        // TC-005
         [Fact]
         public void TestCreateUserWhenPasswordHashIsMissingFailure()
         {
@@ -149,7 +144,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isFailure);
         }
 
-        // TC-006
         [Fact]
         public void TestIsEmailRegisteredWithExistingEmailTrue()
         {
@@ -171,7 +165,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isRegistered);
         }
 
-        // TC-007
         [Fact]
         public void TestIsEmailRegisteredWithNonExistingEmailFalse()
         {
@@ -182,7 +175,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(!isRegistered);
         }
 
-        // TC-008, TC-009, TC-010
         [Theory]
         [InlineData("")]
         [InlineData("       ")]
@@ -196,7 +188,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(!result);
         }
 
-        // TC-011
         [Fact]
         public void TestIsUserNameTakenWithExistingUserTrue()
         {
@@ -218,7 +209,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isTaken);
         }
 
-        // TC-012
         [Fact]
         public void TestIsUserNameTakenWithNonExistingUserFalse()
         {
@@ -229,7 +219,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(!isTaken);
         }
 
-        // TC-013, TC-014, TC-015
         [Theory]
         [InlineData("")]
         [InlineData("   ")]
@@ -243,7 +232,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(!result);
         }
 
-        // TC-016
         [Fact]
         public void TestGetAuthByIdentifierWithExistingEmailSuccess()
         {
@@ -273,7 +261,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // TC-017
         [Fact]
         public void TestGetAuthByIdentifierWhenIdentifierIsNullFailure()
         {
@@ -285,7 +272,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isFailure);
         }
 
-        // TC-018
         [Fact]
         public void TestGetAuthByIdentifierWhenUserDoesNotExistFailure()
         {
@@ -297,7 +283,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isFailure);
         }
 
-        // caso extra (similar a matriz): user sin contraseña
         [Fact]
         public void TestGetAuthByIdentifierWhenUserHasNoPasswordFailure()
         {
@@ -339,7 +324,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isFailure);
         }
 
-        // TC-019
         [Fact]
         public void TestGetAuthByIdentifierTrimsIdentifierWhitespace()
         {
@@ -370,7 +354,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // TC-020
         [Fact]
         public void TestGetAuthByIdentifierWhenIdentifierIsWhitespaceFailure()
         {
@@ -382,7 +365,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isFailure);
         }
 
-        // TC-021
         [Fact]
         public void TestGetAuthByIdentifierReturnsMostRecentPasswordHash()
         {
