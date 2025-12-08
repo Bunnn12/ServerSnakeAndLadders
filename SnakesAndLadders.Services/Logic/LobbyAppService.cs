@@ -77,14 +77,12 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (InvalidOperationException ex)
             {
-                appLogger.Error("Conflict while creating game.", ex);
                 throw new InvalidOperationException(
                     "A conflict occurred while creating the game. Please try again.",
                     ex);
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                appLogger.Error("Unexpected error while creating game.", ex);
                 throw;
             }
         }
@@ -107,9 +105,8 @@ namespace SnakesAndLadders.Services.Logic
                 appLogger.Info(
                     $"Player registered in game. GameId={gameId}, UserId={userId}, IsHost={isHost}");
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                appLogger.Error("Error while registering player in game.", ex);
                 throw;
             }
         }

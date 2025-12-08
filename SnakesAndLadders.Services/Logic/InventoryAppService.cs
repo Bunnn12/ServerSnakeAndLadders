@@ -50,9 +50,8 @@ namespace SnakesAndLadders.Services.Logic
                         : new List<InventoryDiceDto>(dice)
                 };
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                Logger.Error("Error al obtener el inventario del usuario.", ex);
                 throw;
             }
         }
@@ -81,9 +80,8 @@ namespace SnakesAndLadders.Services.Logic
                     slot2ObjectId,
                     slot3ObjectId);
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                Logger.Error("Error al actualizar los objetos seleccionados del usuario.", ex);
                 throw;
             }
         }
@@ -109,9 +107,8 @@ namespace SnakesAndLadders.Services.Logic
                     slot1DiceId,
                     slot2DiceId);
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                Logger.Error("Error al actualizar los dados seleccionados del usuario.", ex);
                 throw;
             }
         }
@@ -173,9 +170,8 @@ namespace SnakesAndLadders.Services.Logic
                     slots[(byte)(MIN_ITEM_SLOT + 1)],
                     slots[MAX_ITEM_SLOT]);
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                Logger.Error("Error al equipar un objeto en el slot del usuario.", ex);
                 throw;
             }
         }
@@ -198,9 +194,8 @@ namespace SnakesAndLadders.Services.Logic
             {
                 inventoryRepository.RemoveItemFromSlot(userId, slotNumber);
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                Logger.Error("Error al quitar el objeto del slot del usuario.", ex);
                 throw;
             }
         }
@@ -259,9 +254,8 @@ namespace SnakesAndLadders.Services.Logic
                     slots[MIN_DICE_SLOT],
                     slots[MAX_DICE_SLOT]);
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                Logger.Error("Error al equipar un dado en el slot del usuario.", ex);
                 throw;
             }
         }
@@ -284,9 +278,8 @@ namespace SnakesAndLadders.Services.Logic
             {
                 inventoryRepository.RemoveDiceFromSlot(userId, slotNumber);
             }
-            catch (Exception ex)
+            catch (Exception )
             {
-                Logger.Error("Error al quitar el dado del slot del usuario.", ex);
                 throw;
             }
         }
