@@ -67,19 +67,19 @@ namespace SnakesAndLadders.Data.Repositories
                 throw new ArgumentException(message, nameof(username));
             }
 
-            using (SnakeAndLaddersDBEntities1 db = _contextFactory())
+            using (SnakeAndLaddersDBEntities1 dataBase = _contextFactory())
             {
-                ConfigureContext(db);
+                ConfigureContext(dataBase);
 
                 try
                 {
                     var row =
-                        (from u in db.Usuario.AsNoTracking()
-                         join ad in db.AvatarDesbloqueado.AsNoTracking()
+                        (from u in dataBase.Usuario.AsNoTracking()
+                         join ad in dataBase.AvatarDesbloqueado.AsNoTracking()
                              on u.IdAvatarDesbloqueadoActual equals ad.IdAvatarDesbloqueado
                              into avatarGroup
                          from ad in avatarGroup.DefaultIfEmpty()
-                         join av in db.Avatar.AsNoTracking()
+                         join av in dataBase.Avatar.AsNoTracking()
                              on ad.AvatarIdAvatar equals av.IdAvatar
                              into avatarEntityGroup
                          from av in avatarEntityGroup.DefaultIfEmpty()

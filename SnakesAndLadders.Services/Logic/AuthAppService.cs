@@ -249,7 +249,6 @@ namespace SnakesAndLadders.Services.Logic
                     userId,
                     sessionErrorCode);
 
-                // Negocio: no permitimos segundo login del mismo usuario
                 return Fail(AuthCodeSessionAlreadyActive);
             }
 
