@@ -10,5 +10,7 @@ namespace SnakeAndLadders.Contracts.Interfaces
 
         AccountDto GetByUserId(int userId);
         AvatarProfileOptionsDto GetAvatarOptions(int userId);
+
+        AccountDto SelectAvatarForProfile(AvatarSelectionRequestDto request);
     }
 }

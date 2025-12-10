@@ -42,6 +42,11 @@ namespace SnakesAndLadders.Data.Repositories
             "ProfileDescription exceeds {0} characters.";
         private const string ERROR_USER_NOT_FOUND_OR_INACTIVE = "User not found or inactive.";
 
+        private const string ERROR_AVATAR_CODE_REQUIRED = "AvatarCode is required.";
+        private const string ERROR_AVATAR_CODE_UNKNOWN = "AvatarCode is not recognized.";
+        private const string ERROR_AVATAR_NOT_UNLOCKED = "Avatar is not unlocked for the user.";
+
+
         private static readonly ILog Logger = LogManager.GetLogger(typeof(UserRepository));
 
         private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
@@ -421,7 +426,140 @@ namespace SnakesAndLadders.Data.Repositories
             }
         }
 
- 
+        public AccountDto SelectAvatarForProfile(AvatarSelectionRequestDto request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            ValidateUserId(request.UserId);
+
+            if (string.IsNullOrWhiteSpace(request.AvatarCode))
+            {
+                throw new ArgumentException(
+                    ERROR_AVATAR_CODE_REQUIRED,
+                    nameof(request.AvatarCode));
+            }
+
+            string normalizedCode = request.AvatarCode
+                .Trim()
+                .ToUpperInvariant();
+
+            using (SnakeAndLaddersDBEntities1 db = _contextFactory())
+            {
+                ConfigureContext(db);
+
+                try
+                {
+                    Usuario user = db.Usuario
+                        .SingleOrDefault(u => u.IdUsuario == request.UserId);
+
+                    if (user == null || !IsActive(user.Estado))
+                    {
+                        throw new InvalidOperationException(ERROR_USER_NOT_FOUND_OR_INACTIVE);
+                    }
+
+                    if (IsDefaultAvatarCode(normalizedCode))
+                    {
+                        // Avatar por defecto (no skin especial): se guarda como foto de perfil.
+                        user.FotoPerfil = normalizedCode;
+                        user.IdAvatarDesbloqueadoActual = null;
+
+                        db.SaveChanges();
+
+                        return GetAccountWithAvatar(db, user.IdUsuario);
+                    }
+
+                    // Skin especial: buscar por CodigoAvatar (001, 003, 004, etc.).
+                    Avatar targetAvatar = db.Avatar
+                        .SingleOrDefault(a =>
+                            a.CodigoAvatar != null &&
+                            a.CodigoAvatar.Trim().ToUpper() == normalizedCode);
+
+                    if (targetAvatar == null)
+                    {
+                        throw new InvalidOperationException(ERROR_AVATAR_CODE_UNKNOWN);
+                    }
+
+                    AvatarDesbloqueado unlocked = db.AvatarDesbloqueado
+                        .SingleOrDefault(ad =>
+                            ad.UsuarioIdUsuario == user.IdUsuario &&
+                            ad.AvatarIdAvatar == targetAvatar.IdAvatar);
+
+                    if (unlocked == null)
+                    {
+                        throw new InvalidOperationException(ERROR_AVATAR_NOT_UNLOCKED);
+                    }
+
+                    user.IdAvatarDesbloqueadoActual = unlocked.IdAvatarDesbloqueado;
+
+                    db.SaveChanges();
+
+                    return GetAccountWithAvatar(db, user.IdUsuario);
+                }
+                catch (DbEntityValidationException ex)
+                {
+                    Logger.Error("Validation error while selecting avatar for profile.", ex);
+                    throw;
+                }
+                catch (DbUpdateException ex)
+                {
+                    Logger.Error("Update error while selecting avatar for profile.", ex);
+                    throw;
+                }
+                catch (EntityException ex)
+                {
+                    Logger.Error("Entity error while selecting avatar for profile.", ex);
+                    throw;
+                }
+                catch (SqlException ex)
+                {
+                    Logger.Error("SQL error while selecting avatar for profile.", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Unexpected error while selecting avatar for profile.", ex);
+                    throw;
+                }
+            }
+        }
+
+
+        private static AccountDto GetAccountWithAvatar(
+            SnakeAndLaddersDBEntities1 db,
+            int userId)
+        {
+            var row =
+                (from u in db.Usuario.AsNoTracking()
+                 join ad in db.AvatarDesbloqueado.AsNoTracking()
+                     on u.IdAvatarDesbloqueadoActual equals ad.IdAvatarDesbloqueado
+                     into avatarGroup
+                 from ad in avatarGroup.DefaultIfEmpty()
+                 join av in db.Avatar.AsNoTracking()
+                     on ad.AvatarIdAvatar equals av.IdAvatar
+                     into avatarEntityGroup
+                 from av in avatarEntityGroup.DefaultIfEmpty()
+                 where u.IdUsuario == userId
+                 select new
+                 {
+                     Usuario = u,
+                     AvatarDesbloqueado = ad,
+                     Avatar = av
+                 })
+                .FirstOrDefault();
+
+            if (row == null || !IsActive(row.Usuario.Estado))
+            {
+                throw new InvalidOperationException(ERROR_USER_NOT_FOUND_OR_INACTIVE);
+            }
+
+            return MapToAccountDto(row.Usuario, row.AvatarDesbloqueado, row.Avatar);
+        }
+
+
+
         private static AccountDto MapToAccountDto(
             Usuario usuario,
             AvatarDesbloqueado avatarDesbloqueado,
@@ -590,14 +728,17 @@ namespace SnakesAndLadders.Data.Repositories
         }
 
         private static void AddSpecialAvatarOptions(
-            IList<AvatarProfileOptionDto> options,
-            IList<Avatar> avatarEntities,
-            IList<int> unlockedAvatarIds,
-            int currentAvatarEntityId)
+    IList<AvatarProfileOptionDto> options,
+    IList<Avatar> avatarEntities,
+    IList<int> unlockedAvatarIds,
+    int currentAvatarEntityId)
         {
             foreach (Avatar avatar in avatarEntities)
             {
-                if (!AvatarSpecialMapping.TryGetAvatarCode(avatar.IdAvatar, out string avatarCode))
+                // CodigoAvatar es el id de skin que importa (001, 003, 004…)
+                string skinCode = (avatar.CodigoAvatar ?? string.Empty).Trim();
+
+                if (string.IsNullOrWhiteSpace(skinCode))
                 {
                     continue;
                 }
@@ -607,13 +748,14 @@ namespace SnakesAndLadders.Data.Repositories
 
                 options.Add(new AvatarProfileOptionDto
                 {
-                    AvatarCode = avatarCode,
-                    DisplayName = avatar.NombreAvatar,
+                    AvatarCode = skinCode,                // AHORA ES EL CODIGO DE SKIN
+                    DisplayName = avatar.NombreAvatar,    // "Profe Liz", etc.
                     IsUnlocked = isUnlocked,
                     IsCurrent = isCurrent
                 });
             }
         }
+
 
         private static bool IsActive(byte[] estado)
         {
@@ -626,5 +768,57 @@ namespace SnakesAndLadders.Data.Repositories
         {
             ((IObjectContextAdapter)context).ObjectContext.CommandTimeout = COMMAND_TIMEOUT_SECONDS;
         }
+
+        private static bool IsDefaultAvatarCode(string avatarCode)
+        {
+            if (string.IsNullOrWhiteSpace(avatarCode))
+            {
+                return false;
+            }
+
+            string normalizedCode = avatarCode.Trim().ToUpperInvariant();
+
+            foreach (string defaultCode in AvatarDefaults.DefaultAvatarCodes)
+            {
+                if (string.Equals(defaultCode, normalizedCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Avatar FindAvatarByCode(
+            IList<Avatar> avatarEntities,
+            string avatarCode)
+        {
+            if (avatarEntities == null ||
+                string.IsNullOrWhiteSpace(avatarCode))
+            {
+                return null;
+            }
+
+            string normalizedCode = avatarCode.Trim().ToUpperInvariant();
+
+            foreach (Avatar avatar in avatarEntities)
+            {
+                if (!AvatarSpecialMapping.TryGetAvatarCode(avatar.IdAvatar, out string mappedCode))
+                {
+                    continue;
+                }
+
+                if (string.Equals(
+                        mappedCode,
+                        normalizedCode,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return avatar;
+                }
+            }
+
+            return null;
+        }
+
     }
 }

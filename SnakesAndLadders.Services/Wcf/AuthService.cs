@@ -50,9 +50,8 @@ namespace SnakesAndLadders.Services.Wcf
         {
             return _authAppService.ChangePassword(request);
         }
-        public AuthResult Logout(LogoutRequestDto request)
-        {
-            return _authAppService.Logout(request);
-        }
+
+
+        
     }
 }

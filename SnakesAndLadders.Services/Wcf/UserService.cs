@@ -47,5 +47,15 @@ namespace SnakesAndLadders.Services.Wcf
         {
             return app.GetAvatarOptions(userId);
         }
+
+        public AccountDto SelectAvatarForProfile(AvatarSelectionRequestDto request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            return app.SelectAvatarForProfile(request);
+        }
     }
 }

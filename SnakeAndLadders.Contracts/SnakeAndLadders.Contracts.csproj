@@ -55,6 +55,7 @@
     <Compile Include="Dtos\AvatarChestPurchaseDto.cs" />
     <Compile Include="Dtos\AvatarProfileOptionDto.cs" />
     <Compile Include="Dtos\AvatarProfileOptionsDto.cs" />
+    <Compile Include="Dtos\AvatarSelectionRequestDto.cs" />
     <Compile Include="Dtos\BanInfoDto.cs" />
     <Compile Include="Dtos\ChangePasswordRequestDto.cs" />
     <Compile Include="Dtos\ChangePasswordValidationContext.cs" />
