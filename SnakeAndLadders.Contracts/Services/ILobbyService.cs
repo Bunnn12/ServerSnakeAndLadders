@@ -32,5 +32,9 @@ namespace SnakeAndLadders.Contracts.Services
 
         [OperationContract(IsOneWay = true)]
         void UnsubscribePublicLobbies(int userId);
+
+        [OperationContract]
+        [FaultContract(typeof(ServiceFault))]
+        void KickPlayerFromLobby(KickPlayerFromLobbyRequest request);
     }
 }

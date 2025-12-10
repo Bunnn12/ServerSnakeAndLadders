@@ -3,6 +3,7 @@ using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Faults;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
+using SnakesAndLadders.Services.Logic;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -723,6 +724,113 @@ namespace SnakesAndLadders.Services.Wcf
             {
                 Logger.Warn("Error invoking lobby callback.", ex);
             }
+        }
+        public void KickPlayerFromLobby(KickPlayerFromLobbyRequest request)
+        {
+            if (request == null)
+            {
+                Throw("REQ_NULL", "Solicitud nula para expulsar jugador.");
+            }
+
+            if (request.LobbyId <= 0 ||
+                request.HostUserId <= 0 ||
+                request.TargetUserId == 0)   
+            {
+                Throw("REQ_INVALID", "Parámetros inválidos para expulsar jugador.");
+            }
+
+            if (request.HostUserId == request.TargetUserId)
+            {
+                Throw("KICK_SELF", "El host no puede expulsarse a sí mismo.");
+            }
+
+            if (!lobbies.TryGetValue(request.LobbyId, out LobbyInfo lobby))
+            {
+                return;
+            }
+
+            if (lobby.HostUserId != request.HostUserId)
+            {
+                Throw("KICK_NOT_HOST", "Solo el host puede expulsar jugadores del lobby.");
+            }
+
+            LobbyMember targetMember = lobby
+                .Players
+                .FirstOrDefault(player => player.UserId == request.TargetUserId);
+
+            if (targetMember == null)
+            {
+                return;
+            }
+
+            lobby.Players.Remove(targetMember);
+
+            const string KICK_REASON_CODE = "KICKED_BY_HOST";
+
+            NotifyKickedUserAndRemoveCallback(
+                lobby.PartidaId,
+                targetMember.UserId,
+                KICK_REASON_CODE);
+
+            if (targetMember.IsHost)
+            {
+                LobbyMember nextHost = lobby.Players.FirstOrDefault();
+
+                if (nextHost != null)
+                {
+                    lobby.HostUserId = nextHost.UserId;
+                    lobby.HostUserName = nextHost.UserName;
+
+                    foreach (LobbyMember player in lobby.Players)
+                    {
+                        player.IsHost = player.UserId == nextHost.UserId;
+                    }
+                }
+                else
+                {
+                    CloseLobby(lobby, REASON_CLOSED);
+                    BroadcastPublicLobbies();
+                    return;
+                }
+            }
+
+            NotifyLobbyUpdated(lobby);
+            BroadcastPublicLobbies();
+
+            if (!IsGuestUser(targetMember.UserId))
+            {
+                lobbyAppService.KickPlayerFromLobby(
+                    request.LobbyId,
+                    request.HostUserId,
+                    request.TargetUserId);
+            }
+        }
+
+        private void NotifyKickedUserAndRemoveCallback(
+            int partidaId,
+            int targetUserId,
+            string reason)
+        {
+            if (!lobbyCallbacks.TryGetValue(partidaId, out var perLobbyCallbacks))
+            {
+                return;
+            }
+
+            if (!perLobbyCallbacks.TryGetValue(targetUserId, out ILobbyCallback callback))
+            {
+                return;
+            }
+
+            perLobbyCallbacks.TryRemove(targetUserId, out _);
+
+            if (perLobbyCallbacks.IsEmpty)
+            {
+                lobbyCallbacks.TryRemove(partidaId, out _);
+            }
+
+            SafeInvoke(
+                callback,
+                cb => cb.OnKickedFromLobby(partidaId, reason ?? REASON_KICKED));
         }
     }
 }

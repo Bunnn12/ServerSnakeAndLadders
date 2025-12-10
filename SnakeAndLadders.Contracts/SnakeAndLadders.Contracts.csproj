@@ -91,6 +91,7 @@
     <Compile Include="Dtos\Gameplay\UseItemResponseDto.cs" />
     <Compile Include="Dtos\InviteFriendToGameRequestDto.cs" />
     <Compile Include="Dtos\ItemChestPurchaseDto.cs" />
+    <Compile Include="Dtos\KickPlayerFromLobbyRequest.cs" />
     <Compile Include="Dtos\LinkSocialProfileRequestDto.cs" />
     <Compile Include="Dtos\LobbySummary.cs" />
     <Compile Include="Dtos\LoginRequestDto.cs" />
