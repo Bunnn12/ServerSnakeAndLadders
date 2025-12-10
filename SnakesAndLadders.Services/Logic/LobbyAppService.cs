@@ -139,5 +139,48 @@ namespace SnakesAndLadders.Services.Logic
 
             throw new InvalidOperationException("Failed to generate a unique game code.");
         }
+        public void KickPlayerFromLobby(int lobbyId, int hostUserId, int targetUserId)
+        {
+            if (lobbyId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(lobbyId));
+            }
+
+            if (hostUserId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(hostUserId));
+            }
+
+            if (targetUserId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(targetUserId));
+            }
+
+            if (hostUserId == targetUserId)
+            {
+                throw new InvalidOperationException("Host cannot kick himself.");
+            }
+
+            try
+            {
+                bool hostIsValid = lobbyRepository.IsUserHost(lobbyId, hostUserId);
+                if (!hostIsValid)
+                {
+                    throw new InvalidOperationException("Only the host can kick players from the lobby.");
+                }
+
+                bool targetIsInLobby = lobbyRepository.IsUserInLobby(lobbyId, targetUserId);
+                if (!targetIsInLobby)
+                {
+                    return;
+                }
+
+                lobbyRepository.RemoveUserFromLobby(lobbyId, targetUserId);
+            }
+            catch
+            {
+                throw;
+            }
+        }
     }
 }

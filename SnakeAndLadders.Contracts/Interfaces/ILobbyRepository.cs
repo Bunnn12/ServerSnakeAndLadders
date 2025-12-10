@@ -17,6 +17,9 @@ namespace SnakeAndLadders.Contracts.Interfaces
         void AddUserToGame(int gameId, int userId, bool isHost);
 
         void UpdateGameStatus(int gameId, LobbyStatus newStatus);
+        bool IsUserHost(int lobbyId, int userId);
+        bool IsUserInLobby(int lobbyId, int userId);
+        void RemoveUserFromLobby(int lobbyId, int userId);
     }
 
     public sealed class CreatedGameInfo

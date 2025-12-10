@@ -142,5 +142,46 @@ namespace SnakesAndLadders.Data.Repositories
                 context.SaveChanges();
             }
         }
+        public bool IsUserHost(int lobbyId, int userId)
+        {
+            using (var context = new SnakeAndLaddersDBEntities1())
+            {
+                return context.UsuarioHasPartida
+                    .AsNoTracking()
+                    .Any(link =>
+                        link.PartidaIdPartida == lobbyId &&
+                        link.UsuarioIdUsuario == userId &&
+                        link.esHost);
+            }
+        }
+
+        public bool IsUserInLobby(int lobbyId, int userId)
+        {
+            using (var context = new SnakeAndLaddersDBEntities1())
+            {
+                return context.UsuarioHasPartida
+                    .AsNoTracking()
+                    .Any(link => link.PartidaIdPartida == lobbyId &&
+                        link.UsuarioIdUsuario == userId);
+            }
+        }
+
+        public void RemoveUserFromLobby(int lobbyId, int userId)
+        {
+            using (var context = new SnakeAndLaddersDBEntities1())
+            {
+                var link = context.UsuarioHasPartida.SingleOrDefault(x =>
+                        x.PartidaIdPartida == lobbyId &&
+                        x.UsuarioIdUsuario == userId);
+
+                if (link == null)
+                {
+                    return;
+                }
+
+                context.UsuarioHasPartida.Remove(link);
+                context.SaveChanges();
+            }
+        }
     }
 }
