@@ -258,13 +258,20 @@ namespace SnakesAndLadders.Services.Logic
 
         private void EvaluateSanctions(int reportedUserId, SanctionDto lastSanction)
         {
-            DateTime? lastSanctionDateUtc = lastSanction?.SanctionDateUtc;
+            DateTime? lastSanctionDateUtc = null;
+
+            bool hasPriorSanction = lastSanction != null && lastSanction.SanctionId > 0;
+
+            if (hasPriorSanction)
+            {
+                lastSanctionDateUtc = lastSanction.SanctionDateUtc;
+            }
 
             int activeReports = _reportRepository.CountActiveReportsAgainstUser(
                 reportedUserId,
                 lastSanctionDateUtc);
 
-            if (lastSanction == null)
+            if (!hasPriorSanction)
             {
                 if (activeReports >= THRESHOLD_S1)
                 {
@@ -280,7 +287,6 @@ namespace SnakesAndLadders.Services.Logic
                 {
                     ApplySanction(reportedUserId, SANCTION_TYPE_S2);
                 }
-
                 return;
             }
 
@@ -290,7 +296,6 @@ namespace SnakesAndLadders.Services.Logic
                 {
                     ApplySanction(reportedUserId, SANCTION_TYPE_S3);
                 }
-
                 return;
             }
 
