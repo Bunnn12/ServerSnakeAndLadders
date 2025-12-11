@@ -57,5 +57,6 @@ namespace SnakesAndLadders.Services.Wcf
 
             return app.SelectAvatarForProfile(request);
         }
+        //comentario validacion
     }
 }

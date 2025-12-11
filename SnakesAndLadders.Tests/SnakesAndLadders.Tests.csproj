@@ -130,9 +130,14 @@
     <Compile Include="Unit\InventoryValidationHelperTests.cs" />
     <Compile Include="Unit\LobbyAppServiceTests.cs" />
     <Compile Include="Unit\LoginAuthServiceTests.cs" />
+    <Compile Include="Unit\MatchInvitationAppServiceTests.cs" />
     <Compile Include="Unit\PasswordChangeAuthServiceTests.cs" />
+    <Compile Include="Unit\PlayerReportAppServiceTests.cs" />
+    <Compile Include="Unit\PlayerSessionManagerTests.cs" />
     <Compile Include="Unit\RegistrationAuthServiceTests.cs" />
     <Compile Include="Unit\Sha256PasswordHasherTests.cs" />
+    <Compile Include="Unit\ShopAppServiceTests.cs" />
+    <Compile Include="Unit\SmtpEmailSenderTests.cs" />
     <Compile Include="Unit\SnakesAndLaddersPlacerTests.cs" />
     <Compile Include="Unit\SocialProfileAppServiceTests.cs" />
     <Compile Include="Unit\SpecialCellsAssignerTests.cs" />
