@@ -8,11 +8,7 @@ namespace SnakeAndLadders.Contracts.Interfaces
         bool CodeExists(string code);
 
         CreatedGameInfo CreateGame(
-            int hostUserId,
-            byte maxPlayers,
-            string dificultad,
-            string code,
-            DateTime expiresAtUtc);
+            CreateLobbyRequestDto createLobbyRequest);
 
         void AddUserToGame(int gameId, int userId, bool isHost);
 

@@ -6,7 +6,9 @@ using log4net;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
+using SnakesAndLadders.Services.Constants;
 using SnakesAndLadders.Services.Logic;
+using SnakesAndLadders.Services.Wcf.Constants; // GameBoardBuilder
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -17,38 +19,38 @@ namespace SnakesAndLadders.Services.Wcf
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(GameBoardService));
 
-        private const string ERROR_UNEXPECTED_CREATE = "An unexpected internal error occurred while creating the board.";
-        private const string ERROR_GAME_ID_INVALID = "GameId must be greater than zero.";
-        private const string ERROR_REQUEST_NULL = "Request cannot be null.";
+        private readonly GameBoardBuilder _gameBoardBuilder;
+        private readonly IGameSessionStore _gameSessionStore;
 
-        private const int INVALID_USER_ID = 0;
-
-        private readonly GameBoardBuilder gameBoardBuilder = new GameBoardBuilder();
-        private readonly IGameSessionStore gameSessionStore;
-
-        public GameBoardService(IGameSessionStore gameSessionStore, IAppLogger appLogger)
+        public GameBoardService(
+            IGameSessionStore gameSessionStore,
+            GameBoardBuilder gameBoardBuilder)
         {
-            this.gameSessionStore = gameSessionStore ?? throw new ArgumentNullException(nameof(gameSessionStore));
+            _gameSessionStore = gameSessionStore
+                                ?? throw new ArgumentNullException(nameof(gameSessionStore));
+
+            _gameBoardBuilder = gameBoardBuilder
+                                ?? throw new ArgumentNullException(nameof(gameBoardBuilder));
         }
 
         public CreateBoardResponseDto CreateBoard(CreateBoardRequestDto request)
         {
             if (request == null)
             {
-                Logger.Warn(ERROR_REQUEST_NULL);
-                throw new FaultException(ERROR_REQUEST_NULL);
+                Logger.Warn(GameBoardServiceConstants.ERROR_REQUEST_NULL);
+                throw new FaultException(GameBoardServiceConstants.ERROR_REQUEST_NULL);
             }
 
             if (request.GameId <= 0)
             {
-                Logger.Warn(ERROR_GAME_ID_INVALID);
-                throw new FaultException(ERROR_GAME_ID_INVALID);
+                Logger.Warn(GameBoardServiceConstants.ERROR_GAME_ID_INVALID);
+                throw new FaultException(GameBoardServiceConstants.ERROR_GAME_ID_INVALID);
             }
 
             try
             {
                 Logger.InfoFormat(
-                    "Creating board. GameId={0}, BoardSize={1}, EnableDiceCells={2}, EnableItemCells={3}, EnableMessageCells={4}, Difficulty={5}",
+                    GameBoardServiceConstants.LOG_INFO_CREATING_BOARD_FORMAT,
                     request.GameId,
                     request.BoardSize,
                     request.EnableDiceCells,
@@ -56,30 +58,29 @@ namespace SnakesAndLadders.Services.Wcf
                     request.EnableMessageCells,
                     request.Difficulty);
 
-                BoardDefinitionDto board = gameBoardBuilder.BuildBoard(request);
+                BoardDefinitionDto board = _gameBoardBuilder.BuildBoard(request);
 
                 int[] rawPlayerIds = request.PlayerUserIds ?? Array.Empty<int>();
 
                 List<int> players = rawPlayerIds
-                    .Where(id => id != INVALID_USER_ID) 
+                    .Where(id => id != GameBoardServiceConstants.INVALID_USER_ID)
                     .Distinct()
                     .ToList();
 
                 if (players.Count == 0)
                 {
-                    const string message = "Cannot create a game session without players.";
                     Logger.WarnFormat(
-                        "CreateBoard: no valid player IDs. GameId={0}, RawCount={1}",
+                        GameBoardServiceConstants.LOG_WARN_NO_PLAYERS_FORMAT,
                         request.GameId,
                         rawPlayerIds.Length);
 
-                    throw new InvalidOperationException(message);
+                    throw new InvalidOperationException(GameBoardServiceConstants.ERROR_NO_PLAYERS);
                 }
 
-                GameSession session = gameSessionStore.CreateSession(request.GameId, board, players);
+                GameSession session = _gameSessionStore.CreateSession(request.GameId, board, players);
 
                 Logger.InfoFormat(
-                    "Game session created. GameId={0}, Players={1}",
+                    GameBoardServiceConstants.LOG_INFO_SESSION_CREATED_FORMAT,
                     session.GameId,
                     string.Join(",", session.PlayerUserIds));
 
@@ -90,12 +91,12 @@ namespace SnakesAndLadders.Services.Wcf
             }
             catch (ArgumentException ex)
             {
-                Logger.Warn("Validation error while creating board.", ex);
+                Logger.Warn(GameBoardServiceConstants.LOG_WARN_VALIDATION_CREATE, ex);
                 throw new FaultException(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                Logger.Warn("Cannot create game session.", ex);
+                Logger.Warn(GameBoardServiceConstants.LOG_WARN_CANNOT_CREATE_SESSION, ex);
                 throw new FaultException(ex.Message);
             }
             catch (FaultException)
@@ -104,8 +105,8 @@ namespace SnakesAndLadders.Services.Wcf
             }
             catch (Exception ex)
             {
-                Logger.Error(ERROR_UNEXPECTED_CREATE, ex);
-                throw new FaultException(ERROR_UNEXPECTED_CREATE);
+                Logger.Error(GameBoardServiceConstants.ERROR_UNEXPECTED_CREATE, ex);
+                throw new FaultException(GameBoardServiceConstants.ERROR_UNEXPECTED_CREATE);
             }
         }
 
@@ -113,14 +114,18 @@ namespace SnakesAndLadders.Services.Wcf
         {
             if (gameId <= 0)
             {
-                throw new FaultException(ERROR_GAME_ID_INVALID);
+                Logger.Warn(GameBoardServiceConstants.ERROR_GAME_ID_INVALID);
+                throw new FaultException(GameBoardServiceConstants.ERROR_GAME_ID_INVALID);
             }
 
             try
             {
-                if (!gameSessionStore.TryGetSession(gameId, out GameSession session))
+                if (!_gameSessionStore.TryGetSession(gameId, out GameSession session))
                 {
-                    Logger.WarnFormat("GetBoard: no session found for GameId {0}.", gameId);
+                    Logger.WarnFormat(
+                        GameBoardServiceConstants.LOG_WARN_SESSION_NOT_FOUND_FORMAT,
+                        gameId);
+
                     return null;
                 }
 
@@ -128,9 +133,10 @@ namespace SnakesAndLadders.Services.Wcf
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error while retrieving board.", ex);
-                throw new FaultException("An unexpected error occurred while retrieving the board.");
+                Logger.Error(GameBoardServiceConstants.LOG_ERROR_UNEXPECTED_GET, ex);
+                throw new FaultException(GameBoardServiceConstants.ERROR_UNEXPECTED_GET);
             }
         }
+
     }
 }

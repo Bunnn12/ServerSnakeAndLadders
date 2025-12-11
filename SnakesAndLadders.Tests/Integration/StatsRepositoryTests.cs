@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using SnakeAndLadders.Contracts.Dtos;
+﻿using SnakeAndLadders.Contracts.Dtos;
 using SnakesAndLadders.Data;
 using SnakesAndLadders.Data.Repositories;
 using SnakesAndLadders.Tests.integration;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace SnakesAndLadders.Tests.Integration
@@ -136,7 +136,7 @@ namespace SnakesAndLadders.Tests.Integration
         {
             StatsRepository repository = CreateRepository();
 
-            Action action = () => repository.GetTopPlayersByCoins(invalidMaxResults);
+            void action() => repository.GetTopPlayersByCoins(invalidMaxResults);
 
             Assert.Throws<ArgumentOutOfRangeException>(action);
         }
@@ -236,7 +236,7 @@ namespace SnakesAndLadders.Tests.Integration
         {
             StatsRepository repository = CreateRepository();
 
-            Action action = () => repository.GetPlayerStatsByUserId(
+            void action() => repository.GetPlayerStatsByUserId(
                 invalidUserId,
                 DEFAULT_RANKING_MAX_RESULTS);
 
@@ -253,7 +253,7 @@ namespace SnakesAndLadders.Tests.Integration
 
             StatsRepository repository = CreateRepository();
 
-            Action action = () => repository.GetPlayerStatsByUserId(
+            void action() => repository.GetPlayerStatsByUserId(
                 userId,
                 invalidRankingMaxResults);
 

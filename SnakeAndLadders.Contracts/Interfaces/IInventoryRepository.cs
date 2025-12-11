@@ -20,15 +20,10 @@ namespace SnakeAndLadders.Contracts.Interfaces
         void ConsumeDice(int userId, int diceId);
 
         void UpdateSelectedItems(
-            int userId,
-            int? slot1ObjectId,
-            int? slot2ObjectId,
-            int? slot3ObjectId);
+            UpdateItemSlotsRequest request);
 
         void UpdateSelectedDice(
-            int userId,
-            int? slot1DiceId,
-            int? slot2DiceId);
+            UpdateDiceSlotsRequest request);
 
         OperationResult<bool> GrantItemToUser(int userId, string itemCode);
 

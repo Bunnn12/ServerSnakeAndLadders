@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Dtos\AccountDto.cs" />
+    <Compile Include="Dtos\AccountStatusChange.cs" />
     <Compile Include="Dtos\ActiveReportSearchCriteriaDto.cs" />
     <Compile Include="Dtos\AuthCredentialsDto.cs" />
     <Compile Include="Dtos\AuthResult.cs" />
@@ -63,17 +64,20 @@
     <Compile Include="Dtos\CreateAccountRequest.cs" />
     <Compile Include="Dtos\CreateGameRequest.cs" />
     <Compile Include="Dtos\CreateGameResponse.cs" />
+    <Compile Include="Dtos\CreateLobbyRequestDto.cs" />
     <Compile Include="Dtos\DicePurchaseDto.cs" />
     <Compile Include="Dtos\EmailCodeValidationResult.cs" />
     <Compile Include="Dtos\FriendLinkDto.cs" />
     <Compile Include="Dtos\FriendListItemDto.cs" />
     <Compile Include="Dtos\FriendRequestItemDto.cs" />
+    <Compile Include="Dtos\FriendRequestParticipants.cs" />
     <Compile Include="Dtos\GameInvitationEmailDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardCellDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardDefinitionDto.cs" />
     <Compile Include="Dtos\Gameplay\BoardLinkDto.cs" />
     <Compile Include="Dtos\Gameplay\CreateBoardRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\CreateBoardResponseDto.cs" />
+    <Compile Include="Dtos\Gameplay\DiceSlotsSelection.cs" />
     <Compile Include="Dtos\Gameplay\GameFinishedDto.cs" />
     <Compile Include="Dtos\Gameplay\GameFinishedPlayerDto.cs" />
     <Compile Include="Dtos\Gameplay\GameSession.cs" />
@@ -83,11 +87,14 @@
     <Compile Include="Dtos\Gameplay\InventoryItemDto.cs" />
     <Compile Include="Dtos\Gameplay\InventorySnapshotDto.cs" />
     <Compile Include="Dtos\Gameplay\ItemEffectResultDto.cs" />
+    <Compile Include="Dtos\Gameplay\ItemSlotsSelection.cs" />
     <Compile Include="Dtos\Gameplay\ItemUsedNotificationDto.cs" />
     <Compile Include="Dtos\Gameplay\PlayerLeftDto.cs" />
     <Compile Include="Dtos\Gameplay\TokenStateDto.cs" />
     <Compile Include="Dtos\Gameplay\TurnChangedDto.cs" />
     <Compile Include="Dtos\Gameplay\TurnTimerUpdateDto.cs" />
+    <Compile Include="Dtos\Gameplay\UpdateDiceSlotsRequest.cs" />
+    <Compile Include="Dtos\Gameplay\UpdateItemSlotsRequest.cs" />
     <Compile Include="Dtos\Gameplay\UseItemRequestDto.cs" />
     <Compile Include="Dtos\Gameplay\UseItemResponseDto.cs" />
     <Compile Include="Dtos\InviteFriendToGameRequestDto.cs" />

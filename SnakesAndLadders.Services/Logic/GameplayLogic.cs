@@ -3,29 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
+using SnakesAndLadders.Services.Constants;
+using SnakesAndLadders.Services.Logic.Gameplay;
 
 namespace SnakesAndLadders.Services.Logic
 {
-    using SnakesAndLadders.Services.Logic.Gameplay;
-
     public sealed class GameplayLogic
     {
-        private const int INVALID_USER_ID = 0;
-
-        private const int MAX_CONSECUTIVE_TIMEOUTS = 3;
-
-        private const int MIN_CELL_INDEX = 0;
-        private const int MIN_BOARD_CELL = 1;
-
-        private const string EXTRA_INFO_ROLL_TOO_HIGH_NO_MOVE = "RollTooHigh_NoMove";
-        private const string EXTRA_INFO_LADDER = "Ladder";
-        private const string EXTRA_INFO_SNAKE = "Snake";
-        private const string EXTRA_INFO_JUMP_SAME = "JumpButSameIndex";
-        private const string EXTRA_INFO_WIN = "Win";
-        private const string EXTRA_INFO_FROZEN_SKIP_TURN = "Frozen_SkipTurn";
-        private const string EXTRA_INFO_SNAKE_BLOCKED_BY_SHIELD = "Snake_BlockedByShield";
-        private const string EXTRA_INFO_ROCKET_USED = "Rocket_Used";
-        private const string EXTRA_INFO_ROCKET_IGNORED = "Rocket_Ignored";
+        private const string ERROR_AT_LEAST_ONE_PLAYER_REQUIRED =
+            "GameplayLogic requires at least one player.";
 
         private readonly BoardDefinitionDto _boardDefinition;
 
@@ -36,8 +22,8 @@ namespace SnakesAndLadders.Services.Logic
         private readonly Random _random;
 
         private readonly IBoardNavigator _boardNavigator;
-        private readonly IDiceManager _diceService;
-        private readonly IItemEffectManager _itemEffectService;
+        private readonly IDiceManager _diceManager;
+        private readonly IItemEffectManager _itemEffectManager;
 
         private readonly int _finalCellIndex;
 
@@ -62,12 +48,13 @@ namespace SnakesAndLadders.Services.Logic
 
             _turnOrder = playerUserIds
                 .Distinct()
-                .Where(id => id != INVALID_USER_ID)
+                .Where(id => id != GameplayLogicConstants.INVALID_USER_ID)
                 .ToList();
 
             if (_turnOrder.Count == 0)
             {
-                throw new InvalidOperationException("GameplayLogic requires at least one player.");
+                throw new InvalidOperationException(
+                    ERROR_AT_LEAST_ONE_PLAYER_REQUIRED);
             }
 
             _playersByUserId = _turnOrder
@@ -76,7 +63,7 @@ namespace SnakesAndLadders.Services.Logic
                     id => new PlayerRuntimeState
                     {
                         UserId = id,
-                        Position = MIN_CELL_INDEX,
+                        Position = GameplayLogicConstants.MIN_CELL_INDEX,
                         RemainingFrozenTurns = 0,
                         HasShield = false,
                         RemainingShieldTurns = 0,
@@ -92,8 +79,8 @@ namespace SnakesAndLadders.Services.Logic
             _random = new Random(unchecked((int)DateTime.UtcNow.Ticks));
 
             _boardNavigator = new BoardNavigator(_boardDefinition, _random);
-            _diceService = new DiceManager(_random);
-            _itemEffectService = new ItemEffectManager();
+            _diceManager = new DiceManager(_random);
+            _itemEffectManager = new ItemEffectManager();
 
             _finalCellIndex = _boardNavigator.FinalCellIndex;
         }
@@ -104,28 +91,26 @@ namespace SnakesAndLadders.Services.Logic
             {
                 if (_isFinished)
                 {
-                    throw new InvalidOperationException("The game has already finished.");
+                    GameplayValidationHelper.ThrowGameAlreadyFinished();
                 }
 
-                if (_turnOrder.Count == 0)
-                {
-                    throw new InvalidOperationException("There are no players in this game.");
-                }
+                GameplayValidationHelper.EnsureThereArePlayers(_turnOrder);
 
                 int previousTurnUserId = _turnOrder[_currentTurnIndex];
 
-                if (!_playersByUserId.TryGetValue(previousTurnUserId, out PlayerRuntimeState currentPlayer))
-                {
-                    throw new InvalidOperationException("Current player state was not found.");
-                }
+                PlayerRuntimeState currentPlayer =
+                    GameplayValidationHelper.GetPlayerStateOrThrow(
+                        _playersByUserId,
+                        previousTurnUserId);
 
                 currentPlayer.ConsecutiveTimeouts++;
 
                 bool playerKicked = false;
-                int kickedUserId = INVALID_USER_ID;
-                int winnerUserId = INVALID_USER_ID;
+                int kickedUserId = GameplayLogicConstants.INVALID_USER_ID;
+                int winnerUserId = GameplayLogicConstants.INVALID_USER_ID;
 
-                if (currentPlayer.ConsecutiveTimeouts >= MAX_CONSECUTIVE_TIMEOUTS)
+                if (currentPlayer.ConsecutiveTimeouts >=
+                    GameplayLogicConstants.MAX_CONSECUTIVE_TIMEOUTS)
                 {
                     playerKicked = true;
                     kickedUserId = previousTurnUserId;
@@ -145,7 +130,8 @@ namespace SnakesAndLadders.Services.Logic
                         return new TurnTimeoutResult
                         {
                             PreviousTurnUserId = previousTurnUserId,
-                            CurrentTurnUserId = INVALID_USER_ID,
+                            CurrentTurnUserId =
+                                GameplayLogicConstants.INVALID_USER_ID,
                             PlayerKicked = true,
                             KickedUserId = kickedUserId,
                             GameFinished = true,
@@ -155,7 +141,8 @@ namespace SnakesAndLadders.Services.Logic
 
                     if (_currentTurnIndex >= _turnOrder.Count)
                     {
-                        _currentTurnIndex = _currentTurnIndex % _turnOrder.Count;
+                        _currentTurnIndex =
+                            _currentTurnIndex % _turnOrder.Count;
                     }
                 }
                 else
@@ -163,9 +150,10 @@ namespace SnakesAndLadders.Services.Logic
                     AdvanceTurnAndResetFlags(previousTurnUserId);
                 }
 
-                int currentTurnUserId = _isFinished || _turnOrder.Count == 0
-                    ? INVALID_USER_ID
-                    : _turnOrder[_currentTurnIndex];
+                int currentTurnUserId =
+                    _isFinished || _turnOrder.Count == 0
+                        ? GameplayLogicConstants.INVALID_USER_ID
+                        : _turnOrder[_currentTurnIndex];
 
                 return new TurnTimeoutResult
                 {
@@ -185,99 +173,54 @@ namespace SnakesAndLadders.Services.Logic
             {
                 if (_isFinished)
                 {
-                    throw new InvalidOperationException("The game has already finished.");
+                    GameplayValidationHelper.ThrowGameAlreadyFinished();
                 }
 
-                if (!_turnOrder.Contains(userId))
-                {
-                    throw new InvalidOperationException("User is not part of this game.");
-                }
+                GameplayValidationHelper.EnsureUserInGame(_turnOrder, userId);
+                GameplayValidationHelper.EnsureIsUserTurn(
+                    _turnOrder,
+                    _currentTurnIndex,
+                    userId);
 
-                int currentTurnUserId = _turnOrder[_currentTurnIndex];
-                if (currentTurnUserId != userId)
-                {
-                    throw new InvalidOperationException("It is not this user's turn.");
-                }
-
-                if (!_playersByUserId.TryGetValue(userId, out PlayerRuntimeState playerState))
-                {
-                    throw new InvalidOperationException("Player state was not found.");
-                }
+                PlayerRuntimeState playerState =
+                    GameplayValidationHelper.GetPlayerStateOrThrow(
+                        _playersByUserId,
+                        userId);
 
                 playerState.ConsecutiveTimeouts = 0;
 
                 if (playerState.RemainingFrozenTurns > 0)
                 {
-                    playerState.RemainingFrozenTurns--;
-
-                    if (playerState.RemainingFrozenTurns < 0)
-                    {
-                        playerState.RemainingFrozenTurns = 0;
-                    }
-
-                    string frozenExtraInfo = EXTRA_INFO_FROZEN_SKIP_TURN;
-
-                    AdvanceTurnAndResetFlags(userId);
-
-                    return new RollDiceResult
-                    {
-                        DiceValue = 0,
-                        FromCellIndex = playerState.Position,
-                        ToCellIndex = playerState.Position,
-                        IsGameOver = _isFinished,
-                        ExtraInfo = frozenExtraInfo,
-                        UsedRocket = false,
-                        RocketIgnored = false,
-                        MessageIndex = null,
-                        GrantedItemCode = null,
-                        GrantedDiceCode = null
-                    };
+                    return HandleFrozenPlayerRoll(playerState, userId);
                 }
 
                 playerState.HasRolledThisTurn = true;
 
-                int diceValue = _diceService.GetDiceValue(playerState, diceCode);
+                int diceValue = _diceManager.GetDiceValue(
+                    playerState,
+                    diceCode);
 
                 int fromCellIndex = playerState.Position;
 
-                bool usedRocket = false;
-                bool rocketIgnored = false;
+                TentativeMoveResult tentativeMove = CalculateTentativeTarget(
+                    playerState,
+                    fromCellIndex,
+                    diceValue);
 
-                int tentativeTarget = fromCellIndex + diceValue;
+                int tentativeTarget = tentativeMove.TargetCellIndex;
+                bool usedRocket = tentativeMove.UsedRocket;
+                bool rocketIgnored = tentativeMove.RocketIgnored;
 
-                if (tentativeTarget < MIN_BOARD_CELL)
+                if (IsRollTooHigh(tentativeTarget))
                 {
-                    tentativeTarget = MIN_BOARD_CELL;
-                }
-
-                if (playerState.PendingRocketBonus > 0)
-                {
-                    int tentativeTargetWithRocket = fromCellIndex
-                        + diceValue
-                        + playerState.PendingRocketBonus;
-
-                    if (_finalCellIndex > 0 && tentativeTargetWithRocket <= _finalCellIndex)
-                    {
-                        tentativeTarget = tentativeTargetWithRocket;
-                        usedRocket = true;
-                    }
-                    else
-                    {
-                        rocketIgnored = true;
-                    }
-
-                    playerState.PendingRocketBonus = 0;
-                }
-
-                if (_finalCellIndex > 0 && tentativeTarget > _finalCellIndex)
-                {
-                    string extraTooHighInfo = EXTRA_INFO_ROLL_TOO_HIGH_NO_MOVE;
+                    string extraInfo =
+                        GameplayLogicConstants.ROLL_TOO_HIGH_NO_MOVE;
 
                     if (rocketIgnored)
                     {
-                        extraTooHighInfo = AppendToken(
-                            EXTRA_INFO_ROCKET_IGNORED,
-                            EXTRA_INFO_ROLL_TOO_HIGH_NO_MOVE);
+                        extraInfo = AppendToken(
+                            GameplayLogicConstants.ROCKET_IGNORED,
+                            GameplayLogicConstants.ROLL_TOO_HIGH_NO_MOVE);
                     }
 
                     AdvanceTurnAndResetFlags(userId);
@@ -288,7 +231,7 @@ namespace SnakesAndLadders.Services.Logic
                         FromCellIndex = fromCellIndex,
                         ToCellIndex = fromCellIndex,
                         IsGameOver = _isFinished,
-                        ExtraInfo = extraTooHighInfo,
+                        ExtraInfo = extraInfo,
                         UsedRocket = false,
                         RocketIgnored = rocketIgnored,
                         MessageIndex = null,
@@ -297,70 +240,33 @@ namespace SnakesAndLadders.Services.Logic
                     };
                 }
 
-                int finalTarget = _boardNavigator.ApplyJumpEffectsIfAny(playerState, tentativeTarget);
-
-                string extraInfo = string.Empty;
-
-                if (TryGetJumpDestination(tentativeTarget, out int jumpDestination))
-                {
-                    bool isLadder = jumpDestination > tentativeTarget;
-                    bool isSnake = jumpDestination < tentativeTarget;
-
-                    if (isSnake && playerState.HasShield)
-                    {
-                        extraInfo = EXTRA_INFO_SNAKE_BLOCKED_BY_SHIELD;
-                    }
-                    else if (isLadder)
-                    {
-                        extraInfo = EXTRA_INFO_LADDER;
-                    }
-                    else if (isSnake)
-                    {
-                        extraInfo = EXTRA_INFO_SNAKE;
-                    }
-                    else
-                    {
-                        extraInfo = EXTRA_INFO_JUMP_SAME;
-                    }
-                }
-
-                SpecialCellResult specialCellResult = _boardNavigator.ApplySpecialCellIfAny(
+                MovementResult movementResult = ApplyMovement(
                     playerState,
-                    finalTarget,
-                    extraInfo);
+                    tentativeTarget);
 
-                finalTarget = specialCellResult.FinalCellIndex;
-                extraInfo = specialCellResult.ExtraInfo;
-
-                int? messageIndex = specialCellResult.MessageIndex;
-                bool shouldGrantExtraRoll = specialCellResult.GrantsExtraRoll;
-                string grantedItemCode = specialCellResult.GrantedItemCode;
-                string grantedDiceCode = specialCellResult.GrantedDiceCode;
-
-                playerState.Position = finalTarget;
+                // clave para que el jugador avance correctamente
+                playerState.Position = movementResult.FinalPosition;
 
                 bool isGameOver = false;
 
-                if (_finalCellIndex > 0 && finalTarget >= _finalCellIndex)
+                if (_finalCellIndex > 0 &&
+                    movementResult.FinalPosition >= _finalCellIndex)
                 {
                     _isFinished = true;
                     isGameOver = true;
 
-                    extraInfo = AppendToken(extraInfo, EXTRA_INFO_WIN);
+                    movementResult.ExtraInfo = AppendToken(
+                        movementResult.ExtraInfo,
+                        GameplayLogicConstants.WIN);
                 }
 
-                string finalExtraInfo = extraInfo;
+                string finalExtraInfo = BuildFinalExtraInfo(
+                    movementResult.ExtraInfo,
+                    usedRocket,
+                    rocketIgnored);
 
-                if (usedRocket)
-                {
-                    finalExtraInfo = AppendToken(EXTRA_INFO_ROCKET_USED, finalExtraInfo);
-                }
-                else if (rocketIgnored)
-                {
-                    finalExtraInfo = AppendToken(EXTRA_INFO_ROCKET_IGNORED, finalExtraInfo);
-                }
-
-                bool hasExtraRoll = shouldGrantExtraRoll && !isGameOver;
+                bool hasExtraRoll =
+                    movementResult.ShouldGrantExtraRoll && !isGameOver;
 
                 if (hasExtraRoll)
                 {
@@ -375,14 +281,14 @@ namespace SnakesAndLadders.Services.Logic
                 {
                     DiceValue = diceValue,
                     FromCellIndex = fromCellIndex,
-                    ToCellIndex = finalTarget,
+                    ToCellIndex = movementResult.FinalPosition,
                     IsGameOver = isGameOver,
                     ExtraInfo = finalExtraInfo,
                     UsedRocket = usedRocket,
                     RocketIgnored = rocketIgnored,
-                    MessageIndex = messageIndex,
-                    GrantedItemCode = grantedItemCode,
-                    GrantedDiceCode = grantedDiceCode
+                    MessageIndex = movementResult.MessageIndex,
+                    GrantedItemCode = movementResult.GrantedItemCode,
+                    GrantedDiceCode = movementResult.GrantedDiceCode
                 };
             }
         }
@@ -393,7 +299,7 @@ namespace SnakesAndLadders.Services.Logic
             {
                 int currentTurnUserId = _turnOrder[_currentTurnIndex];
 
-                var tokens = _playersByUserId
+                List<TokenStateDto> tokens = _playersByUserId
                     .Select(pair =>
                     {
                         PlayerRuntimeState state = pair.Value;
@@ -405,7 +311,8 @@ namespace SnakesAndLadders.Services.Logic
                             HasShield = state.HasShield,
                             RemainingShieldTurns = state.RemainingShieldTurns,
                             RemainingFrozenTurns = state.RemainingFrozenTurns,
-                            HasPendingRocketBonus = state.PendingRocketBonus > 0
+                            HasPendingRocketBonus =
+                                state.PendingRocketBonus > 0
                         };
                     })
                     .ToList();
@@ -433,41 +340,23 @@ namespace SnakesAndLadders.Services.Logic
             {
                 if (_isFinished)
                 {
-                    throw new InvalidOperationException("La partida ya terminó.");
+                    GameplayValidationHelper.ThrowGameAlreadyFinished();
                 }
 
-                if (!_turnOrder.Contains(userId))
-                {
-                    throw new InvalidOperationException("El usuario no forma parte de esta partida.");
-                }
+                GameplayValidationHelper.EnsureUserInGame(_turnOrder, userId);
+                GameplayValidationHelper.EnsureIsUserTurn(
+                    _turnOrder,
+                    _currentTurnIndex,
+                    userId);
 
-                int currentTurnUserId = _turnOrder[_currentTurnIndex];
-                if (currentTurnUserId != userId)
-                {
-                    throw new InvalidOperationException("No es el turno de este jugador.");
-                }
+                PlayerRuntimeState currentPlayer =
+                    GameplayValidationHelper.GetPlayerStateOrThrow(
+                        _playersByUserId,
+                        userId);
 
-                if (!_playersByUserId.TryGetValue(userId, out PlayerRuntimeState currentPlayer))
-                {
-                    throw new InvalidOperationException("Player state was not found.");
-                }
+                ItemUsageGuard.EnsurePlayerCanUseItem(currentPlayer);
 
-                if (currentPlayer.RemainingFrozenTurns > 0)
-                {
-                    throw new InvalidOperationException("El jugador está congelado y no puede usar ítems.");
-                }
-
-                if (currentPlayer.HasRolledThisTurn)
-                {
-                    throw new InvalidOperationException("El jugador ya tiró el dado en este turno.");
-                }
-
-                if (currentPlayer.ItemUsedThisTurn)
-                {
-                    throw new InvalidOperationException("El jugador ya usó un ítem en este turno.");
-                }
-
-                ItemEffectResult result = _itemEffectService.UseItem(
+                ItemEffectResult result = _itemEffectManager.UseItem(
                     itemCode,
                     userId,
                     targetUserId,
@@ -483,19 +372,191 @@ namespace SnakesAndLadders.Services.Logic
             }
         }
 
-        private int ApplyJumpEffectsIfAny(PlayerRuntimeState targetPlayer, int candidatePosition)
+        private RollDiceResult HandleFrozenPlayerRoll(
+            PlayerRuntimeState playerState,
+            int userId)
         {
-            return _boardNavigator.ApplyJumpEffectsIfAny(targetPlayer, candidatePosition);
+            playerState.RemainingFrozenTurns--;
+
+            if (playerState.RemainingFrozenTurns < 0)
+            {
+                playerState.RemainingFrozenTurns = 0;
+            }
+
+            string frozenExtraInfo =
+                GameplayLogicConstants.FROZEN_SKIP_TURN;
+
+            AdvanceTurnAndResetFlags(userId);
+
+            return new RollDiceResult
+            {
+                DiceValue = 0,
+                FromCellIndex = playerState.Position,
+                ToCellIndex = playerState.Position,
+                IsGameOver = _isFinished,
+                ExtraInfo = frozenExtraInfo,
+                UsedRocket = false,
+                RocketIgnored = false,
+                MessageIndex = null,
+                GrantedItemCode = null,
+                GrantedDiceCode = null
+            };
+        }
+
+        private TentativeMoveResult CalculateTentativeTarget(
+            PlayerRuntimeState playerState,
+            int fromCellIndex,
+            int diceValue)
+        {
+            int targetCellIndex = fromCellIndex + diceValue;
+
+            if (targetCellIndex < GameplayLogicConstants.MIN_BOARD_CELL)
+            {
+                targetCellIndex = GameplayLogicConstants.MIN_BOARD_CELL;
+            }
+
+            bool usedRocket = false;
+            bool rocketIgnored = false;
+
+            if (playerState.PendingRocketBonus > 0)
+            {
+                int targetWithRocket = fromCellIndex
+                    + diceValue
+                    + playerState.PendingRocketBonus;
+
+                if (_finalCellIndex > 0 &&
+                    targetWithRocket <= _finalCellIndex)
+                {
+                    targetCellIndex = targetWithRocket;
+                    usedRocket = true;
+                }
+                else
+                {
+                    rocketIgnored = true;
+                }
+
+                playerState.PendingRocketBonus = 0;
+            }
+
+            return new TentativeMoveResult
+            {
+                TargetCellIndex = targetCellIndex,
+                UsedRocket = usedRocket,
+                RocketIgnored = rocketIgnored
+            };
+        }
+
+        private bool IsRollTooHigh(int tentativeTarget)
+        {
+            return _finalCellIndex > 0 &&
+                   tentativeTarget > _finalCellIndex;
+        }
+
+        private MovementResult ApplyMovement(
+            PlayerRuntimeState playerState,
+            int tentativeTarget)
+        {
+            int finalTarget = _boardNavigator.ApplyJumpEffectsIfAny(
+                playerState,
+                tentativeTarget);
+
+            string extraInfo = BuildJumpExtraInfo(
+                playerState,
+                tentativeTarget);
+
+            SpecialCellResult specialCellResult =
+                _boardNavigator.ApplySpecialCellIfAny(
+                    playerState,
+                    finalTarget,
+                    extraInfo);
+
+            return new MovementResult
+            {
+                FinalPosition = specialCellResult.FinalCellIndex,
+                ExtraInfo = specialCellResult.ExtraInfo,
+                MessageIndex = specialCellResult.MessageIndex,
+                ShouldGrantExtraRoll = specialCellResult.GrantsExtraRoll,
+                GrantedItemCode = specialCellResult.GrantedItemCode,
+                GrantedDiceCode = specialCellResult.GrantedDiceCode
+            };
+        }
+
+        private string BuildJumpExtraInfo(
+            PlayerRuntimeState playerState,
+            int tentativeTarget)
+        {
+            JumpInfo jumpInfo = GetJumpInfo(tentativeTarget);
+
+            if (!jumpInfo.HasJump)
+            {
+                return string.Empty;
+            }
+
+            bool isLadder = jumpInfo.DestinationIndex > tentativeTarget;
+            bool isSnake = jumpInfo.DestinationIndex < tentativeTarget;
+
+            if (isSnake && playerState.HasShield)
+            {
+                return GameplayLogicConstants.SNAKE_BLOCKED_BY_SHIELD;
+            }
+
+            if (isLadder)
+            {
+                return GameplayLogicConstants.LADDER;
+            }
+
+            if (isSnake)
+            {
+                return GameplayLogicConstants.SNAKE;
+            }
+
+            return GameplayLogicConstants.JUMP_SAME;
+        }
+
+        private string BuildFinalExtraInfo(
+            string extraInfo,
+            bool usedRocket,
+            bool rocketIgnored)
+        {
+            string result = extraInfo;
+
+            if (usedRocket)
+            {
+                result = AppendToken(
+                    GameplayLogicConstants.ROCKET_USED,
+                    result);
+            }
+            else if (rocketIgnored)
+            {
+                result = AppendToken(
+                    GameplayLogicConstants.ROCKET_IGNORED,
+                    result);
+            }
+
+            return result;
+        }
+
+        private int ApplyJumpEffectsIfAny(
+            PlayerRuntimeState targetPlayer,
+            int candidatePosition)
+        {
+            return _boardNavigator.ApplyJumpEffectsIfAny(
+                targetPlayer,
+                candidatePosition);
         }
 
         private void AdvanceTurnAndResetFlags(int currentUserId)
         {
-            if (!_playersByUserId.TryGetValue(currentUserId, out PlayerRuntimeState currentPlayer))
+            PlayerRuntimeState currentPlayer;
+            if (!_playersByUserId.TryGetValue(
+                    currentUserId,
+                    out currentPlayer))
             {
                 return;
             }
 
-            if (currentPlayer.HasShield && currentPlayer.RemainingShieldTurns > 0)
+            if (currentPlayer.HasShield &&
+                currentPlayer.RemainingShieldTurns > 0)
             {
                 currentPlayer.RemainingShieldTurns--;
 
@@ -512,26 +573,36 @@ namespace SnakesAndLadders.Services.Logic
             _currentTurnIndex = (_currentTurnIndex + 1) % _turnOrder.Count;
         }
 
-        private bool TryGetJumpDestination(int startIndex, out int destinationIndex)
+        private JumpInfo GetJumpInfo(int startIndex)
         {
             var dummyPlayer = new PlayerRuntimeState
             {
                 HasShield = false
             };
 
-            int result = _boardNavigator.ApplyJumpEffectsIfAny(dummyPlayer, startIndex);
+            int result = _boardNavigator.ApplyJumpEffectsIfAny(
+                dummyPlayer,
+                startIndex);
 
             if (result != startIndex)
             {
-                destinationIndex = result;
-                return true;
+                return new JumpInfo
+                {
+                    HasJump = true,
+                    DestinationIndex = result
+                };
             }
 
-            destinationIndex = startIndex;
-            return false;
+            return new JumpInfo
+            {
+                HasJump = false,
+                DestinationIndex = startIndex
+            };
         }
 
-        private static string AppendToken(string baseInfo, string token)
+        private static string AppendToken(
+            string baseInfo,
+            string token)
         {
             if (string.IsNullOrWhiteSpace(token))
             {
@@ -543,10 +614,13 @@ namespace SnakesAndLadders.Services.Logic
                 return token;
             }
 
-            return baseInfo + "_" + token;
+            return baseInfo +
+                   GameplayLogicConstants.TOKEN_SEPARATOR +
+                   token;
         }
 
-        private static void ResetPlayerForExtraRoll(PlayerRuntimeState playerState)
+        private static void ResetPlayerForExtraRoll(
+            PlayerRuntimeState playerState)
         {
             if (playerState == null)
             {
@@ -555,6 +629,37 @@ namespace SnakesAndLadders.Services.Logic
 
             playerState.HasRolledThisTurn = false;
             playerState.ItemUsedThisTurn = false;
+        }
+
+        private sealed class MovementResult
+        {
+            public int FinalPosition { get; set; }
+
+            public string ExtraInfo { get; set; }
+
+            public int? MessageIndex { get; set; }
+
+            public bool ShouldGrantExtraRoll { get; set; }
+
+            public string GrantedItemCode { get; set; }
+
+            public string GrantedDiceCode { get; set; }
+        }
+
+        private sealed class TentativeMoveResult
+        {
+            public int TargetCellIndex { get; set; }
+
+            public bool UsedRocket { get; set; }
+
+            public bool RocketIgnored { get; set; }
+        }
+
+        private sealed class JumpInfo
+        {
+            public bool HasJump { get; set; }
+
+            public int DestinationIndex { get; set; }
         }
     }
 }

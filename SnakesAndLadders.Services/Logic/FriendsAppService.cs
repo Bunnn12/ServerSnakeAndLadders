@@ -6,22 +6,13 @@ using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Faults;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Services.Constants;
 
 namespace SnakesAndLadders.Services.Logic
 {
     public sealed class FriendsAppService : IFriendsAppService
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(FriendsAppService));
-
-        private const string CODE_INVALID_SESSION = "FRD_INVALID_SESSION";
-        private const string CODE_SAME_USER = "FRD_SAME_USER";
-        private const string CODE_LINK_EXISTS = "FRD_LINK_EXISTS";
-        private const string CODE_LINK_NOT_FOUND = "FRD_LINK_NOT_FOUND";
-        private const string CODE_NOT_IN_LINK = "FRD_NOT_IN_LINK";
-
-        private const byte STATUS_PENDING = 0x01;
-        private const byte STATUS_ACCEPTED = 0x02;
-        private const byte STATUS_REJECTED = 0x03;
 
         private readonly IFriendsRepository _friendsRepository;
         private readonly Func<string, int> _getUserIdFromToken;
@@ -30,8 +21,10 @@ namespace SnakesAndLadders.Services.Logic
             IFriendsRepository friendsRepository,
             Func<string, int> getUserIdFromToken)
         {
-            _friendsRepository = friendsRepository ?? throw new ArgumentNullException(nameof(friendsRepository));
-            _getUserIdFromToken = getUserIdFromToken ?? throw new ArgumentNullException(nameof(getUserIdFromToken));
+            _friendsRepository = friendsRepository
+                                 ?? throw new ArgumentNullException(nameof(friendsRepository));
+            _getUserIdFromToken = getUserIdFromToken
+                                  ?? throw new ArgumentNullException(nameof(getUserIdFromToken));
         }
 
         public FriendLinkDto SendFriendRequest(string token, int targetUserId)
@@ -40,7 +33,9 @@ namespace SnakesAndLadders.Services.Logic
 
             if (currentUserId == targetUserId)
             {
-                throw Faults.Create(CODE_SAME_USER, string.Empty);
+                throw Faults.Create(
+                    FriendsAppServiceConstants.CODE_SAME_USER,
+                    string.Empty);
             }
 
             try
@@ -50,14 +45,14 @@ namespace SnakesAndLadders.Services.Logic
                 if (link.Status == FriendRequestStatus.Accepted)
                 {
                     Logger.InfoFormat(
-                        "Friend auto-accepted due to cross-request. users {0} <-> {1}",
+                        FriendsAppServiceConstants.LOG_INFO_AUTO_ACCEPT_FORMAT,
                         currentUserId,
                         targetUserId);
                 }
                 else
                 {
                     Logger.InfoFormat(
-                        "Friend request created/reopened. users {0} -> {1}",
+                        FriendsAppServiceConstants.LOG_INFO_REQUEST_CREATED_FORMAT,
                         currentUserId,
                         targetUserId);
                 }
@@ -68,14 +63,18 @@ namespace SnakesAndLadders.Services.Logic
             {
                 string message = ex.Message ?? string.Empty;
 
-                if (message.Contains("Pending already exists"))
+                if (message.Contains(FriendsAppServiceConstants.EX_MESSAGE_PENDING_ALREADY_EXISTS))
                 {
-                    throw Faults.Create(CODE_LINK_EXISTS, "There is already a pending request.");
+                    throw Faults.Create(
+                        FriendsAppServiceConstants.CODE_LINK_EXISTS,
+                        FriendsAppServiceConstants.FAULT_MESSAGE_PENDING_EXISTS);
                 }
 
-                if (message.Contains("Already friends"))
+                if (message.Contains(FriendsAppServiceConstants.EX_MESSAGE_ALREADY_FRIENDS))
                 {
-                    throw Faults.Create(CODE_LINK_EXISTS, "You are already friends.");
+                    throw Faults.Create(
+                        FriendsAppServiceConstants.CODE_LINK_EXISTS,
+                        FriendsAppServiceConstants.FAULT_MESSAGE_ALREADY_FRIENDS);
                 }
 
                 throw;
@@ -87,13 +86,13 @@ namespace SnakesAndLadders.Services.Logic
             int currentUserId = EnsureUser(token);
             FriendLinkDto link = RequireLink(friendLinkId);
 
-            if (!InvolvesUser(link, currentUserId))
-            {
-                throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
-            }
+            EnsureUserInLink(link, currentUserId);
 
-            _friendsRepository.UpdateStatus(friendLinkId, STATUS_ACCEPTED);
-            Logger.InfoFormat("Friend request accepted. linkId {0}", friendLinkId);
+            _friendsRepository.UpdateStatus(friendLinkId, FriendsAppServiceConstants.STATUS_ACCEPTED);
+
+            Logger.InfoFormat(
+                FriendsAppServiceConstants.LOG_INFO_ACCEPTED_FORMAT,
+                friendLinkId);
         }
 
         public void RejectFriendRequest(string token, int friendLinkId)
@@ -101,13 +100,13 @@ namespace SnakesAndLadders.Services.Logic
             int currentUserId = EnsureUser(token);
             FriendLinkDto link = RequireLink(friendLinkId);
 
-            if (!InvolvesUser(link, currentUserId))
-            {
-                throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
-            }
+            EnsureUserInLink(link, currentUserId);
 
-            _friendsRepository.UpdateStatus(friendLinkId, STATUS_REJECTED);
-            Logger.InfoFormat("Friend request rejected. linkId {0}", friendLinkId);
+            _friendsRepository.UpdateStatus(friendLinkId, FriendsAppServiceConstants.STATUS_REJECTED);
+
+            Logger.InfoFormat(
+                FriendsAppServiceConstants.LOG_INFO_REJECTED_FORMAT,
+                friendLinkId);
         }
 
         public void CancelFriendRequest(string token, int friendLinkId)
@@ -115,13 +114,13 @@ namespace SnakesAndLadders.Services.Logic
             int currentUserId = EnsureUser(token);
             FriendLinkDto link = RequireLink(friendLinkId);
 
-            if (!InvolvesUser(link, currentUserId))
-            {
-                throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
-            }
+            EnsureUserInLink(link, currentUserId);
 
             _friendsRepository.DeleteLink(friendLinkId);
-            Logger.InfoFormat("Friend request canceled. linkId {0}", friendLinkId);
+
+            Logger.InfoFormat(
+                FriendsAppServiceConstants.LOG_INFO_CANCELED_FORMAT,
+                friendLinkId);
         }
 
         public void RemoveFriend(string token, int friendLinkId)
@@ -129,19 +128,27 @@ namespace SnakesAndLadders.Services.Logic
             int currentUserId = EnsureUser(token);
             FriendLinkDto link = RequireLink(friendLinkId);
 
-            if (!InvolvesUser(link, currentUserId))
-            {
-                throw Faults.Create(CODE_NOT_IN_LINK, string.Empty);
-            }
+            EnsureUserInLink(link, currentUserId);
 
             _friendsRepository.DeleteLink(friendLinkId);
-            Logger.InfoFormat("Friend removed. linkId {0}", friendLinkId);
+
+            Logger.InfoFormat(
+                FriendsAppServiceConstants.LOG_INFO_REMOVED_FORMAT,
+                friendLinkId);
         }
 
         public FriendLinkDto GetStatus(string token, int otherUserId)
         {
             int currentUserId = EnsureUser(token);
-            return _friendsRepository.GetNormalized(currentUserId, otherUserId);
+
+            FriendLinkDto link = _friendsRepository.GetNormalized(currentUserId, otherUserId);
+
+            if (link == null)
+            {
+                return new FriendLinkDto();
+            }
+
+            return link;
         }
 
         public IReadOnlyList<int> GetFriendsIds(string token)
@@ -171,7 +178,13 @@ namespace SnakesAndLadders.Services.Logic
         public IReadOnlyList<UserBriefDto> SearchUsers(string token, string query, int maxResults)
         {
             int currentUserId = EnsureUser(token);
-            return _friendsRepository.SearchUsers(query, maxResults, currentUserId);
+
+            string effectiveQuery = query ?? string.Empty;
+            int effectiveMaxResults = maxResults <= 0
+                ? FriendsAppServiceConstants.DEFAULT_SEARCH_MAX_RESULTS
+                : maxResults;
+
+            return _friendsRepository.SearchUsers(effectiveQuery, effectiveMaxResults, currentUserId);
         }
 
         public IReadOnlyList<FriendLinkDto> GetIncomingPending(string token)
@@ -200,7 +213,9 @@ namespace SnakesAndLadders.Services.Logic
 
             if (userId <= 0)
             {
-                throw Faults.Create(CODE_INVALID_SESSION, string.Empty);
+                throw Faults.Create(
+                    FriendsAppServiceConstants.CODE_INVALID_SESSION,
+                    string.Empty);
             }
 
             return userId;
@@ -212,15 +227,28 @@ namespace SnakesAndLadders.Services.Logic
 
             if (link == null)
             {
-                throw Faults.Create(CODE_LINK_NOT_FOUND, string.Empty);
+                throw Faults.Create(
+                    FriendsAppServiceConstants.CODE_LINK_NOT_FOUND,
+                    string.Empty);
             }
 
             return link;
         }
 
+        private static void EnsureUserInLink(FriendLinkDto link, int userId)
+        {
+            if (!InvolvesUser(link, userId))
+            {
+                throw Faults.Create(
+                    FriendsAppServiceConstants.CODE_NOT_IN_LINK,
+                    string.Empty);
+            }
+        }
+
         private static bool InvolvesUser(FriendLinkDto link, int userId)
         {
-            return link != null && (link.UserId1 == userId || link.UserId2 == userId);
+            return link != null
+                   && (link.UserId1 == userId || link.UserId2 == userId);
         }
     }
 }

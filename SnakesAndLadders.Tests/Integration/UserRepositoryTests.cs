@@ -1,5 +1,4 @@
 ﻿using SnakeAndLadders.Contracts.Dtos;
-
 using SnakesAndLadders.Data;
 using SnakesAndLadders.Data.Repositories;
 using SnakesAndLadders.Tests.integration;
@@ -140,7 +139,7 @@ namespace SnakesAndLadders.Tests.Integration
                 db.Usuario.Add(user);
                 db.SaveChanges();
 
-                userId = user.IdUsuario; 
+                userId = user.IdUsuario;
             }
 
             UserRepository repository = new UserRepository(CreateContext);
@@ -507,11 +506,11 @@ namespace SnakesAndLadders.Tests.Integration
 
                 Avatar avatar = new Avatar
                 {
-                    NombreAvatar = AVATAR_NAME_SPECIAL,      
-                    RarezaAvatar = AVATAR_RARITY_COMMON,     
-                    CajaAvatarIdCajaAvatar = null,           
-                    Estado = new[] { STATUS_ACTIVE },        
-                    CodigoAvatar = AVATAR_CODE_SPECIAL       
+                    NombreAvatar = AVATAR_NAME_SPECIAL,
+                    RarezaAvatar = AVATAR_RARITY_COMMON,
+                    CajaAvatarIdCajaAvatar = null,
+                    Estado = new[] { STATUS_ACTIVE },
+                    CodigoAvatar = AVATAR_CODE_SPECIAL
                 };
 
                 db.Avatar.Add(avatar);

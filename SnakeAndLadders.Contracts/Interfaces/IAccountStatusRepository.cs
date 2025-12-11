@@ -8,6 +8,7 @@ namespace SnakeAndLadders.Contracts.Interfaces
 {
     public interface IAccountStatusRepository
     {
-        void SetUserAndAccountActiveState(int userId, bool isActive);
+        void ActivateUserAndAccount(int userId);
+        void DeactivateUserAndAccount(int userId);
     }
 }

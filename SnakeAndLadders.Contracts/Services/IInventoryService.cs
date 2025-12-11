@@ -11,17 +11,10 @@ namespace SnakeAndLadders.Contracts.Services
         InventorySnapshotDto GetInventory(int userId);
 
         [OperationContract]
-        void UpdateSelectedItems(
-            int userId,
-            int? slot1ObjectId,
-            int? slot2ObjectId,
-            int? slot3ObjectId);
+        void UpdateSelectedDice(int userId, DiceSlotsSelection selection);
 
         [OperationContract]
-        void UpdateSelectedDice(
-            int userId,
-            int? slot1DiceId,
-            int? slot2DiceId);
+        void UpdateSelectedItems(int userId, ItemSlotsSelection selection);
 
         [OperationContract]
         void EquipItemToSlot(

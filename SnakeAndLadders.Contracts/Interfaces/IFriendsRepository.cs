@@ -14,7 +14,6 @@ namespace SnakeAndLadders.Contracts.Interfaces
         FriendLinkDto CreatePending(int userIdA, int userIdB);
         void UpdateStatus(int friendLinkId, byte newStatus);
         void DeleteLink(int friendLinkId);
-
         IReadOnlyList<int> GetAcceptedFriendsIds(int userId);
         IReadOnlyList<FriendLinkDto> GetPendingRelated(int userId);
         IReadOnlyList<FriendListItemDto> GetAcceptedFriendsDetailed(int userId);

@@ -9,9 +9,19 @@ using SnakeAndLadders.Contracts.Services;
 
 namespace SnakesAndLadders.Services.Logic
 {
+    internal sealed class SanctionExecutionContext
+    {
+        public int TargetUserId { get; set; }
+        public int HostUserId { get; set; }
+        public string Reason { get; set; }
+        public string SanctionType { get; set; }
+        public bool DeactivateAccount { get; set; }
+        public DateTime SanctionDateUtc { get; set; }
+    }
+
     public sealed class PlayerReportAppService : IPlayerReportAppService
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(PlayerReportAppService));
+        private static readonly ILog _logger = LogManager.GetLogger(typeof(PlayerReportAppService));
 
         private const int MIN_VALID_USER_ID = 1;
 
@@ -65,11 +75,12 @@ namespace SnakesAndLadders.Services.Logic
             _playerSessionManager = playerSessionManagerValue
                 ?? throw new ArgumentNullException(nameof(playerSessionManagerValue));
         }
+
         public void CreateReport(ReportDto report)
         {
             if (report == null)
             {
-                Logger.Warn("CreateReport called with null payload.");
+                _logger.Warn("CreateReport called with null payload.");
                 throw CreateFault(ERROR_REPORT_INVALID_REQUEST);
             }
 
@@ -90,7 +101,7 @@ namespace SnakesAndLadders.Services.Logic
                 bool hasActiveReport = _reportRepository.ReporterHasActiveReport(reportCriteria);
                 if (hasActiveReport)
                 {
-                    Logger.WarnFormat(
+                    _logger.WarnFormat(
                         "Duplicate report detected. ReporterUserId={0}, ReportedUserId={1}",
                         report.ReporterUserId,
                         report.ReportedUserId);
@@ -108,7 +119,7 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error in CreateReport.", ex);
+                _logger.Error("Unexpected error in CreateReport.", ex);
                 throw CreateFault(ERROR_REPORT_INTERNAL);
             }
         }
@@ -117,7 +128,7 @@ namespace SnakesAndLadders.Services.Logic
         {
             if (userId < MIN_VALID_USER_ID)
             {
-                Logger.WarnFormat("GetCurrentBan called with invalid userId={0}.", userId);
+                _logger.WarnFormat("GetCurrentBan called with invalid userId={0}.", userId);
                 throw CreateFault(ERROR_REPORT_INVALID_USER);
             }
 
@@ -133,7 +144,7 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error in GetCurrentBan.", ex);
+                _logger.Error("Unexpected error in GetCurrentBan.", ex);
                 throw CreateFault(ERROR_REPORT_INTERNAL);
             }
         }
@@ -142,17 +153,18 @@ namespace SnakesAndLadders.Services.Logic
         {
             if (userId < MIN_VALID_USER_ID)
             {
-                Logger.WarnFormat("GetSanctionsHistory called with invalid userId={0}.", userId);
+                _logger.WarnFormat("GetSanctionsHistory called with invalid userId={0}.", userId);
                 throw CreateFault(ERROR_REPORT_INVALID_USER);
             }
 
             try
             {
-                return _sanctionRepository.GetSanctionsHistory(userId);
+                IList<SanctionDto> sanctions = _sanctionRepository.GetSanctionsHistory(userId);
+                return sanctions ?? new List<SanctionDto>();
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error in GetSanctionsHistory.", ex);
+                _logger.Error("Unexpected error in GetSanctionsHistory.", ex);
                 throw CreateFault(ERROR_REPORT_INTERNAL);
             }
         }
@@ -161,14 +173,14 @@ namespace SnakesAndLadders.Services.Logic
         {
             if (quickKick == null)
             {
-                Logger.Warn("QuickKickPlayer called with null payload.");
+                _logger.Warn("QuickKickPlayer called with null payload.");
                 throw CreateFault(ERROR_REPORT_INVALID_REQUEST);
             }
 
             if (quickKick.TargetUserId < MIN_VALID_USER_ID ||
                 quickKick.HostUserId < MIN_VALID_USER_ID)
             {
-                Logger.WarnFormat(
+                _logger.WarnFormat(
                     "QuickKickPlayer called with invalid ids. Target={0}, Host={1}",
                     quickKick.TargetUserId,
                     quickKick.HostUserId);
@@ -180,18 +192,28 @@ namespace SnakesAndLadders.Services.Logic
                 ? QUICK_KICK_DEFAULT_REASON
                 : quickKick.KickReason.Trim();
 
+            if (safeReason.Length > MAX_REPORT_REASON_LENGTH)
+            {
+                safeReason = safeReason.Substring(0, MAX_REPORT_REASON_LENGTH);
+            }
+
             try
             {
-                KickUserAndRegisterSanction(
-                    quickKick.TargetUserId,
-                    quickKick.HostUserId,
-                    safeReason,
-                    SANCTION_TYPE_S1,
-                    false);
+                var context = new SanctionExecutionContext
+                {
+                    TargetUserId = quickKick.TargetUserId,
+                    HostUserId = quickKick.HostUserId,
+                    Reason = safeReason,
+                    SanctionType = SANCTION_TYPE_S1,
+                    DeactivateAccount = false,
+                    SanctionDateUtc = DateTime.UtcNow
+                };
+
+                KickUserAndRegisterSanction(context);
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error in QuickKickPlayer.", ex);
+                _logger.Error("Unexpected error in QuickKickPlayer.", ex);
                 throw CreateFault(ERROR_REPORT_INTERNAL);
             }
         }
@@ -201,7 +223,7 @@ namespace SnakesAndLadders.Services.Logic
             if (report.ReporterUserId < MIN_VALID_USER_ID ||
                 report.ReportedUserId < MIN_VALID_USER_ID)
             {
-                Logger.WarnFormat(
+                _logger.WarnFormat(
                     "ValidateReport invalid users. Reporter={0}, Reported={1}",
                     report.ReporterUserId,
                     report.ReportedUserId);
@@ -211,7 +233,7 @@ namespace SnakesAndLadders.Services.Logic
 
             if (report.ReporterUserId == report.ReportedUserId)
             {
-                Logger.WarnFormat(
+                _logger.WarnFormat(
                     "ValidateReport self-report attempt. UserId={0}",
                     report.ReporterUserId);
 
@@ -220,7 +242,7 @@ namespace SnakesAndLadders.Services.Logic
 
             if (string.IsNullOrWhiteSpace(report.ReportReason))
             {
-                Logger.Warn("ValidateReport called with empty reportReason.");
+                _logger.Warn("ValidateReport called with empty reportReason.");
                 throw CreateFault(ERROR_REPORT_INVALID_REQUEST);
             }
 
@@ -277,7 +299,6 @@ namespace SnakesAndLadders.Services.Logic
             {
                 ApplySanction(reportedUserId, SANCTION_TYPE_S4);
             }
-
         }
 
         private void ApplySanction(int userId, string sanctionType)
@@ -291,52 +312,50 @@ namespace SnakesAndLadders.Services.Logic
                 AUTO_SANCTION_REASON_FORMAT,
                 sanctionType);
 
-            KickUserAndRegisterSanction(
-                userId,
-                SYSTEM_KICK_HOST_ID,
-                autoReason,
-                sanctionType,
-                deactivateAccount);
+            var context = new SanctionExecutionContext
+            {
+                TargetUserId = userId,
+                HostUserId = SYSTEM_KICK_HOST_ID,
+                Reason = autoReason,
+                SanctionType = sanctionType,
+                DeactivateAccount = deactivateAccount,
+                SanctionDateUtc = DateTime.UtcNow
+            };
+
+            KickUserAndRegisterSanction(context);
         }
 
-        private void KickUserAndRegisterSanction(
-            int targetUserId,
-            int hostUserId,
-            string reason,
-            string sanctionType,
-            bool deactivateAccount)
+        private void KickUserAndRegisterSanction(SanctionExecutionContext context)
         {
-            DateTime nowUtc = DateTime.UtcNow;
-
             var sanction = new SanctionDto
             {
-                UserId = targetUserId,
-                SanctionType = sanctionType,
-                SanctionDateUtc = nowUtc,
-                AppliedBySystem = hostUserId == SYSTEM_KICK_HOST_ID,
-                ReportReason = reason
+                UserId = context.TargetUserId,
+                SanctionType = context.SanctionType,
+                SanctionDateUtc = context.SanctionDateUtc,
+                AppliedBySystem = context.HostUserId == SYSTEM_KICK_HOST_ID,
+                ReportReason = context.Reason
             };
 
             _sanctionRepository.InsertSanction(sanction);
 
             BanInfoDto banInfo = BuildBanInfo(sanction);
 
-            Logger.InfoFormat(
+            _logger.InfoFormat(
                 "Applied sanction {0} to user {1}. Host={2}. IsBanned={3}, BanEndsAtUtc={4}",
-                sanctionType,
-                targetUserId,
-                hostUserId,
+                context.SanctionType,
+                context.TargetUserId,
+                context.HostUserId,
                 banInfo.IsBanned,
                 banInfo.BanEndsAtUtc?.ToString("o") ?? "null");
 
             if (banInfo.IsBanned)
             {
-                TryKickUserFromSessions(targetUserId, reason, sanctionType);
+                TryKickUserFromSessions(context.TargetUserId, context.Reason, context.SanctionType);
             }
 
-            if (deactivateAccount)
+            if (context.DeactivateAccount)
             {
-                TryDeactivateAccount(targetUserId);
+                TryDeactivateAccount(context.TargetUserId);
             }
         }
 
@@ -355,14 +374,14 @@ namespace SnakesAndLadders.Services.Logic
 
                 _playerSessionManager.KickUserFromAllSessions(userId, formattedReason);
 
-                Logger.InfoFormat(
+                _logger.InfoFormat(
                     "KickUserFromAllSessions invoked for user {0} after sanction {1}.",
                     userId,
                     sanctionType);
             }
             catch (Exception ex)
             {
-                Logger.ErrorFormat(
+                _logger.ErrorFormat(
                     "Error while kicking user {0} from sessions after sanction {1}. Exception: {2}",
                     userId,
                     sanctionType,
@@ -374,20 +393,21 @@ namespace SnakesAndLadders.Services.Logic
         {
             try
             {
-                _accountStatusRepository.SetUserAndAccountActiveState(userId, false);
+                _accountStatusRepository.DeactivateUserAndAccount(userId);
 
-                Logger.InfoFormat(
+                _logger.InfoFormat(
                     "User {0} permanently banned. User, account and passwords set to inactive.",
                     userId);
             }
             catch (Exception ex)
             {
-                Logger.ErrorFormat(
+                _logger.ErrorFormat(
                     "Error applying permanent deactivation for user {0}. Exception: {1}",
                     userId,
                     ex);
             }
         }
+
         private BanInfoDto BuildBanInfo(SanctionDto sanction)
         {
             var info = new BanInfoDto

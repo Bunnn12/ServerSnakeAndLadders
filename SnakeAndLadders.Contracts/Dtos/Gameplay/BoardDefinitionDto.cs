@@ -10,12 +10,16 @@ namespace SnakeAndLadders.Contracts.Dtos.Gameplay
 {
     public sealed class BoardDefinitionDto
     {
+        [DataMember]
         public BoardSizeOption BoardSize { get; set; }
 
+        [DataMember]
         public int Rows { get; set; }
 
+        [DataMember]
         public int Columns { get; set; }
 
+        [DataMember]
         public IList<BoardCellDto> Cells { get; set; }
 
         [DataMember]

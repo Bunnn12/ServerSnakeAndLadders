@@ -3,28 +3,21 @@ using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Services.Constants;
 
 namespace SnakesAndLadders.Services.Logic
 {
+
     public sealed class MatchInvitationAppService : IMatchInvitationAppService
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(MatchInvitationAppService));
+        private static readonly ILog _logger =
+            LogManager.GetLogger(typeof(MatchInvitationAppService));
 
-        private const string ERROR_INVALID_REQUEST = "INVITE_INVALID_REQUEST";
-        private const string ERROR_INVALID_SESSION = "INVITE_INVALID_SESSION";
-        private const string ERROR_INVALID_GAME_CODE = "INVITE_INVALID_GAME_CODE";
-        private const string ERROR_INVALID_FRIEND_ID = "INVITE_INVALID_FRIEND_ID";
-        private const string ERROR_NOT_FRIENDS = "INVITE_NOT_FRIENDS";
-        private const string ERROR_FRIEND_EMAIL_NOT_FOUND = "INVITE_FRIEND_EMAIL_NOT_FOUND";
-        private const string ERROR_EMAIL_SEND_FAILED = "INVITE_EMAIL_SEND_FAILED";
-
-        private const int EXPECTED_GAME_CODE_LENGTH = 6;
-
-        private readonly IFriendsRepository friendsRepository;
-        private readonly IUserRepository userRepository;
-        private readonly IAccountsRepository accountsRepository;
-        private readonly IEmailSender emailSender;
-        private readonly Func<string, int> getUserIdFromToken;
+        private readonly IFriendsRepository _friendsRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IAccountsRepository _accountsRepository;
+        private readonly IEmailSender _emailSender;
+        private readonly Func<string, int> _getUserIdFromToken;
 
         public MatchInvitationAppService(
             IFriendsRepository friendsRepository,
@@ -33,15 +26,15 @@ namespace SnakesAndLadders.Services.Logic
             IEmailSender emailSender,
             Func<string, int> getUserIdFromToken)
         {
-            this.friendsRepository = friendsRepository
+            _friendsRepository = friendsRepository
                 ?? throw new ArgumentNullException(nameof(friendsRepository));
-            this.userRepository = userRepository
+            _userRepository = userRepository
                 ?? throw new ArgumentNullException(nameof(userRepository));
-            this.accountsRepository = accountsRepository
+            _accountsRepository = accountsRepository
                 ?? throw new ArgumentNullException(nameof(accountsRepository));
-            this.emailSender = emailSender
+            _emailSender = emailSender
                 ?? throw new ArgumentNullException(nameof(emailSender));
-            this.getUserIdFromToken = getUserIdFromToken
+            _getUserIdFromToken = getUserIdFromToken
                 ?? throw new ArgumentNullException(nameof(getUserIdFromToken));
         }
 
@@ -49,74 +42,60 @@ namespace SnakesAndLadders.Services.Logic
         {
             if (request == null)
             {
-                return BuildFailure(ERROR_INVALID_REQUEST);
+                return BuildFailure(MatchInvitationConstants.ERROR_INVALID_REQUEST);
             }
 
-            int inviterUserId = getUserIdFromToken(request.SessionToken);
-            if (inviterUserId <= 0)
+            int inviterUserId = _getUserIdFromToken(request.SessionToken);
+            if (!IsValidUserId(inviterUserId))
             {
-                return BuildFailure(ERROR_INVALID_SESSION);
+                return BuildFailure(MatchInvitationConstants.ERROR_INVALID_SESSION);
             }
 
-            if (request.FriendUserId <= 0)
+            if (!IsValidUserId(request.FriendUserId))
             {
-                return BuildFailure(ERROR_INVALID_FRIEND_ID);
+                return BuildFailure(MatchInvitationConstants.ERROR_INVALID_FRIEND_ID);
             }
 
-            string gameCode = (request.GameCode ?? string.Empty).Trim();
+            string gameCode = NormalizeGameCode(request.GameCode);
             if (!IsValidGameCode(gameCode))
             {
-                return BuildFailure(ERROR_INVALID_GAME_CODE);
+                return BuildFailure(MatchInvitationConstants.ERROR_INVALID_GAME_CODE);
             }
 
             if (!AreUsersFriends(inviterUserId, request.FriendUserId))
             {
-                return BuildFailure(ERROR_NOT_FRIENDS);
+                return BuildFailure(MatchInvitationConstants.ERROR_NOT_FRIENDS);
             }
 
-            var emailResult = accountsRepository.GetEmailByUserId(request.FriendUserId);
-            if (!emailResult.IsSuccess || string.IsNullOrWhiteSpace(emailResult.Data))
+            string friendEmail = GetFriendEmailOrDefault(request.FriendUserId);
+            if (string.IsNullOrWhiteSpace(friendEmail))
             {
-                return BuildFailure(ERROR_FRIEND_EMAIL_NOT_FOUND);
+                return BuildFailure(MatchInvitationConstants.ERROR_FRIEND_EMAIL_NOT_FOUND);
             }
 
-            string friendEmail = emailResult.Data;
-
-            AccountDto inviterAccount = userRepository.GetByUserId(inviterUserId);
-            AccountDto friendAccount = userRepository.GetByUserId(request.FriendUserId);
+            AccountDto inviterAccount = _userRepository.GetByUserId(inviterUserId);
+            AccountDto friendAccount = _userRepository.GetByUserId(request.FriendUserId);
 
             string inviterUserName = ResolveUserName(inviterAccount, inviterUserId);
             string friendUserName = ResolveUserName(friendAccount, request.FriendUserId);
 
-            var emailRequest = new GameInvitationEmailDto
-            {
-                ToEmail = friendEmail,
-                ToUserName = friendUserName,
-                InviterUserName = inviterUserName,
-                GameCode = gameCode
-            };
+            var emailRequest = BuildEmailRequest(
+                friendEmail,
+                friendUserName,
+                inviterUserName,
+                gameCode);
 
-            try
-            {
-                emailSender.SendGameInvitation(emailRequest);
+            return SendInvitationEmail(emailRequest, inviterUserId, request.FriendUserId);
+        }
 
-                Logger.InfoFormat(
-                    "Game invitation sent. GameCode={0}, Inviter={1}, Friend={2}",
-                    gameCode,
-                    inviterUserId,
-                    request.FriendUserId);
+        private static bool IsValidUserId(int userId)
+        {
+            return userId >= MatchInvitationConstants.MIN_VALID_USER_ID;
+        }
 
-                return new OperationResult
-                {
-                    Success = true,
-                    Message = string.Empty
-                };
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error sending game invitation email.", ex);
-                return BuildFailure(ERROR_EMAIL_SEND_FAILED);
-            }
+        private static string NormalizeGameCode(string gameCode)
+        {
+            return (gameCode ?? string.Empty).Trim();
         }
 
         private static bool IsValidGameCode(string gameCode)
@@ -126,7 +105,7 @@ namespace SnakesAndLadders.Services.Logic
                 return false;
             }
 
-            if (gameCode.Length != EXPECTED_GAME_CODE_LENGTH)
+            if (gameCode.Length != MatchInvitationConstants.EXPECTED_GAME_CODE_LENGTH)
             {
                 return false;
             }
@@ -144,10 +123,22 @@ namespace SnakesAndLadders.Services.Logic
 
         private bool AreUsersFriends(int inviterUserId, int friendUserId)
         {
-            var link = friendsRepository.GetNormalized(inviterUserId, friendUserId);
+            var link = _friendsRepository.GetNormalized(inviterUserId, friendUserId);
 
             return link != null &&
                    link.Status == FriendRequestStatus.Accepted;
+        }
+
+        private string GetFriendEmailOrDefault(int friendUserId)
+        {
+            var emailResult = _accountsRepository.GetEmailByUserId(friendUserId);
+
+            if (!emailResult.IsSuccess)
+            {
+                return string.Empty;
+            }
+
+            return emailResult.Data ?? string.Empty;
         }
 
         private static string ResolveUserName(AccountDto account, int userIdFallback)
@@ -157,7 +148,57 @@ namespace SnakesAndLadders.Services.Logic
                 return account.UserName;
             }
 
-            return $"User-{userIdFallback}";
+            return string.Format(
+                MatchInvitationConstants.FALLBACK_USERNAME_FORMAT,
+                userIdFallback);
+        }
+
+        private static GameInvitationEmailDto BuildEmailRequest(
+            string friendEmail,
+            string friendUserName,
+            string inviterUserName,
+            string gameCode)
+        {
+            return new GameInvitationEmailDto
+            {
+                ToEmail = friendEmail,
+                ToUserName = friendUserName,
+                InviterUserName = inviterUserName,
+                GameCode = gameCode
+            };
+        }
+
+        private OperationResult SendInvitationEmail(
+            GameInvitationEmailDto emailRequest,
+            int inviterUserId,
+            int friendUserId)
+        {
+            try
+            {
+                _emailSender.SendGameInvitation(emailRequest);
+
+                _logger.InfoFormat(
+                    MatchInvitationConstants.LOG_GAME_INVITATION_SENT,
+                    emailRequest.GameCode,
+                    inviterUserId,
+                    friendUserId);
+
+                return BuildSuccess();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(MatchInvitationConstants.LOG_ERROR_SENDING_INVITATION, ex);
+                return BuildFailure(MatchInvitationConstants.ERROR_EMAIL_SEND_FAILED);
+            }
+        }
+
+        private static OperationResult BuildSuccess()
+        {
+            return new OperationResult
+            {
+                Success = true,
+                Message = string.Empty
+            };
         }
 
         private static OperationResult BuildFailure(string errorCode)

@@ -205,17 +205,24 @@ namespace SnakesAndLadders.Tests.Integration
 
             using (SnakeAndLaddersDBEntities1 db = CreateContext())
             {
-                ListaAmigos stored = db.ListaAmigos.Single(l => l.IdListaAmigos == result.FriendLinkId);
+                ListaAmigos stored = db.ListaAmigos.SingleOrDefault(
+                    l => l.IdListaAmigos == result.FriendLinkId);
+
                 bool isOk =
                     result != null &&
                     result.FriendLinkId > 0 &&
+                    stored != null &&
                     stored.UsuarioIdUsuario1 == requesterId &&
                     stored.UsuarioIdUsuario2 == targetId &&
+                    stored.EstadoSolicitud != null &&
+                    stored.EstadoSolicitud.Length > 0 &&
                     stored.EstadoSolicitud[0] == FRIEND_STATUS_PENDING &&
                     result.Status == FriendRequestStatus.Pending;
+
                 Assert.True(isOk);
             }
         }
+
 
         [Fact]
         public void TestCreatePendingWhenExistingPendingSameDirectionThrowsInvalidOperationException()

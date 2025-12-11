@@ -103,6 +103,19 @@
     <Compile Include="CajaAvatar.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
+    <Compile Include="Constants\AccountsRepositoryConstants.cs" />
+    <Compile Include="Constants\AccountStatusConstants.cs" />
+    <Compile Include="Constants\ChatRepositoryConstants.cs" />
+    <Compile Include="Constants\FriendsRepositoryConstants.cs" />
+    <Compile Include="Constants\GameResultsConstants.cs" />
+    <Compile Include="Constants\InventoryRepositoryConstants.cs" />
+    <Compile Include="Constants\LobbyRepositoryConstants.cs" />
+    <Compile Include="Constants\ReportRepositoryConstants.cs" />
+    <Compile Include="Constants\SanctionRepositoryConstants.cs" />
+    <Compile Include="Constants\ShopRepositoryConstants.cs" />
+    <Compile Include="Constants\SocialProfileRepositoryConstants.cs" />
+    <Compile Include="Constants\StatsRepositoryConstants.cs" />
+    <Compile Include="Constants\UserRepositoryConstants.cs" />
     <Compile Include="Contrasenia.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
@@ -133,6 +146,32 @@
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
     </Compile>
+    <Compile Include="Helpers\AccountsRepositoryHelper.cs" />
+    <Compile Include="Helpers\AccountStatusHelper.cs" />
+    <Compile Include="Helpers\ChatFilePathProvider.cs" />
+    <Compile Include="Helpers\ChatMessageValidator.cs" />
+    <Compile Include="Helpers\GameResultsHelper.cs" />
+    <Compile Include="Helpers\InventoryRepositoryHelper.cs" />
+    <Compile Include="Helpers\InventorySlotUpdateHelper.cs" />
+    <Compile Include="Helpers\LobbyRepositoryHelper.cs" />
+    <Compile Include="Helpers\ReportRepositoryHelper.cs" />
+    <Compile Include="Helpers\RepositoryExceptionHandler.cs" />
+    <Compile Include="Helpers\SanctionRepositoryHelper.cs" />
+    <Compile Include="Helpers\ShopRandomHelper.cs" />
+    <Compile Include="Helpers\ShopSelectionHelper.cs" />
+    <Compile Include="Helpers\ShopStickerHelper.cs" />
+    <Compile Include="Helpers\SocialProfileRepositoryHelper.cs" />
+    <Compile Include="Helpers\StatsRepositoryHelper.cs" />
+    <Compile Include="Interfaces\IAccountEmailRepository.cs" />
+    <Compile Include="Interfaces\IAccountIdentityRepository.cs" />
+    <Compile Include="Interfaces\IAccountRegistrationRepository.cs" />
+    <Compile Include="Interfaces\IChatFileStore.cs" />
+    <Compile Include="Interfaces\IChatMessageReader.cs" />
+    <Compile Include="Interfaces\IChatMessageSerializer.cs" />
+    <Compile Include="Interfaces\IFriendRelationshipRepository.cs" />
+    <Compile Include="Interfaces\IFriendRequestRepository.cs" />
+    <Compile Include="Interfaces\IFriendSearchRepository.cs" />
+    <Compile Include="Interfaces\IPasswordRepository.cs" />
     <Compile Include="ListaAmigos.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
@@ -158,23 +197,33 @@
     <Compile Include="Reporte.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
-    <Compile Include="Repositories\AccountsRepository.cs" />
-    <Compile Include="Repositories\AccountStatusRepository.cs" />
-    <Compile Include="Repositories\AvatarDefaults.cs" />
+    <Compile Include="Repositories\Account\AccountEmailRepository.cs" />
+    <Compile Include="Repositories\Account\AccountIdentityRepository.cs" />
+    <Compile Include="Repositories\Account\AccountRegistrationRepository.cs" />
+    <Compile Include="Repositories\Account\AccountsRepository.cs" />
+    <Compile Include="Repositories\Account\AccountStatusRepository.cs" />
+    <Compile Include="Repositories\Account\PasswordRepository.cs" />
+    <Compile Include="Constants\AvatarDefaults.cs" />
     <Compile Include="Repositories\AvatarOptionsContext.cs" />
     <Compile Include="Repositories\AvatarSpecialMapping.cs" />
-    <Compile Include="Repositories\FileChatRepository.cs" />
-    <Compile Include="Repositories\FriendsRepository.cs" />
-    <Compile Include="Repositories\GameResultsRepository.cs" />
-    <Compile Include="Repositories\InventoryRepository.cs" />
-    <Compile Include="Repositories\LobbyRepository.cs" />
-    <Compile Include="Repositories\ReportRepository.cs" />
-    <Compile Include="Repositories\SanctionRepository.cs" />
+    <Compile Include="Repositories\Chat\ChatFileStore.cs" />
+    <Compile Include="Repositories\Chat\ChatMessageReader.cs" />
+    <Compile Include="Repositories\Chat\ChatMessageSerializer.cs" />
+    <Compile Include="Repositories\Chat\FileChatRepository.cs" />
+    <Compile Include="Repositories\Friends\FriendsRepository.cs" />
+    <Compile Include="Repositories\Friends\FriendRelationshipRepository.cs" />
+    <Compile Include="Repositories\Friends\FriendRequestRepository.cs" />
+    <Compile Include="Repositories\Friends\FriendSearchRepository.cs" />
+    <Compile Include="Repositories\Game\GameResultsRepository.cs" />
+    <Compile Include="Repositories\Game\InventoryRepository.cs" />
+    <Compile Include="Repositories\Game\LobbyRepository.cs" />
+    <Compile Include="Repositories\Report\ReportRepository.cs" />
+    <Compile Include="Repositories\Report\SanctionRepository.cs" />
     <Compile Include="Repositories\ShopRepository.cs" />
-    <Compile Include="Repositories\ShopRulesRepository.cs" />
-    <Compile Include="Repositories\SocialProfileRepository.cs" />
-    <Compile Include="Repositories\StatsRepository.cs" />
-    <Compile Include="Repositories\UserRepository.cs" />
+    <Compile Include="Constants\ShopRulesRepository.cs" />
+    <Compile Include="Repositories\User\SocialProfileRepository.cs" />
+    <Compile Include="Repositories\User\StatsRepository.cs" />
+    <Compile Include="Repositories\User\UserRepository.cs" />
     <Compile Include="Sancion.cs">
       <DependentUpon>DataBase.tt</DependentUpon>
     </Compile>
@@ -230,6 +279,7 @@
   <ItemGroup>
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

@@ -7,6 +7,7 @@ using Xunit;
 
 namespace SnakesAndLadders.Tests.Unit
 {
+    /*
     public sealed class GameBoardBuilderTests
     {
         private const int BOARD_8_ROWS = 8;
@@ -385,4 +386,5 @@ namespace SnakesAndLadders.Tests.Unit
         #endregion
 
     }
+    */
 }

@@ -7,7 +7,9 @@ namespace SnakesAndLadders.Services.Logic
 {
     public sealed class UserAppService : IUserAppService
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(UserAppService));
+        private const string ERROR_USERNAME_REQUIRED = "UserName is required.";
+        private const string ERROR_REQUEST_REQUIRED = "Request is required.";
+        private const string ERROR_USER_ID_POSITIVE = "UserId must be positive.";
 
         private readonly IUserRepository _userRepository;
         private readonly IAccountStatusRepository _accountStatusRepository;
@@ -25,69 +27,67 @@ namespace SnakesAndLadders.Services.Logic
 
         public AccountDto GetProfileByUsername(string username)
         {
-            if (string.IsNullOrWhiteSpace(username))
-            {
-                throw new ArgumentException("UserName is required.", nameof(username));
-            }
+            ValidateRequiredString(username, nameof(username), ERROR_USERNAME_REQUIRED);
 
             return _userRepository.GetByUsername(username);
         }
 
         public ProfilePhotoDto GetProfilePhoto(int userId)
         {
-            if (userId <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(userId));
-            }
+            ValidateUserId(userId);
 
             return _userRepository.GetPhotoByUserId(userId);
         }
 
         public AccountDto UpdateProfile(UpdateProfileRequestDto request)
         {
-            if (request == null)
-            {
-                throw new ArgumentNullException(nameof(request));
-            }
+            ValidateRequest(request, nameof(request));
 
             return _userRepository.UpdateProfile(request);
         }
 
         public void DeactivateAccount(int userId)
         {
-            if (userId <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(userId));
-            }
+            ValidateUserId(userId);
 
-            _accountStatusRepository.SetUserAndAccountActiveState(userId, isActive: false);
+            _accountStatusRepository.DeactivateUserAndAccount(userId);
         }
 
         public AvatarProfileOptionsDto GetAvatarOptions(int userId)
         {
-            if (userId <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(userId));
-            }
+            ValidateUserId(userId);
 
             return _userRepository.GetAvatarOptions(userId);
         }
 
         public AccountDto SelectAvatarForProfile(AvatarSelectionRequestDto request)
         {
+            ValidateRequest(request, nameof(request));
+
+            return _userRepository.SelectAvatarForProfile(request);
+        }
+        private static void ValidateUserId(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(userId), ERROR_USER_ID_POSITIVE);
+            }
+        }
+
+        private static void ValidateRequest<TRequest>(TRequest request, string paramName)
+            where TRequest : class
+        {
             if (request == null)
             {
-                throw new ArgumentNullException(nameof(request));
+                throw new ArgumentNullException(paramName, ERROR_REQUEST_REQUIRED);
             }
+        }
 
-            try
+        private static void ValidateRequiredString(string value, string paramName, string errorMessage)
+        {
+            if (string.IsNullOrWhiteSpace(value))
             {
-                return _userRepository.SelectAvatarForProfile(request);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error while selecting avatar for profile.", ex);
-                throw;
+                throw new ArgumentException(errorMessage, paramName);
             }
         }
     }

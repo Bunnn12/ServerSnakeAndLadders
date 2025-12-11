@@ -1,12 +1,14 @@
-﻿using System;
+﻿using log4net;
+using SnakeAndLadders.Contracts.Dtos;
+using SnakeAndLadders.Contracts.Services;
+using SnakesAndLadders.Services.Constants;
+using SnakesAndLadders.Services.Logic;
+using SnakesAndLadders.Services.Wcf.Constants;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.ServiceModel;
-using log4net;
-using SnakeAndLadders.Contracts.Dtos;
-using SnakeAndLadders.Contracts.Services;
-using SnakesAndLadders.Services.Logic;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -17,48 +19,35 @@ namespace SnakesAndLadders.Services.Wcf
     {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(ChatService));
 
-        private const string LOG_CONTEXT_SEND = "ChatService.SendMessage";
-        private const string LOG_CONTEXT_GET_RECENT = "ChatService.GetRecent";
+        private readonly ChatAppService _chatAppService;
 
-        private readonly ChatAppService chatAppService;
-
-        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, IChatClient>> subscribedClients =
+        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, IChatClient>> _subscribedClients =
             new ConcurrentDictionary<int, ConcurrentDictionary<int, IChatClient>>();
 
         public ChatService(ChatAppService chatAppServiceValue)
         {
-            chatAppService = chatAppServiceValue
-                             ?? throw new ArgumentNullException(nameof(chatAppServiceValue));
+            _chatAppService = chatAppServiceValue
+                              ?? throw new ArgumentNullException(nameof(chatAppServiceValue));
         }
 
         public SendMessageResponse2 SendMessage(SendMessageRequest2 request)
         {
             if (!IsValidRequest(request))
             {
-                return new SendMessageResponse2
-                {
-                    Ok = false
-                };
+                return CreateSendMessageResponse(false);
             }
 
             try
             {
-                chatAppService.Send(request.LobbyId, request.Message);
+                _chatAppService.Send(request.LobbyId, request.Message);
                 BroadcastMessageToSubscribers(request.LobbyId, request.Message);
 
-                return new SendMessageResponse2
-                {
-                    Ok = true
-                };
+                return CreateSendMessageResponse(true);
             }
             catch (Exception ex)
             {
-                Logger.Error(LOG_CONTEXT_SEND + " failed.", ex);
-
-                return new SendMessageResponse2
-                {
-                    Ok = false
-                };
+                Logger.Error(ChatServiceConstants.LOG_ERROR_SEND_FAILED, ex);
+                return CreateSendMessageResponse(false);
             }
         }
 
@@ -66,14 +55,14 @@ namespace SnakesAndLadders.Services.Wcf
         {
             try
             {
-                IList<ChatMessageDto> messages = chatAppService.GetRecent(lobbyId, take);
+                IList<ChatMessageDto> messages = _chatAppService.GetRecent(lobbyId, take);
 
-                return messages ?? new List<ChatMessageDto>(0);
+                return messages ?? CreateEmptyMessages();
             }
             catch (Exception ex)
             {
-                Logger.Error(LOG_CONTEXT_GET_RECENT + " failed.", ex);
-                return new List<ChatMessageDto>(0);
+                Logger.Error(ChatServiceConstants.LOG_ERROR_GET_RECENT_FAILED, ex);
+                return CreateEmptyMessages();
             }
         }
 
@@ -82,10 +71,11 @@ namespace SnakesAndLadders.Services.Wcf
             IChatClient callbackChannel = TryGetCallbackChannel();
             if (callbackChannel == null)
             {
+                Logger.Warn(ChatServiceConstants.LOG_WARN_NO_CALLBACK_CHANNEL);
                 return;
             }
 
-            ConcurrentDictionary<int, IChatClient> lobbySubscribers = subscribedClients.GetOrAdd(
+            ConcurrentDictionary<int, IChatClient> lobbySubscribers = _subscribedClients.GetOrAdd(
                 lobbyId,
                 _ => new ConcurrentDictionary<int, IChatClient>());
 
@@ -131,9 +121,22 @@ namespace SnakesAndLadders.Services.Wcf
             return OperationContext.Current.GetCallbackChannel<IChatClient>();
         }
 
+        private static SendMessageResponse2 CreateSendMessageResponse(bool ok)
+        {
+            return new SendMessageResponse2
+            {
+                Ok = ok
+            };
+        }
+
+        private static IList<ChatMessageDto> CreateEmptyMessages()
+        {
+            return new List<ChatMessageDto>(ChatServiceConstants.ZERO_MESSAGES_CAPACITY);
+        }
+
         private void RemoveSubscriber(int lobbyId, int userId)
         {
-            if (!subscribedClients.TryGetValue(lobbyId, out ConcurrentDictionary<int, IChatClient> lobbySubscribers))
+            if (!_subscribedClients.TryGetValue(lobbyId, out ConcurrentDictionary<int, IChatClient> lobbySubscribers))
             {
                 return;
             }
@@ -142,13 +145,13 @@ namespace SnakesAndLadders.Services.Wcf
 
             if (lobbySubscribers.IsEmpty)
             {
-                subscribedClients.TryRemove(lobbyId, out _);
+                _subscribedClients.TryRemove(lobbyId, out _);
             }
         }
 
         private void BroadcastMessageToSubscribers(int lobbyId, ChatMessageDto message)
         {
-            if (!subscribedClients.TryGetValue(lobbyId, out ConcurrentDictionary<int, IChatClient> lobbySubscribers))
+            if (!_subscribedClients.TryGetValue(lobbyId, out ConcurrentDictionary<int, IChatClient> lobbySubscribers))
             {
                 return;
             }
@@ -162,18 +165,22 @@ namespace SnakesAndLadders.Services.Wcf
                 catch (CommunicationException ex)
                 {
                     Logger.WarnFormat(
-                        "Communication error sending chat message to user {0} in lobby {1}. Exception: {2}",
+                        ChatServiceConstants.LOG_WARN_COMMUNICATION_ERROR_FORMAT,
                         subscriber.Key,
                         lobbyId,
                         ex);
+
+                    RemoveSubscriber(lobbyId, subscriber.Key);
                 }
                 catch (TimeoutException ex)
                 {
                     Logger.WarnFormat(
-                        "Timeout sending chat message to user {0} in lobby {1}. Exception: {2}",
+                        ChatServiceConstants.LOG_WARN_TIMEOUT_ERROR_FORMAT,
                         subscriber.Key,
                         lobbyId,
                         ex);
+
+                    RemoveSubscriber(lobbyId, subscriber.Key);
                 }
             }
         }

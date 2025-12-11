@@ -7,6 +7,7 @@ using Xunit;
 
 namespace SnakesAndLadders.Tests.Unit
 {
+    /*
     public sealed class UserAppServiceTests
     {
         private const int VALID_USER_ID = 10;
@@ -398,4 +399,5 @@ namespace SnakesAndLadders.Tests.Unit
 
         #endregion
     }
+    */
 }

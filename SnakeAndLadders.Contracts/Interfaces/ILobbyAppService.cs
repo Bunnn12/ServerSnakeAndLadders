@@ -7,7 +7,9 @@ namespace SnakeAndLadders.Contracts.Interfaces
     {
         CreateGameResponse CreateGame(CreateGameRequest request);
 
-        void RegisterPlayerInGame(int gameId, int userId, bool isHost);
+        void RegisterHostInGame(int gameId, int userId);
+
+        void RegisterPlayerInGame(int gameId, int userId);
         void KickPlayerFromLobby(int lobbyId, int hostUserId, int targetUserId);
     }
 }

@@ -1,116 +1,99 @@
-﻿using log4net;
-using SnakeAndLadders.Contracts.Dtos;
+﻿using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Services.Logic.Inventory;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static SnakesAndLadders.Services.Constants.InventoryAppServiceConstants;
 
 namespace SnakesAndLadders.Services.Logic
 {
     public sealed class InventoryAppService : IInventoryAppService
     {
-        private const int MIN_VALID_USER_ID = 1;
-
-        private const byte MIN_ITEM_SLOT = 1;
-        private const byte MAX_ITEM_SLOT = 3;
-
-        private const byte MIN_DICE_SLOT = 1;
-        private const byte MAX_DICE_SLOT = 2;
-
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(InventoryAppService));
-
-        private readonly IInventoryRepository inventoryRepository;
+        private readonly IInventoryRepository _inventoryRepository;
 
         public InventoryAppService(IInventoryRepository inventoryRepository)
         {
-            this.inventoryRepository = inventoryRepository
+            _inventoryRepository = inventoryRepository
                 ?? throw new ArgumentNullException(nameof(inventoryRepository));
         }
 
         public InventorySnapshotDto GetInventory(int userId)
         {
-            if (!IsValidUserId(userId))
-            {
-                throw new ArgumentOutOfRangeException(nameof(userId));
-            }
+            InventoryValidationHelper.ValidateUserId(userId);
 
-            try
-            {
-                var items = inventoryRepository.GetUserItems(userId);
-                var dice = inventoryRepository.GetUserDice(userId);
+            IList<InventoryItemDto> userItems = _inventoryRepository.GetUserItems(userId)
+                ?? new List<InventoryItemDto>();
 
-                return new InventorySnapshotDto
-                {
-                    Items = items == null
-                        ? new List<InventoryItemDto>()
-                        : new List<InventoryItemDto>(items),
-                    Dice = dice == null
-                        ? new List<InventoryDiceDto>()
-                        : new List<InventoryDiceDto>(dice)
-                };
-            }
-            catch (Exception )
+            IList<InventoryDiceDto> userDice = _inventoryRepository.GetUserDice(userId)
+                ?? new List<InventoryDiceDto>();
+
+            return new InventorySnapshotDto
             {
-                throw;
-            }
+                Items = new List<InventoryItemDto>(userItems),
+                Dice = new List<InventoryDiceDto>(userDice)
+            };
         }
 
         public void UpdateSelectedItems(
             int userId,
-            int? slot1ObjectId,
-            int? slot2ObjectId,
-            int? slot3ObjectId)
+            ItemSlotsSelection selection)
         {
-            if (!IsValidUserId(userId))
+            if (selection == null)
             {
-                throw new ArgumentOutOfRangeException(nameof(userId));
+                throw new ArgumentNullException(nameof(selection));
             }
 
-            EnsureUniqueItemSelection(
-                slot1ObjectId,
-                slot2ObjectId,
-                slot3ObjectId);
+            InventoryValidationHelper.ValidateUserId(userId);
 
-            try
+            IEnumerable<int> selectedIds = InventorySlotsHelper.CreateSelectedIds(
+                selection.Slot1ObjectId,
+                selection.Slot2ObjectId,
+                selection.Slot3ObjectId);
+
+            InventorySlotsHelper.EnsureNoDuplicates(
+                selectedIds,
+                CONTEXT_SELECTED_ITEMS);
+
+            var request = new UpdateItemSlotsRequest
             {
-                inventoryRepository.UpdateSelectedItems(
-                    userId,
-                    slot1ObjectId,
-                    slot2ObjectId,
-                    slot3ObjectId);
-            }
-            catch (Exception )
-            {
-                throw;
-            }
+                UserId = userId,
+                Slot1ObjectId = selection.Slot1ObjectId,
+                Slot2ObjectId = selection.Slot2ObjectId,
+                Slot3ObjectId = selection.Slot3ObjectId
+            };
+
+            _inventoryRepository.UpdateSelectedItems(request);
         }
 
         public void UpdateSelectedDice(
             int userId,
-            int? slot1DiceId,
-            int? slot2DiceId)
+            DiceSlotsSelection selection)
         {
-            if (!IsValidUserId(userId))
+            if (selection == null)
             {
-                throw new ArgumentOutOfRangeException(nameof(userId));
+                throw new ArgumentNullException(nameof(selection));
             }
 
-            EnsureUniqueDiceSelection(
-                slot1DiceId,
-                slot2DiceId);
+            InventoryValidationHelper.ValidateUserId(userId);
 
-            try
+            IEnumerable<int> selectedIds = InventorySlotsHelper.CreateSelectedIds(
+                selection.Slot1DiceId,
+                selection.Slot2DiceId);
+
+            InventorySlotsHelper.EnsureNoDuplicates(
+                selectedIds,
+                CONTEXT_SELECTED_DICE);
+
+            var request = new UpdateDiceSlotsRequest
             {
-                inventoryRepository.UpdateSelectedDice(
-                    userId,
-                    slot1DiceId,
-                    slot2DiceId);
-            }
-            catch (Exception )
-            {
-                throw;
-            }
+                UserId = userId,
+                Slot1DiceId = selection.Slot1DiceId,
+                Slot2DiceId = selection.Slot2DiceId
+            };
+
+            _inventoryRepository.UpdateSelectedDice(request);
         }
 
         public void EquipItemToSlot(
@@ -118,86 +101,55 @@ namespace SnakesAndLadders.Services.Logic
             byte slotNumber,
             int objectId)
         {
-            if (!IsValidUserId(userId))
+            InventoryValidationHelper.ValidateUserId(userId);
+            InventoryValidationHelper.ValidateItemSlot(slotNumber);
+            InventoryValidationHelper.ValidateObjectId(objectId);
+
+            IList<InventoryItemDto> userItems = _inventoryRepository.GetUserItems(userId)
+                ?? throw new InvalidOperationException(ERROR_USER_NO_ITEM_INVENTORY);
+
+            InventoryItemDto ownedItem = userItems.FirstOrDefault(item => item.ObjectId == objectId);
+
+            if (ownedItem == null || ownedItem.Quantity <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(userId));
+                throw new InvalidOperationException(ERROR_USER_NO_ITEM_OR_QUANTITY);
             }
 
-            if (!IsValidItemSlot(slotNumber))
+            Dictionary<byte, int?> itemSlots = InventorySlotsHelper.BuildCurrentItemSlots(userItems);
+
+            InventorySlotsHelper.ReplaceSlotAssignment(
+                itemSlots,
+                slotNumber,
+                objectId);
+
+            IEnumerable<int> selectedIds = InventorySlotsHelper.CreateSelectedIds(
+                itemSlots[MIN_ITEM_SLOT],
+                itemSlots[(byte)(MIN_ITEM_SLOT + 1)],
+                itemSlots[MAX_ITEM_SLOT]);
+
+            InventorySlotsHelper.EnsureNoDuplicates(
+                selectedIds,
+                CONTEXT_SELECTED_ITEMS);
+
+            var request = new UpdateItemSlotsRequest
             {
-                throw new ArgumentOutOfRangeException(nameof(slotNumber));
-            }
+                UserId = userId,
+                Slot1ObjectId = itemSlots[MIN_ITEM_SLOT],
+                Slot2ObjectId = itemSlots[(byte)(MIN_ITEM_SLOT + 1)],
+                Slot3ObjectId = itemSlots[MAX_ITEM_SLOT]
+            };
 
-            if (objectId <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(objectId));
-            }
-
-            try
-            {
-                var items = inventoryRepository.GetUserItems(userId)
-                    ?? throw new InvalidOperationException("El usuario no tiene inventario de objetos.");
-
-                var ownedItem = items.FirstOrDefault(i => i.ObjectId == objectId);
-
-                if (ownedItem == null || ownedItem.Quantity <= 0)
-                {
-                    throw new InvalidOperationException(
-                        "El usuario no posee el objeto especificado o no tiene cantidad disponible.");
-                }
-
-                var slots = BuildCurrentItemSlots(items);
-
-               
-                foreach (var slotKey in slots.Keys.ToList())
-                {
-                    if (slots[slotKey].HasValue && slots[slotKey].Value == objectId)
-                    {
-                        slots[slotKey] = null;
-                    }
-                }
-
-                slots[slotNumber] = objectId;
-
-                EnsureUniqueItemSelection(
-                    slots[MIN_ITEM_SLOT],
-                    slots[(byte)(MIN_ITEM_SLOT + 1)],
-                    slots[MAX_ITEM_SLOT]);
-
-                inventoryRepository.UpdateSelectedItems(
-                    userId,
-                    slots[MIN_ITEM_SLOT],
-                    slots[(byte)(MIN_ITEM_SLOT + 1)],
-                    slots[MAX_ITEM_SLOT]);
-            }
-            catch (Exception )
-            {
-                throw;
-            }
+            _inventoryRepository.UpdateSelectedItems(request);
         }
 
         public void UnequipItemFromSlot(
             int userId,
             byte slotNumber)
         {
-            if (!IsValidUserId(userId))
-            {
-                throw new ArgumentOutOfRangeException(nameof(userId));
-            }
+            InventoryValidationHelper.ValidateUserId(userId);
+            InventoryValidationHelper.ValidateItemSlot(slotNumber);
 
-            if (!IsValidItemSlot(slotNumber))
-            {
-                throw new ArgumentOutOfRangeException(nameof(slotNumber));
-            }
-
-            try
-            {
-                inventoryRepository.RemoveItemFromSlot(userId, slotNumber);
-            }
-            catch (Exception )
-            {
-                throw;
-            }
+            _inventoryRepository.RemoveItemFromSlot(userId, slotNumber);
         }
 
         public void EquipDiceToSlot(
@@ -205,217 +157,53 @@ namespace SnakesAndLadders.Services.Logic
             byte slotNumber,
             int diceId)
         {
-            if (!IsValidUserId(userId))
+            InventoryValidationHelper.ValidateUserId(userId);
+            InventoryValidationHelper.ValidateDiceSlot(slotNumber);
+            InventoryValidationHelper.ValidateDiceId(diceId);
+
+            IList<InventoryDiceDto> userDice = _inventoryRepository.GetUserDice(userId)
+                ?? throw new InvalidOperationException(ERROR_USER_NO_DICE_INVENTORY);
+
+            InventoryDiceDto ownedDice = userDice.FirstOrDefault(dice => dice.DiceId == diceId);
+
+            if (ownedDice == null || ownedDice.Quantity <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(userId));
+                throw new InvalidOperationException(ERROR_USER_NO_DICE_OR_QUANTITY);
             }
 
-            if (!IsValidDiceSlot(slotNumber))
+            Dictionary<byte, int?> diceSlots = InventorySlotsHelper.BuildCurrentDiceSlots(userDice);
+
+            InventorySlotsHelper.ReplaceSlotAssignment(
+                diceSlots,
+                slotNumber,
+                diceId);
+
+            IEnumerable<int> selectedIds = InventorySlotsHelper.CreateSelectedIds(
+                diceSlots[MIN_DICE_SLOT],
+                diceSlots[MAX_DICE_SLOT]);
+
+            InventorySlotsHelper.EnsureNoDuplicates(
+                selectedIds,
+                CONTEXT_SELECTED_DICE);
+
+            var request = new UpdateDiceSlotsRequest
             {
-                throw new ArgumentOutOfRangeException(nameof(slotNumber));
-            }
+                UserId = userId,
+                Slot1DiceId = diceSlots[MIN_DICE_SLOT],
+                Slot2DiceId = diceSlots[MAX_DICE_SLOT]
+            };
 
-            if (diceId <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(diceId));
-            }
-
-            try
-            {
-                var diceList = inventoryRepository.GetUserDice(userId)
-                    ?? throw new InvalidOperationException("El usuario no tiene inventario de dados.");
-
-                var ownedDice = diceList.FirstOrDefault(d => d.DiceId == diceId);
-
-                if (ownedDice == null || ownedDice.Quantity <= 0)
-                {
-                    throw new InvalidOperationException(
-                        "El usuario no posee el dado especificado o no tiene cantidad disponible.");
-                }
-
-                var slots = BuildCurrentDiceSlots(diceList);
-
-                foreach (var slotKey in slots.Keys.ToList())
-                {
-                    if (slots[slotKey].HasValue && slots[slotKey].Value == diceId)
-                    {
-                        slots[slotKey] = null;
-                    }
-                }
-
-                slots[slotNumber] = diceId;
-
-                EnsureUniqueDiceSelection(
-                    slots[MIN_DICE_SLOT],
-                    slots[MAX_DICE_SLOT]);
-
-                inventoryRepository.UpdateSelectedDice(
-                    userId,
-                    slots[MIN_DICE_SLOT],
-                    slots[MAX_DICE_SLOT]);
-            }
-            catch (Exception )
-            {
-                throw;
-            }
+            _inventoryRepository.UpdateSelectedDice(request);
         }
 
         public void UnequipDiceFromSlot(
             int userId,
             byte slotNumber)
         {
-            if (!IsValidUserId(userId))
-            {
-                throw new ArgumentOutOfRangeException(nameof(userId));
-            }
+            InventoryValidationHelper.ValidateUserId(userId);
+            InventoryValidationHelper.ValidateDiceSlot(slotNumber);
 
-            if (!IsValidDiceSlot(slotNumber))
-            {
-                throw new ArgumentOutOfRangeException(nameof(slotNumber));
-            }
-
-            try
-            {
-                inventoryRepository.RemoveDiceFromSlot(userId, slotNumber);
-            }
-            catch (Exception )
-            {
-                throw;
-            }
-        }
-
-        private static bool IsValidUserId(int userId)
-        {
-            return userId >= MIN_VALID_USER_ID;
-        }
-
-        private static bool IsValidItemSlot(byte slotNumber)
-        {
-            return slotNumber >= MIN_ITEM_SLOT && slotNumber <= MAX_ITEM_SLOT;
-        }
-
-        private static bool IsValidDiceSlot(byte slotNumber)
-        {
-            return slotNumber >= MIN_DICE_SLOT && slotNumber <= MAX_DICE_SLOT;
-        }
-
-        private static void EnsureUniqueItemSelection(
-            int? slot1ObjectId,
-            int? slot2ObjectId,
-            int? slot3ObjectId)
-        {
-            var ids = new List<int>();
-
-            if (slot1ObjectId.HasValue)
-            {
-                ids.Add(slot1ObjectId.Value);
-            }
-
-            if (slot2ObjectId.HasValue)
-            {
-                ids.Add(slot2ObjectId.Value);
-            }
-
-            if (slot3ObjectId.HasValue)
-            {
-                ids.Add(slot3ObjectId.Value);
-            }
-
-            EnsureNoDuplicates(ids, "objetos seleccionados");
-        }
-
-        private static void EnsureUniqueDiceSelection(
-            int? slot1DiceId,
-            int? slot2DiceId)
-        {
-            var ids = new List<int>();
-
-            if (slot1DiceId.HasValue)
-            {
-                ids.Add(slot1DiceId.Value);
-            }
-
-            if (slot2DiceId.HasValue)
-            {
-                ids.Add(slot2DiceId.Value);
-            }
-
-            EnsureNoDuplicates(ids, "dados seleccionados");
-        }
-
-        private static void EnsureNoDuplicates(
-            IReadOnlyCollection<int> ids,
-            string contextDescription)
-        {
-            var seen = new HashSet<int>();
-
-            foreach (int id in ids)
-            {
-                if (!seen.Add(id))
-                {
-                    throw new InvalidOperationException(
-                        $"No se puede asignar el mismo identificador más de una vez en los {contextDescription}.");
-                }
-            }
-        }
-
-        private static Dictionary<byte, int?> BuildCurrentItemSlots(
-            IEnumerable<InventoryItemDto> items)
-        {
-            var slots = new Dictionary<byte, int?>
-            {
-                { MIN_ITEM_SLOT, null },
-                { (byte)(MIN_ITEM_SLOT + 1), null },
-                { MAX_ITEM_SLOT, null }
-            };
-
-            foreach (InventoryItemDto item in items)
-            {
-                if (!item.SlotNumber.HasValue)
-                {
-                    continue;
-                }
-
-                byte slot = item.SlotNumber.Value;
-
-                if (!IsValidItemSlot(slot))
-                {
-                    continue;
-                }
-
-                slots[slot] = item.ObjectId;
-            }
-
-            return slots;
-        }
-
-        private static Dictionary<byte, int?> BuildCurrentDiceSlots(
-            IEnumerable<InventoryDiceDto> diceList)
-        {
-            var slots = new Dictionary<byte, int?>
-            {
-                { MIN_DICE_SLOT, null },
-                { MAX_DICE_SLOT, null }
-            };
-
-            foreach (InventoryDiceDto dice in diceList)
-            {
-                if (!dice.SlotNumber.HasValue)
-                {
-                    continue;
-                }
-
-                byte slot = dice.SlotNumber.Value;
-
-                if (!IsValidDiceSlot(slot))
-                {
-                    continue;
-                }
-
-                slots[slot] = dice.DiceId;
-            }
-
-            return slots;
+            _inventoryRepository.RemoveDiceFromSlot(userId, slotNumber);
         }
     }
 }

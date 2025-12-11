@@ -9,7 +9,9 @@ using SnakesAndLadders.Server.Helpers;
 using SnakesAndLadders.Services;
 using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Logic.Auth;
+using SnakesAndLadders.Services.Logic.Gameboard;
 using SnakesAndLadders.Services.Wcf;
+using SnakesAndLadders.Services.Wcf.Lobby;
 using System;
 using System.Configuration;
 using System.IO;
@@ -19,12 +21,15 @@ internal static class ServerLogBootstrap
 {
     public static void Init()
     {
-        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-        var logsDir = Path.Combine(baseDir, "SnakeAndLadders", "logs");
+        string baseDir = Environment.GetFolderPath(
+            Environment.SpecialFolder.CommonApplicationData);
+
+        string logsDir = Path.Combine(baseDir, "SnakeAndLadders", "logs");
 
         Directory.CreateDirectory(logsDir);
 
-        GlobalContext.Properties["LogFileName"] = Path.Combine(logsDir, "server.log");
+        GlobalContext.Properties["LogFileName"] =
+            Path.Combine(logsDir, "server.log");
     }
 }
 
@@ -58,73 +63,151 @@ internal static class Program
         {
             Log.Info("Iniciando el servidor…");
 
-            var chatPath = Environment.ExpandEnvironmentVariables(
+            string chatPath = Environment.ExpandEnvironmentVariables(
                 ConfigurationManager.AppSettings["ChatFilePath"] ??
                 @"%LOCALAPPDATA%\SnakesAndLadders\Chat\");
 
-
+            // Infraestructura base
             var tokenService = new TokenService();
             var verificationCodeStore = new VerificationCodeStore();
 
-            var accountsRepo = new AccountsRepository();
-            var userRepo = new UserRepository();
-            var lobbyRepo = new LobbyRepository();
-            var friendsRepo = new FriendsRepository();
-            var userRepository = new UserRepository();
-            IChatRepository chatRepo = new FileChatRepository(chatPath);
+            IAccountsRepository accountsRepository = new AccountsRepository();
+            IUserRepository userRepository = new UserRepository();
+            ILobbyRepository lobbyRepository = new LobbyRepository();
+            IFriendsRepository friendsRepository = new FriendsRepository();
+            IChatRepository chatRepository = new FileChatRepository(chatPath);
+            IReportRepository reportRepository = new ReportRepository();
+            ISanctionRepository sanctionRepository = new SanctionRepository();
+            IAccountStatusRepository accountStatusRepository =
+                new AccountStatusRepository();
+            IStatsRepository statsRepository = new StatsRepository();
+            IShopRepository shopRepository = new ShopRepository();
+            IInventoryRepository inventoryRepository = new InventoryRepository();
+            ISocialProfileRepository socialProfileRepository =
+                new SocialProfileRepository();
+            IGameResultsRepository gameResultsRepository =
+                new GameResultsRepository();
 
-            var chatApp = new ChatAppService(chatRepo);
-
-            var reportRepo = new ReportRepository();
-            var sanctionRepo = new SanctionRepository();
-            var accountStatusRepo = new AccountStatusRepository();
-            IStatsRepository statsRepo = new StatsRepository();
-            var shopRepo = new ShopRepository();
-            var inventoryRepo = new InventoryRepository();
-            var socialProfileRepo = new SocialProfileRepository();
-            ISocialProfileRepository socialProfileRepository = socialProfileRepo;
-
-            IPasswordHasher hasher = new Sha256PasswordHasher();
-            IEmailSender email = new SmtpEmailSender();
+            IPasswordHasher passwordHasher = new Sha256PasswordHasher();
+            IEmailSender emailSender = new SmtpEmailSender();
             IAppLogger appLogger = new AppLogger(Log);
 
-            ILobbyRepository lobbyRepository = new LobbyRepository();
-            IGameResultsRepository gameResultsRepository = new GameResultsRepository();
-            ILobbyAppService lobbyAppService = new LobbyAppService(lobbyRepository, appLogger);
-            var lobbySvc = new LobbyService(lobbyAppService);
+            // App services base
+            var chatAppService = new ChatAppService(chatRepository);
+
+            // Infraestructura de lobby en memoria
+            ILobbyStore lobbyStore = new InMemoryLobbyStore();
+            ILobbyNotification lobbyNotificationHub =
+                new LobbyNotification(lobbyStore);
+            ILobbyIdGenerator lobbyIdGenerator = new LobbyIdGenerator();
+
+            var lobbyAppService = new LobbyAppService(lobbyRepository, appLogger);
+            var lobbySvc = new LobbyService(
+                lobbyAppService,
+                lobbyStore,
+                lobbyNotificationHub,
+                lobbyIdGenerator);
 
             var playerSessionManager = new PlayerSessionManager(lobbySvc);
-            var playerReportApp = new PlayerReportAppService( reportRepo, sanctionRepo, 
-                accountStatusRepo, playerSessionManager);
-            var authApp = new AuthAppService(accountsRepo, hasher, email, playerReportApp, 
-                userRepository,tokenService,verificationCodeStore);
+            var playerReportAppService = new PlayerReportAppService(
+                reportRepository,
+                sanctionRepository,
+                accountStatusRepository,
+                playerSessionManager);
+
+            // Servicios de autenticación (lógica separada)
+            IRegistrationAuthService registrationAuthService =
+                new RegistrationAuthService(accountsRepository, passwordHasher);
+
+            ILoginAuthService loginAuthService =
+                new LoginAuthService(
+                    accountsRepository,
+                    passwordHasher,
+                    playerReportAppService,
+                    userRepository,
+                    tokenService);
+
+            IVerificationAuthService verificationAuthService =
+                new VerificationAuthService(
+                    accountsRepository,
+                    emailSender,
+                    verificationCodeStore);
+
+            IPasswordChangeAuthService passwordChangeAuthService =
+                new PasswordChangeAuthService(
+                    accountsRepository,
+                    passwordHasher,
+                    verificationCodeStore);
+
+            IAuthAppService authApp = new AuthAppService(
+                registrationAuthService,
+                loginAuthService,
+                verificationAuthService,
+                passwordChangeAuthService,
+                tokenService);
+
             Func<string, int> getUserId = token => authApp.GetUserIdFromToken(token);
-            var userApp = new UserAppService(userRepo, accountStatusRepo);
-            var lobbyApp = new LobbyAppService(lobbyRepo, appLogger);
-            IStatsAppService statsApp = new StatsAppService(statsRepo);
-            var friendsApp = new FriendsAppService(friendsRepo, getUserId);
-            var shopApp = new ShopAppService(shopRepo, getUserId);
-            var inventoryApp = new InventoryAppService(inventoryRepo);
-            var matchInvitationApp = new MatchInvitationAppService(friendsRepo, userRepo, 
-                accountsRepo, email, getUserId);
-            ISocialProfileAppService socialProfileApp = new SocialProfileAppService(
-                socialProfileRepository, userRepository);
+
+            var userAppService = new UserAppService(
+                userRepository,
+                accountStatusRepository);
+
+            IStatsAppService statsAppService =
+                new StatsAppService(statsRepository);
+
+            var friendsAppService = new FriendsAppService(
+                friendsRepository,
+                getUserId);
+
+            var shopAppService = new ShopAppService(shopRepository, getUserId);
+            var inventoryAppService = new InventoryAppService(inventoryRepository);
+
+            var matchInvitationAppService = new MatchInvitationAppService(
+                friendsRepository,
+                userRepository,
+                accountsRepository,
+                emailSender,
+                getUserId);
+
+            ISocialProfileAppService socialProfileAppService =
+                new SocialProfileAppService(
+                    socialProfileRepository,
+                    userRepository);
 
             IGameSessionStore gameSessionStore = new InMemoryGameSessionStore();
 
-            var authSvc = new AuthService(authApp);
-            var userSvc = new UserService(userApp);
-            var chatSvc = new ChatService(chatApp);
-            var gameBoardSvc = new GameBoardService(gameSessionStore, appLogger);
-            var playerReportSvc = new PlayerReportService(playerReportApp);
-            var statsSvc = new StatsService(statsApp);
-            var friendsSvc = new FriendsService(friendsApp);
-            var gameplaySvc = new GameplayService(gameSessionStore,inventoryRepo,gameResultsRepository,appLogger);
-            var shopSvc = new ShopService(shopApp);
-            var inventorySvc = new InventoryService(inventoryApp);
-            var matchInvitationSvc = new MatchInvitationService(matchInvitationApp);
-            var socialProfileSvc = new SocialProfileService(socialProfileApp);
+            var boardLayoutBuilder = new BoardLayoutBuilder();
+            var specialCellsAssigner = new SpecialCellsAssigner();
+            var snakesAndLaddersPlacer = new SnakesAndLaddersPlacer();
 
+            var gameBoardBuilder = new GameBoardBuilder(
+                boardLayoutBuilder,
+                specialCellsAssigner,
+                snakesAndLaddersPlacer);
+
+            // Servicios WCF
+            var authSvc = new AuthService(authApp);
+            var userSvc = new UserService(userAppService);
+            var chatSvc = new ChatService(chatAppService);
+            var gameBoardSvc = new GameBoardService(
+                gameSessionStore,
+                gameBoardBuilder);
+            var playerReportSvc = new PlayerReportService(playerReportAppService);
+            var statsSvc = new StatsService(statsAppService);
+            var friendsSvc = new FriendsService(friendsAppService);
+            var gameplaySvc = new GameplayService(
+                gameSessionStore,
+                inventoryRepository,
+                gameResultsRepository,
+                appLogger);
+            var shopSvc = new ShopService(shopAppService);
+            var inventorySvc = new InventoryService(inventoryAppService);
+            var matchInvitationSvc =
+                new MatchInvitationService(matchInvitationAppService);
+            var socialProfileSvc =
+                new SocialProfileService(socialProfileAppService);
+
+            // Hosts
             lobbyHost = new ServiceHost(lobbySvc);
             authHost = new ServiceHost(authSvc);
             userHost = new ServiceHost(userSvc);
@@ -174,13 +257,20 @@ internal static class Program
         }
         catch (AddressAccessDeniedException ex)
         {
-            Log.Error("Acceso denegado al abrir puertos HTTP/NET.TCP. Ejecuta como admin o cambia puertos.", ex);
+            Log.Error(
+                "Acceso denegado al abrir puertos HTTP/NET.TCP. " +
+                "Ejecuta como admin o cambia puertos.",
+                ex);
+
             Console.WriteLine("\nPresiona Enter para cerrar…");
             Console.ReadLine();
         }
         catch (AddressAlreadyInUseException ex)
         {
-            Log.Error("Puerto/URL en uso. Cambia baseAddress o libera el puerto.", ex);
+            Log.Error(
+                "Puerto/URL en uso. Cambia baseAddress o libera el puerto.",
+                ex);
+
             Console.WriteLine("\nPresiona Enter para cerrar…");
             Console.ReadLine();
         }

@@ -5,17 +5,13 @@ using log4net;
 using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Server.Helpers;
+using SnakesAndLadders.Services.Constants;
 
 namespace SnakesAndLadders.Services.Logic
 {
     public sealed class ChatAppService
     {
         private static readonly ILog _logger = LogManager.GetLogger(typeof(ChatAppService));
-
-        private const int DEFAULT_RECENT_MESSAGES_COUNT = 100;
-        private const int MAX_MESSAGE_LENGTH = 500;
-        private const int ZERO_MESSAGES_CAPACITY = 0;
-        private const int MIN_VALID_STICKER_ID = 1;
 
         private readonly IChatRepository _chatRepository;
 
@@ -29,6 +25,7 @@ namespace SnakesAndLadders.Services.Logic
         {
             if (!IsValidMessage(message))
             {
+                _logger.Warn(ChatAppServiceConstants.LOG_WARN_INVALID_MESSAGE);
                 return;
             }
 
@@ -42,22 +39,22 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (IOException ex)
             {
-                _logger.Error("I/O error while saving chat message.", ex);
+                _logger.Error(ChatAppServiceConstants.LOG_ERROR_SAVING_MESSAGE_IO, ex);
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.Error("Unauthorized access while saving chat message.", ex);
+                _logger.Error(ChatAppServiceConstants.LOG_ERROR_SAVING_MESSAGE_UNAUTHORIZED, ex);
             }
             catch (Exception ex)
             {
-                _logger.Error("Unexpected error while saving chat message.", ex);
+                _logger.Error(ChatAppServiceConstants.LOG_ERROR_SAVING_MESSAGE_UNEXPECTED, ex);
             }
         }
 
         public IList<ChatMessageDto> GetRecent(int lobbyId, int take)
         {
             int effectiveTake = take <= 0
-                ? DEFAULT_RECENT_MESSAGES_COUNT
+                ? ChatAppServiceConstants.DEFAULT_RECENT_MESSAGES_COUNT
                 : take;
 
             IList<ChatMessageDto> messages;
@@ -68,23 +65,23 @@ namespace SnakesAndLadders.Services.Logic
             }
             catch (IOException ex)
             {
-                _logger.Error("I/O error while reading recent chat messages.", ex);
-                return new List<ChatMessageDto>(ZERO_MESSAGES_CAPACITY);
+                _logger.Error(ChatAppServiceConstants.LOG_ERROR_READING_MESSAGES_IO, ex);
+                return CreateEmptyMessages();
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.Error("Unauthorized access while reading recent chat messages.", ex);
-                return new List<ChatMessageDto>(ZERO_MESSAGES_CAPACITY);
+                _logger.Error(ChatAppServiceConstants.LOG_ERROR_READING_MESSAGES_UNAUTHORIZED, ex);
+                return CreateEmptyMessages();
             }
             catch (Exception ex)
             {
-                _logger.Error("Unexpected error while reading recent chat messages.", ex);
-                return new List<ChatMessageDto>(ZERO_MESSAGES_CAPACITY);
+                _logger.Error(ChatAppServiceConstants.LOG_ERROR_READING_MESSAGES_UNEXPECTED, ex);
+                return CreateEmptyMessages();
             }
 
             if (messages == null)
             {
-                return new List<ChatMessageDto>(ZERO_MESSAGES_CAPACITY);
+                return CreateEmptyMessages();
             }
 
             foreach (ChatMessageDto message in messages)
@@ -103,7 +100,7 @@ namespace SnakesAndLadders.Services.Logic
             }
 
             bool hasText = !string.IsNullOrWhiteSpace(message.Text);
-            bool hasSticker = message.StickerId >= MIN_VALID_STICKER_ID
+            bool hasSticker = message.StickerId >= ChatAppServiceConstants.MIN_VALID_STICKER_ID
                               && !string.IsNullOrWhiteSpace(message.StickerCode);
 
             if (!hasText && !hasSticker)
@@ -111,7 +108,7 @@ namespace SnakesAndLadders.Services.Logic
                 return false;
             }
 
-            if (hasText && message.Text.Length > MAX_MESSAGE_LENGTH)
+            if (hasText && message.Text.Length > ChatAppServiceConstants.MAX_MESSAGE_LENGTH)
             {
                 return false;
             }
@@ -128,12 +125,17 @@ namespace SnakesAndLadders.Services.Logic
 
             string trimmed = text.Trim();
 
-            if (trimmed.Length > MAX_MESSAGE_LENGTH)
+            if (trimmed.Length > ChatAppServiceConstants.MAX_MESSAGE_LENGTH)
             {
-                return trimmed.Substring(0, MAX_MESSAGE_LENGTH);
+                return trimmed.Substring(0, ChatAppServiceConstants.MAX_MESSAGE_LENGTH);
             }
 
             return trimmed;
+        }
+
+        private static IList<ChatMessageDto> CreateEmptyMessages()
+        {
+            return new List<ChatMessageDto>(ChatAppServiceConstants.ZERO_MESSAGES_CAPACITY);
         }
     }
 }

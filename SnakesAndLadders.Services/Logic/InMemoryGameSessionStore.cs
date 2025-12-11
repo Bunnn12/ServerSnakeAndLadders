@@ -4,14 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Interfaces;
+using SnakesAndLadders.Services.Constants;
 
 namespace SnakesAndLadders.Services.Logic
 {
     public sealed class InMemoryGameSessionStore : IGameSessionStore
     {
-        private const int INVALID_USER_ID = 0;
-
-        private readonly ConcurrentDictionary<int, GameSession> sessions =
+        private readonly ConcurrentDictionary<int, GameSession> _sessions =
             new ConcurrentDictionary<int, GameSession>();
 
         public GameSession CreateSession(
@@ -21,22 +20,26 @@ namespace SnakesAndLadders.Services.Logic
         {
             if (gameId <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(gameId), "GameId must be greater than zero.");
+                throw new ArgumentOutOfRangeException(
+                    nameof(gameId),
+                    GameSessionStoreConstants.ERROR_GAME_ID_POSITIVE);
             }
 
             if (boardDefinition == null)
             {
-                throw new ArgumentNullException(nameof(boardDefinition));
+                throw new ArgumentNullException(
+                    nameof(boardDefinition),
+                    GameSessionStoreConstants.ERROR_BOARD_REQUIRED);
             }
 
             var players = (playerUserIds ?? Enumerable.Empty<int>())
-                .Where(id => id != INVALID_USER_ID)
+                .Where(id => id != GameSessionStoreConstants.INVALID_USER_ID)
                 .Distinct()
                 .ToList();
 
             if (players.Count == 0)
             {
-                throw new InvalidOperationException("Cannot create a game session without players.");
+                throw new InvalidOperationException(GameSessionStoreConstants.ERROR_NO_PLAYERS);
             }
 
             var session = new GameSession
@@ -46,15 +49,14 @@ namespace SnakesAndLadders.Services.Logic
                 PlayerUserIds = players,
                 CurrentTurnUserId = players[0],
                 IsFinished = false,
-                WinnerUserId = INVALID_USER_ID,
+                WinnerUserId = GameSessionStoreConstants.INVALID_USER_ID,
                 EndReason = null
             };
 
-            sessions.AddOrUpdate(gameId, session, (_, __) => session);
+            _sessions.AddOrUpdate(gameId, session, (_, __) => session);
 
             return session;
         }
-
 
         public bool TryGetSession(int gameId, out GameSession session)
         {
@@ -64,7 +66,7 @@ namespace SnakesAndLadders.Services.Logic
                 return false;
             }
 
-            return sessions.TryGetValue(gameId, out session);
+            return _sessions.TryGetValue(gameId, out session);
         }
 
         public void UpdateSession(GameSession session)
@@ -74,7 +76,7 @@ namespace SnakesAndLadders.Services.Logic
                 throw new ArgumentNullException(nameof(session));
             }
 
-            sessions.AddOrUpdate(session.GameId, session, (_, __) => session);
+            _sessions.AddOrUpdate(session.GameId, session, (_, __) => session);
         }
     }
 }

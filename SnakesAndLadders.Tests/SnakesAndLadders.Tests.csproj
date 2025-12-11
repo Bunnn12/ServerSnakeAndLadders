@@ -108,6 +108,8 @@
     <Compile Include="Integration\AccountStatusRepositoryTests.cs" />
     <Compile Include="Integration\FriendsRepositoryTests.cs" />
     <Compile Include="Integration\IntegrationTestBase.cs" />
+    <Compile Include="Integration\LobbyRepositoryTests.cs" />
+    <Compile Include="Integration\ReportRepositoryTests.cs" />
     <Compile Include="Integration\SanctionRepositoryTests.cs" />
     <Compile Include="Integration\ShopRepositoryTests.cs" />
     <Compile Include="Integration\SocialProfileRepositoryTests.cs" />

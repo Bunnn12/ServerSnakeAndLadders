@@ -1,9 +1,9 @@
 ﻿using log4net;
-using SnakeAndLadders.Contracts.Dtos;
 using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
-using SnakesAndLadders.Services.Logic;
+using SnakesAndLadders.Services.Constants;
+using SnakesAndLadders.Services.Wcf.Constants;
 using System;
 using System.ServiceModel;
 
@@ -12,137 +12,98 @@ namespace SnakesAndLadders.Services.Wcf
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single)]
     public sealed class InventoryService : IInventoryService
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(InventoryService));
+        private static readonly ILog _logger =
+            LogManager.GetLogger(typeof(InventoryService));
 
-        private readonly IInventoryAppService inventoryAppService;
+        private readonly IInventoryAppService _inventoryAppService;
 
         public InventoryService(IInventoryAppService inventoryAppService)
         {
-            this.inventoryAppService = inventoryAppService
+            _inventoryAppService = inventoryAppService
                 ?? throw new ArgumentNullException(nameof(inventoryAppService));
         }
 
         public InventorySnapshotDto GetInventory(int userId)
         {
+            return ExecuteSafe(
+                InventoryServiceConstants.OP_GET_INVENTORY,
+                () => _inventoryAppService.GetInventory(userId));
+        }
+
+        public void UpdateSelectedItems(int userId, ItemSlotsSelection selection)
+        {
+            ExecuteSafe(
+                InventoryServiceConstants.OP_UPDATE_SELECTED_ITEMS,
+                () => _inventoryAppService.UpdateSelectedItems(userId, selection));
+        }
+
+        public void UpdateSelectedDice(int userId, DiceSlotsSelection selection)
+        {
+            ExecuteSafe(
+                InventoryServiceConstants.OP_UPDATE_SELECTED_DICE,
+                () => _inventoryAppService.UpdateSelectedDice(userId, selection));
+        }
+
+        public void EquipItemToSlot(int userId, byte slotNumber, int objectId)
+        {
+            ExecuteSafe(
+                InventoryServiceConstants.OP_EQUIP_ITEM_TO_SLOT,
+                () => _inventoryAppService.EquipItemToSlot(userId, slotNumber, objectId));
+        }
+
+        public void UnequipItemFromSlot(int userId, byte slotNumber)
+        {
+            ExecuteSafe(
+                InventoryServiceConstants.OP_UNEQUIP_ITEM_FROM_SLOT,
+                () => _inventoryAppService.UnequipItemFromSlot(userId, slotNumber));
+        }
+
+        public void EquipDiceToSlot(int userId, byte slotNumber, int diceId)
+        {
+            ExecuteSafe(
+                InventoryServiceConstants.OP_EQUIP_DICE_TO_SLOT,
+                () => _inventoryAppService.EquipDiceToSlot(userId, slotNumber, diceId));
+        }
+
+        public void UnequipDiceFromSlot(int userId, byte slotNumber)
+        {
+            ExecuteSafe(
+                InventoryServiceConstants.OP_UNEQUIP_DICE_FROM_SLOT,
+                () => _inventoryAppService.UnequipDiceFromSlot(userId, slotNumber));
+        }
+
+        private static T ExecuteSafe<T>(string operationName, Func<T> action)
+        {
             try
             {
-                return inventoryAppService.GetInventory(userId);
+                return action();
             }
             catch (Exception ex)
             {
-                Logger.Error("Error en InventoryService.GetInventory.", ex);
+                _logger.Error(
+                    string.Format(
+                        InventoryServiceConstants.ERROR_MESSAGE_TEMPLATE,
+                        operationName),
+                    ex);
+
                 throw;
             }
         }
 
-        public void UpdateSelectedItems(
-            int userId,
-            int? slot1ObjectId, 
-            int? slot2ObjectId,
-            int? slot3ObjectId)
+        private static void ExecuteSafe(string operationName, Action action)
         {
             try
             {
-                inventoryAppService.UpdateSelectedItems(
-                    userId,
-                    slot1ObjectId,
-                    slot2ObjectId,
-                    slot3ObjectId);
+                action();
             }
             catch (Exception ex)
             {
-                Logger.Error("Error en InventoryService.UpdateSelectedItems.", ex);
-                throw;
-            }
-        }
+                _logger.Error(
+                    string.Format(
+                        InventoryServiceConstants.ERROR_MESSAGE_TEMPLATE,
+                        operationName),
+                    ex);
 
-        public void UpdateSelectedDice(
-            int userId,
-            int? slot1DiceId,
-            int? slot2DiceId)
-        {
-            try
-            {
-                inventoryAppService.UpdateSelectedDice(
-                    userId,
-                    slot1DiceId,
-                    slot2DiceId);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error en InventoryService.UpdateSelectedDice.", ex);
-                throw;
-            }
-        }
-
-        public void EquipItemToSlot(
-            int userId,
-            byte slotNumber,
-            int objectId)
-        {
-            try
-            {
-                inventoryAppService.EquipItemToSlot(
-                    userId,
-                    slotNumber,
-                    objectId);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error en InventoryService.EquipItemToSlot.", ex);
-                throw;
-            }
-        }
-
-        public void UnequipItemFromSlot(
-            int userId,
-            byte slotNumber)
-        {
-            try
-            {
-                inventoryAppService.UnequipItemFromSlot(
-                    userId,
-                    slotNumber);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error en InventoryService.UnequipItemFromSlot.", ex);
-                throw;
-            }
-        }
-
-        public void EquipDiceToSlot(
-            int userId,
-            byte slotNumber,
-            int diceId)
-        {
-            try
-            {
-                inventoryAppService.EquipDiceToSlot(
-                    userId,
-                    slotNumber,
-                    diceId);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error en InventoryService.EquipDiceToSlot.", ex);
-                throw;
-            }
-        }
-
-        public void UnequipDiceFromSlot(
-            int userId,
-            byte slotNumber)
-        {
-            try
-            {
-                inventoryAppService.UnequipDiceFromSlot(
-                    userId,
-                    slotNumber);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error en InventoryService.UnequipDiceFromSlot.", ex);
                 throw;
             }
         }
