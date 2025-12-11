@@ -7,16 +7,14 @@ using Xunit;
 
 namespace SnakesAndLadders.Tests.Unit
 {
-    /*
     public sealed class UserAppServiceTests
     {
-        private const int VALID_USER_ID = 10;
-        private const int OTHER_VALID_USER_ID = 20;
-        private const int INVALID_ID_ZERO = 0;
-        private const int INVALID_ID_NEGATIVE = -1;
+        private const int VALID_USER_ID = 123;
 
-        private const string VALID_USERNAME = "UserOne";
-        private const string OTHER_VALID_USERNAME = "UserTwo";
+        private const string USERNAME = "UserOne";
+        private const string ERROR_USERNAME_REQUIRED = "UserName is required.";
+        private const string ERROR_REQUEST_REQUIRED = "Request is required.";
+        private const string ERROR_USER_ID_POSITIVE = "UserId must be positive.";
 
         private readonly Mock<IUserRepository> _userRepositoryMock;
         private readonly Mock<IAccountStatusRepository> _accountStatusRepositoryMock;
@@ -25,379 +23,270 @@ namespace SnakesAndLadders.Tests.Unit
 
         public UserAppServiceTests()
         {
-            _userRepositoryMock = new Mock<IUserRepository>(MockBehavior.Strict);
-            _accountStatusRepositoryMock = new Mock<IAccountStatusRepository>(MockBehavior.Strict);
+            _userRepositoryMock =
+                new Mock<IUserRepository>(MockBehavior.Strict);
+
+            _accountStatusRepositoryMock =
+                new Mock<IAccountStatusRepository>(MockBehavior.Strict);
 
             _service = new UserAppService(
                 _userRepositoryMock.Object,
                 _accountStatusRepositoryMock.Object);
         }
 
-        #region Constructor
 
         [Fact]
         public void TestConstructorThrowsWhenUserRepositoryIsNull()
         {
             var ex = Assert.Throws<ArgumentNullException>(
-                () => new UserAppService(null, _accountStatusRepositoryMock.Object));
+                () => new UserAppService(
+                    null,
+                    _accountStatusRepositoryMock.Object));
 
-            Assert.Equal("users", ex.ParamName);
+            bool isOk = ex.ParamName == "userRepository";
+
+            Assert.True(isOk);
         }
 
         [Fact]
         public void TestConstructorThrowsWhenAccountStatusRepositoryIsNull()
         {
             var ex = Assert.Throws<ArgumentNullException>(
-                () => new UserAppService(_userRepositoryMock.Object, null));
+                () => new UserAppService(
+                    _userRepositoryMock.Object,
+                    null));
 
-            Assert.Equal("accountStatusRepository", ex.ParamName);
+            bool isOk = ex.ParamName == "accountStatusRepository";
+
+            Assert.True(isOk);
         }
 
-        #endregion
-
-        #region GetProfileByUsername
 
         [Theory]
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
-        public void TestGetProfileByUsernameThrowsWhenInvalid(string username)
+        public void TestGetProfileByUsernameThrowsWhenUsernameIsInvalid(string username)
         {
             var ex = Assert.Throws<ArgumentException>(
                 () => _service.GetProfileByUsername(username));
 
-            Assert.Equal("username", ex.ParamName);
+            bool isOk =
+                ex.ParamName == "username" &&
+                ex.Message.Contains(ERROR_USERNAME_REQUIRED);
 
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
+            Assert.True(isOk);
         }
 
         [Fact]
-        public void TestGetProfileByUsernameReturnsProfile()
+        public void TestGetProfileByUsernameReturnsRepositoryResult()
         {
-            var expected = new AccountDto
-            {
-                UserId = VALID_USER_ID,
-                UserName = VALID_USERNAME
-            };
+            var expected = new AccountDto();
 
             _userRepositoryMock
-                .Setup(r => r.GetByUsername(VALID_USERNAME))
+                .Setup(repo => repo.GetByUsername(USERNAME))
                 .Returns(expected);
 
-            AccountDto result = _service.GetProfileByUsername(VALID_USERNAME);
+            AccountDto result = _service.GetProfileByUsername(USERNAME);
 
-            Assert.Same(expected, result);
+            _userRepositoryMock.Verify(
+                repo => repo.GetByUsername(USERNAME),
+                Times.Once);
 
-            _userRepositoryMock.Verify(r => r.GetByUsername(VALID_USERNAME), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
+            bool isOk =
+                result != null &&
+                ReferenceEquals(result, expected);
+
+            Assert.True(isOk);
         }
 
-        [Fact]
-        public void TestGetProfileByUsernameReturnsNullWhenRepositoryReturnsNull()
-        {
-            _userRepositoryMock
-                .Setup(r => r.GetByUsername(OTHER_VALID_USERNAME))
-                .Returns((AccountDto)null);
-
-            AccountDto result = _service.GetProfileByUsername(OTHER_VALID_USERNAME);
-
-            Assert.Null(result);
-
-            _userRepositoryMock.Verify(r => r.GetByUsername(OTHER_VALID_USERNAME), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-        }
-
-        #endregion
-
-        #region GetProfilePhoto
 
         [Theory]
-        [InlineData(INVALID_ID_ZERO)]
-        [InlineData(INVALID_ID_NEGATIVE)]
-        public void TestGetProfilePhotoThrowsWhenIdInvalid(int userId)
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void TestGetProfilePhotoThrowsWhenUserIdIsInvalid(int userId)
         {
             var ex = Assert.Throws<ArgumentOutOfRangeException>(
                 () => _service.GetProfilePhoto(userId));
 
-            Assert.Equal("userId", ex.ParamName);
+            bool isOk =
+                ex.ParamName == "userId" &&
+                ex.Message.Contains(ERROR_USER_ID_POSITIVE);
 
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
+            Assert.True(isOk);
         }
 
         [Fact]
-        public void TestGetProfilePhotoReturnsData()
+        public void TestGetProfilePhotoReturnsRepositoryResult()
         {
-            var expected = new ProfilePhotoDto
-            {
-                UserId = VALID_USER_ID,
-                ProfilePhotoId = "PHOTO123"
-            };
+            var expected = new ProfilePhotoDto();
 
             _userRepositoryMock
-                .Setup(r => r.GetPhotoByUserId(VALID_USER_ID))
+                .Setup(repo => repo.GetPhotoByUserId(VALID_USER_ID))
                 .Returns(expected);
 
             ProfilePhotoDto result = _service.GetProfilePhoto(VALID_USER_ID);
 
-            Assert.Same(expected, result);
+            _userRepositoryMock.Verify(
+                repo => repo.GetPhotoByUserId(VALID_USER_ID),
+                Times.Once);
 
-            _userRepositoryMock.Verify(r => r.GetPhotoByUserId(VALID_USER_ID), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
+            bool isOk =
+                result != null &&
+                ReferenceEquals(result, expected);
+
+            Assert.True(isOk);
+        }
+
+
+        [Fact]
+        public void TestUpdateProfileThrowsWhenRequestIsNull()
+        {
+            var ex = Assert.Throws<ArgumentNullException>(
+                () => _service.UpdateProfile(null));
+
+            bool isOk =
+                ex.ParamName == "request" &&
+                ex.Message.Contains(ERROR_REQUEST_REQUIRED);
+
+            Assert.True(isOk);
         }
 
         [Fact]
-        public void TestGetProfilePhotoReturnsNullWhenRepositoryReturnsNull()
+        public void TestUpdateProfileReturnsRepositoryResult()
         {
-            _userRepositoryMock
-                .Setup(r => r.GetPhotoByUserId(OTHER_VALID_USER_ID))
-                .Returns((ProfilePhotoDto)null);
+            var request = new UpdateProfileRequestDto();
 
-            ProfilePhotoDto result = _service.GetProfilePhoto(OTHER_VALID_USER_ID);
-
-            Assert.Null(result);
-
-            _userRepositoryMock.Verify(r => r.GetPhotoByUserId(OTHER_VALID_USER_ID), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public void TestGetProfilePhotoPropagatesRepositoryException()
-        {
-            _userRepositoryMock
-                .Setup(r => r.GetPhotoByUserId(VALID_USER_ID))
-                .Throws(new InvalidOperationException("Test error"));
-
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => _service.GetProfilePhoto(VALID_USER_ID));
-
-            Assert.Equal("Test error", ex.Message);
-
-            _userRepositoryMock.Verify(r => r.GetPhotoByUserId(VALID_USER_ID), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-        }
-
-        #endregion
-
-        #region UpdateProfile
-
-        [Fact]
-        public void TestUpdateProfileDelegatesToRepository()
-        {
-            var request = new UpdateProfileRequestDto
-            {
-                UserId = VALID_USER_ID,
-                FirstName = "Juan",
-                LastName = "Perez",
-                ProfileDescription = "Hola",
-                ProfilePhotoId = "A0002"
-            };
-
-            var expected = new AccountDto
-            {
-                UserId = VALID_USER_ID,
-                ProfileDescription = "Hola",
-                ProfilePhotoId = "A0002"
-            };
+            var expected = new AccountDto();
 
             _userRepositoryMock
-                .Setup(r => r.UpdateProfile(request))
+                .Setup(repo => repo.UpdateProfile(request))
                 .Returns(expected);
 
             AccountDto result = _service.UpdateProfile(request);
 
-            Assert.Same(expected, result);
+            _userRepositoryMock.Verify(
+                repo => repo.UpdateProfile(request),
+                Times.Once);
 
-            _userRepositoryMock.Verify(r => r.UpdateProfile(request), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
+            bool isOk =
+                result != null &&
+                ReferenceEquals(result, expected);
+
+            Assert.True(isOk);
         }
 
-        [Fact]
-        public void TestUpdateProfileAllowsNullRequestAndDelegates()
-        {
-            _userRepositoryMock
-                .Setup(r => r.UpdateProfile(null))
-                .Returns((AccountDto)null);
-
-            AccountDto result = _service.UpdateProfile(null);
-
-            Assert.Null(result);
-
-            _userRepositoryMock.Verify(r => r.UpdateProfile(null), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public void TestUpdateProfilePropagatesRepositoryException()
-        {
-            var request = new UpdateProfileRequestDto
-            {
-                UserId = VALID_USER_ID
-            };
-
-            _userRepositoryMock
-                .Setup(r => r.UpdateProfile(request))
-                .Throws(new InvalidOperationException("Update error"));
-
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => _service.UpdateProfile(request));
-
-            Assert.Equal("Update error", ex.Message);
-
-            _userRepositoryMock.Verify(r => r.UpdateProfile(request), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-        }
-
-        #endregion
-
-        #region DeactivateAccount
 
         [Theory]
-        [InlineData(INVALID_ID_ZERO)]
-        [InlineData(INVALID_ID_NEGATIVE)]
-        public void TestDeactivateAccountThrowsWhenIdInvalid(int userId)
+        [InlineData(0)]
+        [InlineData(-5)]
+        public void TestDeactivateAccountThrowsWhenUserIdIsInvalid(int userId)
         {
             var ex = Assert.Throws<ArgumentOutOfRangeException>(
                 () => _service.DeactivateAccount(userId));
 
-            Assert.Equal("userId", ex.ParamName);
+            bool isOk =
+                ex.ParamName == "userId" &&
+                ex.Message.Contains(ERROR_USER_ID_POSITIVE);
 
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-            _userRepositoryMock.VerifyNoOtherCalls();
+            Assert.True(isOk);
         }
 
         [Fact]
-        public void TestDeactivateAccountCallsRepository()
+        public void TestDeactivateAccountCallsRepositoryOnce()
         {
             _accountStatusRepositoryMock
-                .Setup(r => r.SetUserAndAccountActiveState(VALID_USER_ID, false));
+                .Setup(repo => repo.DeactivateUserAndAccount(VALID_USER_ID));
 
             _service.DeactivateAccount(VALID_USER_ID);
 
             _accountStatusRepositoryMock.Verify(
-                r => r.SetUserAndAccountActiveState(VALID_USER_ID, false),
+                repo => repo.DeactivateUserAndAccount(VALID_USER_ID),
                 Times.Once);
 
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-            _userRepositoryMock.VerifyNoOtherCalls();
+            bool isOk = true;
+
+            Assert.True(isOk);
         }
 
-        [Fact]
-        public void TestDeactivateAccountPropagatesRepositoryException()
-        {
-            _accountStatusRepositoryMock
-                .Setup(r => r.SetUserAndAccountActiveState(VALID_USER_ID, false))
-                .Throws(new InvalidOperationException("Deactivate error"));
 
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => _service.DeactivateAccount(VALID_USER_ID));
-
-            Assert.Equal("Deactivate error", ex.Message);
-
-            _accountStatusRepositoryMock.Verify(
-                r => r.SetUserAndAccountActiveState(VALID_USER_ID, false),
-                Times.Once);
-
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-            _userRepositoryMock.VerifyNoOtherCalls();
-        }
-
-        #endregion
-
-        #region GetAvatarOptions
 
         [Theory]
-        [InlineData(INVALID_ID_ZERO)]
-        [InlineData(INVALID_ID_NEGATIVE)]
-        public void TestGetAvatarOptionsThrowsInvalidId(int userId)
+        [InlineData(0)]
+        [InlineData(-10)]
+        public void TestGetAvatarOptionsThrowsWhenUserIdIsInvalid(int userId)
         {
             var ex = Assert.Throws<ArgumentOutOfRangeException>(
                 () => _service.GetAvatarOptions(userId));
 
-            Assert.Equal("userId", ex.ParamName);
+            bool isOk =
+                ex.ParamName == "userId" &&
+                ex.Message.Contains(ERROR_USER_ID_POSITIVE);
 
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
+            Assert.True(isOk);
         }
 
         [Fact]
-        public void TestGetAvatarOptionsReturnsData()
+        public void TestGetAvatarOptionsReturnsRepositoryResult()
         {
-            var expected = new AvatarProfileOptionsDto
-            {
-                UserId = VALID_USER_ID,
-                Avatars = new[]
-                {
-                    new AvatarProfileOptionDto
-                    {
-                        AvatarCode = "A0001",
-                        DisplayName = "Default",
-                        IsUnlocked = true,
-                        IsCurrent = true
-                    }
-                }
-            };
+            var expected = new AvatarProfileOptionsDto();
 
             _userRepositoryMock
-                .Setup(r => r.GetAvatarOptions(VALID_USER_ID))
+                .Setup(repo => repo.GetAvatarOptions(VALID_USER_ID))
                 .Returns(expected);
 
-            AvatarProfileOptionsDto result = _service.GetAvatarOptions(VALID_USER_ID);
+            AvatarProfileOptionsDto result =
+                _service.GetAvatarOptions(VALID_USER_ID);
 
-            Assert.Same(expected, result);
-            Assert.Equal(VALID_USER_ID, result.UserId);
-            Assert.NotNull(result.Avatars);
-            Assert.Single(result.Avatars);
-            Assert.Equal("A0001", result.Avatars[0].AvatarCode);
+            _userRepositoryMock.Verify(
+                repo => repo.GetAvatarOptions(VALID_USER_ID),
+                Times.Once);
 
-            _userRepositoryMock.Verify(r => r.GetAvatarOptions(VALID_USER_ID), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
+            bool isOk =
+                result != null &&
+                ReferenceEquals(result, expected);
+
+            Assert.True(isOk);
+        }
+
+
+        [Fact]
+        public void TestSelectAvatarForProfileThrowsWhenRequestIsNull()
+        {
+            var ex = Assert.Throws<ArgumentNullException>(
+                () => _service.SelectAvatarForProfile(null));
+
+            bool isOk =
+                ex.ParamName == "request" &&
+                ex.Message.Contains(ERROR_REQUEST_REQUIRED);
+
+            Assert.True(isOk);
         }
 
         [Fact]
-        public void TestGetAvatarOptionsReturnsNullWhenRepositoryReturnsNull()
+        public void TestSelectAvatarForProfileReturnsRepositoryResult()
         {
+            var request = new AvatarSelectionRequestDto();
+
+            var expected = new AccountDto();
+
             _userRepositoryMock
-                .Setup(r => r.GetAvatarOptions(OTHER_VALID_USER_ID))
-                .Returns((AvatarProfileOptionsDto)null);
+                .Setup(repo => repo.SelectAvatarForProfile(request))
+                .Returns(expected);
 
-            AvatarProfileOptionsDto result = _service.GetAvatarOptions(OTHER_VALID_USER_ID);
+            AccountDto result = _service.SelectAvatarForProfile(request);
 
-            Assert.Null(result);
+            _userRepositoryMock.Verify(
+                repo => repo.SelectAvatarForProfile(request),
+                Times.Once);
 
-            _userRepositoryMock.Verify(r => r.GetAvatarOptions(OTHER_VALID_USER_ID), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
+            bool isOk =
+                result != null &&
+                ReferenceEquals(result, expected);
+
+            Assert.True(isOk);
         }
 
-        [Fact]
-        public void TestGetAvatarOptionsPropagatesRepositoryException()
-        {
-            _userRepositoryMock
-                .Setup(r => r.GetAvatarOptions(VALID_USER_ID))
-                .Throws(new InvalidOperationException("Avatar error"));
 
-            var ex = Assert.Throws<InvalidOperationException>(
-                () => _service.GetAvatarOptions(VALID_USER_ID));
-
-            Assert.Equal("Avatar error", ex.Message);
-
-            _userRepositoryMock.Verify(r => r.GetAvatarOptions(VALID_USER_ID), Times.Once);
-            _userRepositoryMock.VerifyNoOtherCalls();
-            _accountStatusRepositoryMock.VerifyNoOtherCalls();
-        }
-
-        #endregion
     }
-    */
 }

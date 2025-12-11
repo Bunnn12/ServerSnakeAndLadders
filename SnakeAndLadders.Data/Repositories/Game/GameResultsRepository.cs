@@ -5,6 +5,7 @@ using SnakeAndLadders.Contracts.Interfaces;
 using SnakesAndLadders.Data;
 using SnakesAndLadders.Data.Constants;
 using SnakesAndLadders.Data.Helpers;
+using SnakesAndLadders.Data.Repositories.Game;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -17,7 +18,8 @@ namespace ServerSnakesAndLadders
 {
     public sealed class GameResultsRepository : IGameResultsRepository
     {
-        private static readonly ILog _logger = LogManager.GetLogger(typeof(GameResultsRepository));
+        private static readonly ILog _logger =
+            LogManager.GetLogger(typeof(GameResultsRepository));
 
         private readonly Func<SnakeAndLaddersDBEntities1> _contextFactory;
 
@@ -37,61 +39,31 @@ namespace ServerSnakesAndLadders
                     GameResultsConstants.ERROR_GAME_ID_POSITIVE);
             }
 
+            GameFinalizationRequest request =
+                new GameFinalizationRequest(gameId, winnerUserId, coinsByUserId);
+
             try
             {
                 using (SnakeAndLaddersDBEntities1 context = _contextFactory())
-                using (DbContextTransaction transaction = context.Database.BeginTransaction(IsolationLevel.ReadCommitted))
+                using (DbContextTransaction transaction =
+                    context.Database.BeginTransaction(IsolationLevel.ReadCommitted))
                 {
-                    try
-                    {
-                        GameResultsHelper.ConfigureContext(context);
-
-                        Partida game = LoadGame(context, gameId);
-                        if (game == null)
-                        {
-                            LogGameNotFound(gameId);
-
-                            transaction.Rollback();
-                            return OperationResult<bool>.Failure(
-                                GameResultsConstants.ERROR_GAME_NOT_FOUND);
-                        }
-
-                        CloseGame(game);
-                        UpdateWinnerFlags(context, gameId, winnerUserId);
-                        GameResultsHelper.ApplyCoins(context, coinsByUserId);
-
-                        context.SaveChanges();
-                        transaction.Commit();
-
-                        LogFinalizeSuccess(gameId, winnerUserId, coinsByUserId);
-
-                        return OperationResult<bool>.Success(true);
-                    }
-                    catch (SqlException ex)
-                    {
-                        _logger.Error(GameResultsConstants.LOG_SQL_ERROR_FINALIZING_GAME, ex);
-                        transaction.Rollback();
-
-                        return OperationResult<bool>.Failure(
-                            GameResultsConstants.ERROR_DATABASE_FINALIZING_GAME);
-                    }
-                    catch (DbUpdateException ex)
-                    {
-                        _logger.Error(GameResultsConstants.LOG_DB_UPDATE_ERROR_FINALIZING_GAME, ex);
-                        transaction.Rollback();
-
-                        return OperationResult<bool>.Failure(
-                            GameResultsConstants.ERROR_DATABASE_UPDATE_FINALIZING_GAME);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(GameResultsConstants.LOG_UNEXPECTED_ERROR_FINALIZING_GAME, ex);
-                        transaction.Rollback();
-
-                        return OperationResult<bool>.Failure(
-                            GameResultsConstants.ERROR_UNEXPECTED_FINALIZING_GAME);
-                    }
+                    return FinalizeGameInternal(context, transaction, request);
                 }
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error(GameResultsConstants.LOG_SQL_ERROR_FINALIZING_GAME, ex);
+                return OperationResult<bool>.Failure(
+                    GameResultsConstants.ERROR_DATABASE_FINALIZING_GAME);
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.Error(
+                    GameResultsConstants.LOG_DB_UPDATE_ERROR_FINALIZING_GAME,
+                    ex);
+                return OperationResult<bool>.Failure(
+                    GameResultsConstants.ERROR_DATABASE_UPDATE_FINALIZING_GAME);
             }
             catch (Exception ex)
             {
@@ -102,17 +74,84 @@ namespace ServerSnakesAndLadders
             }
         }
 
+        private static OperationResult<bool> FinalizeGameInternal(
+            SnakeAndLaddersDBEntities1 context,
+            DbContextTransaction transaction,
+            GameFinalizationRequest request)
+        {
+            try
+            {
+                GameResultsHelper.ConfigureContext(context);
+
+                Partida game = FindGameById(context, request.GameId);
+                if (game == null)
+                {
+                    LogGameNotFound(request.GameId);
+
+                    return RollbackWithFailure(
+                        transaction,
+                        GameResultsConstants.ERROR_GAME_NOT_FOUND);
+                }
+
+                MarkGameAsFinished(game);
+                UpdateWinnerFlags(context, request.GameId, request.WinnerUserId);
+
+                GameResultsHelper.ApplyCoins(context, request.CoinsByUserId);
+
+                context.SaveChanges();
+                transaction.Commit();
+
+                LogFinalizeSuccess(
+                    request.GameId,
+                    request.WinnerUserId,
+                    request.CoinsByUserId);
+
+                return OperationResult<bool>.Success(true);
+            }
+            catch (SqlException ex)
+            {
+                _logger.Error(GameResultsConstants.LOG_SQL_ERROR_FINALIZING_GAME, ex);
+
+                return RollbackWithFailure(
+                    transaction,
+                    GameResultsConstants.ERROR_DATABASE_FINALIZING_GAME);
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.Error(
+                    GameResultsConstants.LOG_DB_UPDATE_ERROR_FINALIZING_GAME,
+                    ex);
+
+                return RollbackWithFailure(
+                    transaction,
+                    GameResultsConstants.ERROR_DATABASE_UPDATE_FINALIZING_GAME);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    GameResultsConstants.LOG_UNEXPECTED_ERROR_FINALIZING_GAME,
+                    ex);
+
+                return RollbackWithFailure(
+                    transaction,
+                    GameResultsConstants.ERROR_UNEXPECTED_FINALIZING_GAME);
+            }
+        }
+
         private static bool IsValidGameId(int gameId)
         {
             return gameId >= GameResultsConstants.MIN_VALID_GAME_ID;
         }
 
-        private static Partida LoadGame(SnakeAndLaddersDBEntities1 context, int gameId)
+        private static Partida FindGameById(
+            SnakeAndLaddersDBEntities1 context,
+            int gameId)
         {
             return context.Partida
                 .SingleOrDefault(game => game.IdPartida == gameId);
         }
-        private static void CloseGame(Partida game)
+
+        private static void MarkGameAsFinished(Partida game)
         {
             game.EstadoPartida = GameResultsConstants.LOBBY_STATUS_CLOSED;
             game.FechaTermino = DateTime.UtcNow;
@@ -135,6 +174,15 @@ namespace ServerSnakesAndLadders
             }
         }
 
+        private static OperationResult<bool> RollbackWithFailure(
+            DbContextTransaction transaction,
+            string errorMessage)
+        {
+            transaction.Rollback();
+
+            return OperationResult<bool>.Failure(errorMessage);
+        }
+
         private static void LogGameNotFound(int gameId)
         {
             _logger.WarnFormat(
@@ -145,11 +193,9 @@ namespace ServerSnakesAndLadders
         private static void LogFinalizeSuccess(
             int gameId,
             int winnerUserId,
-            IDictionary<int, int> coinsByUserId)
+            IDictionary<int, int> rewardedCoinsByUserId)
         {
-            int rewardedUsersCount = coinsByUserId != null
-                ? coinsByUserId.Count
-                : 0;
+            int rewardedUsersCount = rewardedCoinsByUserId.Count;
 
             _logger.InfoFormat(
                 GameResultsConstants.LOG_SUCCESS_FINALIZING_GAME,

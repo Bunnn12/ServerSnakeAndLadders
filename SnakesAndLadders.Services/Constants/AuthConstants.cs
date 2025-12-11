@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SnakesAndLadders.Services.Constants
 {
-    internal static class AuthConstants
+    public static class AuthConstants
     {
         internal const int VerificationCodeDigits = 6;
 

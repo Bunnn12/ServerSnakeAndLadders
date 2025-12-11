@@ -22,7 +22,7 @@ namespace SnakesAndLadders.Tests.Integration
         {
             int userId;
 
-            using (SnakeAndLaddersDBEntities1 db = CreateContext())
+            using (SnakeAndLaddersDBEntities1 dataBase = CreateContext())
             {
                 Usuario userRow = new Usuario
                 {
@@ -38,8 +38,8 @@ namespace SnakesAndLadders.Tests.Integration
                     }
                 };
 
-                db.Usuario.Add(userRow);
-                db.SaveChanges();
+                dataBase.Usuario.Add(userRow);
+                dataBase.SaveChanges();
                 userId = userRow.IdUsuario;
 
                 Cuenta accountRow = new Cuenta
@@ -52,7 +52,7 @@ namespace SnakesAndLadders.Tests.Integration
                     }
                 };
 
-                db.Cuenta.Add(accountRow);
+                dataBase.Cuenta.Add(accountRow);
 
                 Contrasenia passwordRow = new Contrasenia
                 {
@@ -65,8 +65,8 @@ namespace SnakesAndLadders.Tests.Integration
                     FechaCreacion = DateTime.UtcNow
                 };
 
-                db.Contrasenia.Add(passwordRow);
-                db.SaveChanges();
+                dataBase.Contrasenia.Add(passwordRow);
+                dataBase.SaveChanges();
             }
 
             AccountStatusRepository repository =

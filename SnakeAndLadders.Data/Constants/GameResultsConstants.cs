@@ -2,7 +2,7 @@
 
 namespace SnakesAndLadders.Data.Constants
 {
-    internal static class GameResultsConstants
+    public static class GameResultsConstants
     {
         public const int COMMAND_TIMEOUT_SECONDS = 30;
         public const int MIN_VALID_GAME_ID = 1;

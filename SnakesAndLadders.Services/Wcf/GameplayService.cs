@@ -5,15 +5,12 @@ using SnakeAndLadders.Contracts.Dtos.Gameplay;
 using SnakeAndLadders.Contracts.Enums;
 using SnakeAndLadders.Contracts.Interfaces;
 using SnakeAndLadders.Contracts.Services;
-using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Logic.Gameplay;
 using SnakesAndLadders.Services.Wcf.Gameplay;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.ServiceModel;
-using System.Timers;
 
 namespace SnakesAndLadders.Services.Wcf
 {
@@ -22,25 +19,50 @@ namespace SnakesAndLadders.Services.Wcf
         ConcurrencyMode = ConcurrencyMode.Multiple)]
     public sealed class GameplayService : IGameplayService
     {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(GameplayService));
+        private const string ERROR_REQUEST_NULL =
+            "Request cannot be null.";
 
-        private const string ERROR_REQUEST_NULL = "Request cannot be null.";
-        private const string ERROR_GAME_ID_INVALID = "GameId must be greater than zero.";
-        private const string ERROR_USER_ID_INVALID = "UserId is invalid.";
-        private const string ERROR_SESSION_NOT_FOUND = "Game session not found for this game.";
-        private const string ERROR_UNEXPECTED_ROLL = "Unexpected error while processing dice roll.";
-        private const string ERROR_UNEXPECTED_STATE = "Unexpected error while retrieving game state.";
-        private const string ERROR_JOIN_INVALID = "GameId must be greater than zero and UserId must be non-zero.";
-        private const string ERROR_LEAVE_INVALID = "GameId must be greater than zero and UserId must be non-zero.";
-        private const string ERROR_USE_ITEM_INVALID_SLOT = "Item slot number is invalid.";
-        private const string ERROR_USE_ITEM_NO_ITEM_IN_SLOT = "No item is equipped in the selected slot.";
-        private const string ERROR_USE_ITEM_NO_QUANTITY = "User does not have any remaining units of the selected item.";
+        private const string ERROR_GAME_ID_INVALID =
+            "GameId must be greater than zero.";
 
-        private const string ERROR_USE_DICE_INVALID_SLOT = "Dice slot number is invalid.";
-        private const string ERROR_USE_DICE_NO_DICE_IN_SLOT = "No dice is equipped in the selected slot.";
-        private const string ERROR_USE_DICE_NO_QUANTITY = "User does not have any remaining units of the selected dice.";
+        private const string ERROR_USER_ID_INVALID =
+            "UserId is invalid.";
 
-        private const string ERROR_GRANT_REWARD_FAILED = "Error while granting special cell reward.";
+        private const string ERROR_SESSION_NOT_FOUND =
+            "Game session not found for this game.";
+
+        private const string ERROR_UNEXPECTED_ROLL =
+            "Unexpected error while processing dice roll.";
+
+        private const string ERROR_UNEXPECTED_STATE =
+            "Unexpected error while retrieving game state.";
+
+        private const string ERROR_JOIN_INVALID =
+            "GameId must be greater than zero and UserId must be non-zero.";
+
+        private const string ERROR_LEAVE_INVALID =
+            "GameId must be greater than zero and UserId must be non-zero.";
+
+        private const string ERROR_USE_ITEM_INVALID_SLOT =
+            "Item slot number is invalid.";
+
+        private const string ERROR_USE_ITEM_NO_ITEM_IN_SLOT =
+            "No item is equipped in the selected slot.";
+
+        private const string ERROR_USE_ITEM_NO_QUANTITY =
+            "User does not have any remaining units of the selected item.";
+
+        private const string ERROR_USE_DICE_INVALID_SLOT =
+            "Dice slot number is invalid.";
+
+        private const string ERROR_USE_DICE_NO_DICE_IN_SLOT =
+            "No dice is equipped in the selected slot.";
+
+        private const string ERROR_USE_DICE_NO_QUANTITY =
+            "User does not have any remaining units of the selected dice.";
+
+        private const string ERROR_GRANT_REWARD_FAILED =
+            "Error while granting special cell reward.";
 
         private const string ERROR_INVENTORY_UNAVAILABLE =
             "No se pudo acceder al inventario. Intenta de nuevo más tarde.";
@@ -50,20 +72,20 @@ namespace SnakesAndLadders.Services.Wcf
 
         private const string TURN_REASON_NORMAL = "NORMAL";
         private const string TURN_REASON_PLAYER_LEFT = "PLAYER_LEFT";
+        private const string TURN_REASON_TIMEOUT_SKIP = "TIMEOUT_SKIP";
+        private const string TURN_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
 
         private const string LEAVE_REASON_PLAYER_REQUEST = "PLAYER_LEFT";
         private const string LEAVE_REASON_DISCONNECTED = "DISCONNECTED";
+        private const string LEAVE_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
 
         private const string EFFECT_TOKEN_ROCKET_USED = "ROCKET_USED";
         private const string EFFECT_TOKEN_ROCKET_IGNORED = "ROCKET_IGNORED";
 
-        private const string TURN_REASON_TIMEOUT_SKIP = "TIMEOUT_SKIP";
-        private const string TURN_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
-        private const string LEAVE_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
-
         private const string END_REASON_BOARD_WIN = "BOARD_WIN";
         private const string END_REASON_TIMEOUT_KICK = "TIMEOUT_KICK";
-        private const string END_REASON_LAST_PLAYER_REMAINING = "LAST_PLAYER_REMAINING";
+        private const string END_REASON_LAST_PLAYER_REMAINING =
+            "LAST_PLAYER_REMAINING";
 
         private const int INVALID_USER_ID = 0;
 
@@ -73,51 +95,50 @@ namespace SnakesAndLadders.Services.Wcf
         private const byte MIN_DICE_SLOT = 1;
         private const byte MAX_DICE_SLOT = 2;
 
-        private const int TURN_TIME_SECONDS = 30;
-
         private const int COINS_FIRST_PLACE = 50;
         private const int COINS_SECOND_PLACE = 30;
         private const int COINS_THIRD_PLACE = 10;
 
-        private readonly IGameSessionStore gameSessionStore;
-        private readonly IInventoryRepository inventoryRepository;
-        private readonly IGameResultsRepository gameResultsRepository;
+        private static readonly ILog Logger =
+            LogManager.GetLogger(typeof(GameplayService));
 
-        private readonly GameplayInventoryService inventoryService;
+        private readonly IGameSessionStore _gameSessionStore;
+        private readonly IInventoryRepository _inventoryRepository;
+        private readonly IGameResultsRepository _gameResultsRepository;
+        private readonly IGameplayAppService _gameplayAppService;
 
-        private readonly ConcurrentDictionary<int, GameplayLogic> gameplayByGameId =
-            new ConcurrentDictionary<int, GameplayLogic>();
-
-        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, IGameplayCallback>> callbacksByGameId =
-            new ConcurrentDictionary<int, ConcurrentDictionary<int, IGameplayCallback>>();
-
-        private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, string>> userNamesByGameId =
-            new ConcurrentDictionary<int, ConcurrentDictionary<int, string>>();
-
-        private readonly ConcurrentDictionary<int, TurnTimerState> turnTimersByGameId =
-            new ConcurrentDictionary<int, TurnTimerState>();
-
-        private readonly ConcurrentDictionary<int, Timer> timersByGameId =
-            new ConcurrentDictionary<int, Timer>();
+        private readonly GameplayInventoryService _inventoryService;
+        private readonly GameplayCallbackManager _callbackManager;
+        private readonly TurnTimerManager _turnTimerManager;
 
         public GameplayService(
             IGameSessionStore gameSessionStore,
             IInventoryRepository inventoryRepository,
             IGameResultsRepository gameResultsRepository,
+            IGameplayAppService gameplayAppService,
             IAppLogger appLogger)
         {
-            this.gameSessionStore = gameSessionStore
+            _gameSessionStore = gameSessionStore
                 ?? throw new ArgumentNullException(nameof(gameSessionStore));
 
-            this.inventoryRepository = inventoryRepository
+            _inventoryRepository = inventoryRepository
                 ?? throw new ArgumentNullException(nameof(inventoryRepository));
 
-            this.gameResultsRepository = gameResultsRepository
+            _gameResultsRepository = gameResultsRepository
                 ?? throw new ArgumentNullException(nameof(gameResultsRepository));
 
-            inventoryService = new GameplayInventoryService(
-                this.inventoryRepository,
+            _gameplayAppService = gameplayAppService
+                ?? throw new ArgumentNullException(nameof(gameplayAppService));
+
+            _inventoryService = new GameplayInventoryService(
+                _inventoryRepository,
                 Logger);
+
+            _callbackManager = new GameplayCallbackManager();
+            _turnTimerManager = new TurnTimerManager(Logger);
+
+            _turnTimerManager.TurnTimedOut += OnTurnTimedOut;
+            _turnTimerManager.TimerUpdated += OnTurnTimerUpdated;
         }
 
         public RollDiceResponseDto RollDice(RollDiceRequestDto request)
@@ -125,81 +146,44 @@ namespace SnakesAndLadders.Services.Wcf
             ValidateRollDiceRequest(request);
 
             GameSession session = GetSessionOrThrow(request.GameId);
-            GameplayLogic logic = GetOrCreateGameplayLogic(session);
 
-            InventoryDiceDto equippedDice = null;
-            string diceCode = null;
-            int? diceIdToConsume = null;
-
-            if (request.DiceSlotNumber.HasValue)
-            {
-                equippedDice = inventoryService.ResolveEquippedDiceForSlot(
-                    request.PlayerUserId,
-                    request.DiceSlotNumber.Value,
-                    ERROR_USE_DICE_NO_DICE_IN_SLOT,
-                    ERROR_USE_DICE_NO_QUANTITY,
-                    ERROR_DICE_INVENTORY_UNAVAILABLE);
-
-                diceCode = equippedDice.DiceCode;
-                diceIdToConsume = equippedDice.DiceId;
-            }
+            InventoryDiceDto equippedDice = ResolveEquippedDice(request);
+            string diceCode = equippedDice?.DiceCode;
+            int? diceIdToConsume = equippedDice?.DiceId;
 
             try
             {
-                RollDiceResult moveResult = logic.RollDice(
+                RollDiceResult moveResult = _gameplayAppService.RollDice(
+                    request.GameId,
                     request.PlayerUserId,
                     diceCode);
 
-                inventoryService.GrantRewardsFromSpecialCells(
+                _inventoryService.GrantRewardsFromSpecialCells(
                     request.PlayerUserId,
                     moveResult,
                     ERROR_GRANT_REWARD_FAILED);
 
-                if (diceIdToConsume.HasValue && !string.IsNullOrWhiteSpace(diceCode))
-                {
-                    try
-                    {
-                        inventoryRepository.ConsumeDice(
-                            request.PlayerUserId,
-                            diceIdToConsume.Value);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error("Error while consuming dice after roll.", ex);
-                    }
-                }
+                ConsumeDiceIfNeeded(
+                    request,
+                    diceCode,
+                    diceIdToConsume);
 
-                inventoryService.HandlePendingRocketConsumption(
+                _inventoryService.HandlePendingRocketConsumption(
                     session.GameId,
                     request.PlayerUserId,
                     moveResult,
                     EFFECT_TOKEN_ROCKET_USED,
                     EFFECT_TOKEN_ROCKET_IGNORED);
 
-                session.IsFinished = moveResult.IsGameOver;
-
-                if (moveResult.IsGameOver)
-                {
-                    session.HasWinner = true;
-                    session.WinnerUserId = request.PlayerUserId;
-                    session.WinnerUserName = GetUserNameOrDefault(session.GameId, request.PlayerUserId);
-                    session.EndReason = END_REASON_BOARD_WIN;
-                    session.FinishedAtUtc = DateTime.UtcNow;
-                    session.CurrentTurnStartUtc = DateTime.MinValue;
-
-                    StopTurnTimer(session.GameId);
-
-                    gameSessionStore.UpdateSession(session);
-                    FinalizeGame(session);
-                }
-                else
-                {
-                    gameSessionStore.UpdateSession(session);
-                }
-
-                RollDiceResponseDto rollResponse = GameplayResponseBuilder.BuildRollDiceResponse(
-                    request,
+                UpdateSessionAfterRoll(
+                    session,
+                    request.PlayerUserId,
                     moveResult);
+
+                RollDiceResponseDto rollResponse =
+                    GameplayResponseBuilder.BuildRollDiceResponse(
+                        request,
+                        moveResult);
 
                 BroadcastMoveAndTurn(
                     session,
@@ -224,125 +208,6 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
-        internal void ProcessTurnTimeout(int gameId)
-        {
-            GameSession session;
-
-            try
-            {
-                session = GetSessionOrThrow(gameId);
-            }
-            catch (FaultException)
-            {
-                return;
-            }
-
-            GameplayLogic logic = GetOrCreateGameplayLogic(session);
-
-            TurnTimeoutResult result;
-
-            try
-            {
-                result = logic.HandleTurnTimeout();
-            }
-            catch (InvalidOperationException ex)
-            {
-                Logger.Warn("Business validation error while processing turn timeout.", ex);
-                return;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Unexpected error while processing turn timeout.", ex);
-                return;
-            }
-
-            if (result.PlayerKicked && result.KickedUserId != INVALID_USER_ID)
-            {
-                var updatedPlayers = session.PlayerUserIds
-                    .Where(id => id != result.KickedUserId)
-                    .ToList();
-
-                session.PlayerUserIds = updatedPlayers;
-            }
-
-            session.IsFinished = result.GameFinished;
-
-            if (result.WinnerUserId != INVALID_USER_ID)
-            {
-                session.HasWinner = true;
-                session.WinnerUserId = result.WinnerUserId;
-                session.WinnerUserName = GetUserNameOrDefault(gameId, result.WinnerUserId);
-                session.EndReason = END_REASON_TIMEOUT_KICK;
-            }
-
-            if (session.IsFinished)
-            {
-                if (session.FinishedAtUtc == DateTime.MinValue)
-                {
-                    session.FinishedAtUtc = DateTime.UtcNow;
-                }
-
-                session.CurrentTurnStartUtc = DateTime.MinValue;
-            }
-            else if (result.CurrentTurnUserId != INVALID_USER_ID)
-            {
-                session.CurrentTurnUserId = result.CurrentTurnUserId;
-                session.CurrentTurnStartUtc = DateTime.UtcNow;
-            }
-            else
-            {
-                session.CurrentTurnStartUtc = DateTime.MinValue;
-            }
-
-            gameSessionStore.UpdateSession(session);
-
-            if (session.IsFinished)
-            {
-                FinalizeGame(session);
-            }
-
-            if (result.PlayerKicked && result.KickedUserId != INVALID_USER_ID)
-            {
-                string userName = GetUserNameOrDefault(gameId, result.KickedUserId);
-
-                var leftDto = new PlayerLeftDto
-                {
-                    GameId = gameId,
-                    UserId = result.KickedUserId,
-                    UserName = userName,
-                    WasCurrentTurnPlayer = true,
-                    NewCurrentTurnUserId = session.IsFinished
-                        ? (int?)null
-                        : (int?)result.CurrentTurnUserId,
-                    Reason = LEAVE_REASON_TIMEOUT_KICK
-                };
-
-                NotifyPlayerLeft(leftDto);
-            }
-
-            if (!session.IsFinished && result.CurrentTurnUserId != INVALID_USER_ID)
-            {
-                var turnDto = new TurnChangedDto
-                {
-                    GameId = gameId,
-                    PreviousTurnUserId = result.PreviousTurnUserId,
-                    CurrentTurnUserId = result.CurrentTurnUserId,
-                    IsExtraTurn = false,
-                    Reason = result.PlayerKicked
-                        ? TURN_REASON_TIMEOUT_KICK
-                        : TURN_REASON_TIMEOUT_SKIP
-                };
-
-                NotifyTurnChanged(turnDto);
-
-                StartOrResetTurnTimer(session);
-            }
-            else
-            {
-                StopTurnTimer(gameId);
-            }
-        }
-
         public GetGameStateResponseDto GetGameState(GetGameStateRequestDto request)
         {
             if (request == null)
@@ -355,29 +220,36 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_GAME_ID_INVALID);
             }
 
-            if (!gameSessionStore.TryGetSession(request.GameId, out GameSession session))
+            if (!_gameSessionStore.TryGetSession(request.GameId, out GameSession session))
             {
                 throw new FaultException(ERROR_SESSION_NOT_FOUND);
             }
 
             try
             {
-                GameplayLogic logic = GetOrCreateGameplayLogic(session);
-                GameStateSnapshot state = logic.GetCurrentState();
+                GameStateSnapshot state =
+                    _gameplayAppService.GetCurrentState(request.GameId);
 
                 int remainingSeconds = 0;
 
-                if (!session.IsFinished && state.CurrentTurnUserId != INVALID_USER_ID)
+                if (!session.IsFinished &&
+                    state.CurrentTurnUserId != INVALID_USER_ID)
                 {
-                    if (turnTimersByGameId.TryGetValue(session.GameId, out TurnTimerState timerState) &&
-                        timerState.CurrentTurnUserId == state.CurrentTurnUserId)
+                    remainingSeconds =
+                        _turnTimerManager.GetRemainingSecondsOrDefault(
+                            session.GameId,
+                            state.CurrentTurnUserId);
+
+                    if (remainingSeconds == 0)
                     {
-                        remainingSeconds = timerState.RemainingSeconds;
-                    }
-                    else
-                    {
-                        StartOrResetTurnTimer(session);
-                        remainingSeconds = TURN_TIME_SECONDS;
+                        _turnTimerManager.StartOrResetTurnTimer(
+                            session.GameId,
+                            state.CurrentTurnUserId);
+
+                        remainingSeconds =
+                            _turnTimerManager.GetRemainingSecondsOrDefault(
+                                session.GameId,
+                                state.CurrentTurnUserId);
                     }
                 }
 
@@ -417,78 +289,38 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_USER_ID_INVALID);
             }
 
-            if (request.ItemSlotNumber < MIN_ITEM_SLOT || request.ItemSlotNumber > MAX_ITEM_SLOT)
+            if (request.ItemSlotNumber < MIN_ITEM_SLOT ||
+                request.ItemSlotNumber > MAX_ITEM_SLOT)
             {
                 throw new FaultException(ERROR_USE_ITEM_INVALID_SLOT);
             }
 
             GameSession session = GetSessionOrThrow(request.GameId);
-            GameplayLogic logic = GetOrCreateGameplayLogic(session);
 
-            InventoryItemDto equippedItem;
-
-            try
-            {
-                equippedItem = inventoryService.ResolveEquippedItemForSlot(
-                    request.PlayerUserId,
-                    request.ItemSlotNumber,
-                    ERROR_USE_ITEM_NO_ITEM_IN_SLOT,
-                    ERROR_USE_ITEM_NO_QUANTITY,
-                    ERROR_INVENTORY_UNAVAILABLE);
-            }
-            catch (FaultException)
-            {
-                throw;
-            }
+            InventoryItemDto equippedItem = ResolveEquippedItem(request);
 
             try
             {
-                ItemEffectResult effectResult = logic.UseItem(
+                ItemEffectResult effectResult = _gameplayAppService.UseItem(
+                    request.GameId,
                     request.PlayerUserId,
                     equippedItem.ObjectCode,
                     request.TargetUserId);
 
-                bool isRocket = effectResult.EffectType == ItemEffectType.Rocket;
-                bool shouldConsume = effectResult.ShouldConsumeItemImmediately;
+                bool shouldConsume = ShouldConsumeItem(
+                    equippedItem,
+                    effectResult);
 
-                if (effectResult.WasBlockedByShield)
-                {
-                    shouldConsume = false;
-                }
+                TrackRocketIfNeeded(
+                    session,
+                    request,
+                    equippedItem,
+                    effectResult);
 
-                if (effectResult.EffectType == ItemEffectType.Anchor &&
-                    effectResult.FromCellIndex == effectResult.ToCellIndex)
-                {
-                    shouldConsume = false;
-                }
-
-                if (isRocket && !effectResult.WasBlockedByShield)
-                {
-                    inventoryService.TrackPendingRocket(
-                        session.GameId,
-                        request.PlayerUserId,
-                        request.ItemSlotNumber,
-                        equippedItem.ObjectId,
-                        equippedItem.ObjectCode);
-                }
-
-                if (shouldConsume)
-                {
-                    try
-                    {
-                        inventoryRepository.ConsumeItem(
-                            request.PlayerUserId,
-                            equippedItem.ObjectId);
-
-                        inventoryRepository.RemoveItemFromSlot(
-                            request.PlayerUserId,
-                            request.ItemSlotNumber);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error("Unexpected error while consuming item after usage.", ex);
-                    }
-                }
+                ConsumeItemIfNeeded(
+                    request,
+                    equippedItem,
+                    shouldConsume);
 
                 GetGameStateResponseDto updatedGameState = GetGameState(
                     new GetGameStateRequestDto
@@ -496,40 +328,27 @@ namespace SnakesAndLadders.Services.Wcf
                         GameId = request.GameId
                     });
 
-                var response = new UseItemResponseDto
-                {
-                    Success = true,
-                    FailureReason = null,
-                    GameId = request.GameId,
-                    PlayerUserId = request.PlayerUserId,
-                    TargetUserId = request.TargetUserId,
-                    ItemCode = equippedItem.ObjectCode,
-                    EffectType = effectResult.EffectType,
-                    UpdatedGameState = updatedGameState
-                };
+                UseItemResponseDto response = BuildUseItemResponse(
+                    request,
+                    equippedItem,
+                    effectResult,
+                    updatedGameState);
 
-                var notification = new ItemUsedNotificationDto
-                {
-                    GameId = request.GameId,
-                    UserId = request.PlayerUserId,
-                    TargetUserId = request.TargetUserId,
-                    ItemCode = equippedItem.ObjectCode,
-                    EffectResult = new ItemEffectResultDto
-                    {
-                        ItemCode = effectResult.ItemCode,
-                        EffectType = effectResult.EffectType,
-                        UserId = effectResult.UserId,
-                        TargetUserId = effectResult.TargetUserId,
-                        FromCellIndex = effectResult.FromCellIndex,
-                        ToCellIndex = effectResult.ToCellIndex,
-                        WasBlockedByShield = effectResult.WasBlockedByShield,
-                        TargetFrozen = effectResult.TargetFrozen,
-                        ShieldActivated = effectResult.ShieldActivated
-                    },
-                    UpdatedGameState = updatedGameState
-                };
+                ItemUsedNotificationDto notification =
+                    BuildItemUsedNotification(
+                        request,
+                        equippedItem,
+                        effectResult,
+                        updatedGameState);
 
-                NotifyItemUsed(request.GameId, notification);
+                _callbackManager.NotifyItemUsed(
+                    request.GameId,
+                    notification,
+                    (failedUserId, ex) =>
+                        HandleCallbackFailure(
+                            request.GameId,
+                            failedUserId,
+                            ex));
 
                 return response;
             }
@@ -555,8 +374,11 @@ namespace SnakesAndLadders.Services.Wcf
             }
             catch (Exception ex)
             {
-                Logger.Error("Unexpected error while processing item usage.", ex);
-                throw new FaultException("Unexpected error while processing item usage.");
+                Logger.Error(
+                    "Unexpected error while processing item usage.",
+                    ex);
+                throw new FaultException(
+                    "Unexpected error while processing item usage.");
             }
         }
 
@@ -567,7 +389,7 @@ namespace SnakesAndLadders.Services.Wcf
                 throw new FaultException(ERROR_JOIN_INVALID);
             }
 
-            if (!gameSessionStore.TryGetSession(gameId, out GameSession _))
+            if (!_gameSessionStore.TryGetSession(gameId, out GameSession _))
             {
                 throw new FaultException(ERROR_SESSION_NOT_FOUND);
             }
@@ -575,7 +397,11 @@ namespace SnakesAndLadders.Services.Wcf
             IGameplayCallback callbackChannel = OperationContext.Current
                 .GetCallbackChannel<IGameplayCallback>();
 
-            RegisterCallback(gameId, userId, userName, callbackChannel);
+            _callbackManager.RegisterCallback(
+                gameId,
+                userId,
+                userName,
+                callbackChannel);
 
             Logger.InfoFormat(
                 "JoinGame: user joined callbacks. GameId={0}, UserId={1}",
@@ -594,20 +420,210 @@ namespace SnakesAndLadders.Services.Wcf
                 ? LEAVE_REASON_PLAYER_REQUEST
                 : reason;
 
-            RemoveCallback(gameId, userId, safeReason);
+            HandlePlayerLeaving(
+                gameId,
+                userId,
+                safeReason);
 
             Logger.InfoFormat(
-                "LeaveGame: user left callbacks. GameId={0}, UserId={1}, Reason={2}",
+                "LeaveGame: user left callbacks. GameId={0}, UserId={1}, " +
+                "Reason={2}",
                 gameId,
                 userId,
                 safeReason);
         }
 
-        private GameplayLogic GetOrCreateGameplayLogic(GameSession session)
+        public void RegisterTurnTimeout(int gameId)
         {
-            return gameplayByGameId.GetOrAdd(
-                session.GameId,
-                _ => new GameplayLogic(session.Board, session.PlayerUserIds));
+            if (gameId <= 0)
+            {
+                throw new FaultException(ERROR_GAME_ID_INVALID);
+            }
+
+            Logger.InfoFormat(
+                "RegisterTurnTimeout called for GameId={0}, but timeouts are " +
+                "handled by server timer.",
+                gameId);
+        }
+
+        internal void ProcessTurnTimeout(int gameId)
+        {
+            GameSession session;
+
+            try
+            {
+                session = GetSessionOrThrow(gameId);
+            }
+            catch (FaultException)
+            {
+                return;
+            }
+
+            TurnTimeoutResult result;
+
+            try
+            {
+                result = _gameplayAppService.HandleTurnTimeout(gameId);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Warn(
+                    "Business validation error while processing turn timeout.",
+                    ex);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(
+                    "Unexpected error while processing turn timeout.",
+                    ex);
+                return;
+            }
+
+            if (result.PlayerKicked &&
+                result.KickedUserId != INVALID_USER_ID)
+            {
+                List<int> updatedPlayers = session.PlayerUserIds
+                    .Where(id =>
+                        id != result.KickedUserId &&
+                        id != INVALID_USER_ID)
+                    .ToList();
+
+                session.PlayerUserIds = updatedPlayers;
+            }
+
+            session.IsFinished = result.GameFinished;
+
+            if (result.WinnerUserId != INVALID_USER_ID)
+            {
+                session.HasWinner = true;
+                session.WinnerUserId = result.WinnerUserId;
+                session.WinnerUserName =
+                    _callbackManager.GetUserNameOrDefault(
+                        gameId,
+                        result.WinnerUserId);
+                session.EndReason = END_REASON_TIMEOUT_KICK;
+            }
+
+            if (session.IsFinished)
+            {
+                if (session.FinishedAtUtc == DateTime.MinValue)
+                {
+                    session.FinishedAtUtc = DateTime.UtcNow;
+                }
+
+                session.CurrentTurnStartUtc = DateTime.MinValue;
+            }
+            else if (result.CurrentTurnUserId != INVALID_USER_ID)
+            {
+                session.CurrentTurnUserId = result.CurrentTurnUserId;
+                session.CurrentTurnStartUtc = DateTime.UtcNow;
+            }
+            else
+            {
+                session.CurrentTurnStartUtc = DateTime.MinValue;
+            }
+
+            _gameSessionStore.UpdateSession(session);
+
+            if (session.IsFinished)
+            {
+                FinalizeGame(session);
+            }
+
+            if (result.PlayerKicked &&
+                result.KickedUserId != INVALID_USER_ID)
+            {
+                string userName = _callbackManager.GetUserNameOrDefault(
+                    gameId,
+                    result.KickedUserId);
+
+                var leftDto = new PlayerLeftDto
+                {
+                    GameId = gameId,
+                    UserId = result.KickedUserId,
+                    UserName = userName,
+                    WasCurrentTurnPlayer = true,
+                    NewCurrentTurnUserId = session.IsFinished
+                        ? (int?)null
+                        : (int?)result.CurrentTurnUserId,
+                    Reason = LEAVE_REASON_TIMEOUT_KICK
+                };
+
+                _callbackManager.NotifyPlayerLeft(
+                    leftDto,
+                    (failedUserId, ex) =>
+                        HandleCallbackFailure(
+                            gameId,
+                            failedUserId,
+                            ex));
+            }
+
+            if (!session.IsFinished &&
+                result.CurrentTurnUserId != INVALID_USER_ID)
+            {
+                var turnDto = new TurnChangedDto
+                {
+                    GameId = gameId,
+                    PreviousTurnUserId = result.PreviousTurnUserId,
+                    CurrentTurnUserId = result.CurrentTurnUserId,
+                    IsExtraTurn = false,
+                    Reason = result.PlayerKicked
+                        ? TURN_REASON_TIMEOUT_KICK
+                        : TURN_REASON_TIMEOUT_SKIP
+                };
+
+                _callbackManager.NotifyTurnChanged(
+                    turnDto,
+                    (failedUserId, ex) =>
+                        HandleCallbackFailure(
+                            gameId,
+                            failedUserId,
+                            ex));
+
+                _turnTimerManager.StartOrResetTurnTimer(
+                    session.GameId,
+                    result.CurrentTurnUserId);
+            }
+            else
+            {
+                _turnTimerManager.StopTurnTimer(gameId);
+            }
+        }
+
+        private void OnTurnTimedOut(int gameId)
+        {
+            try
+            {
+                ProcessTurnTimeout(gameId);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(
+                    "Error while processing turn timeout from server timer.",
+                    ex);
+            }
+        }
+
+        private void OnTurnTimerUpdated(TurnTimerUpdateDto timerInfo)
+        {
+            _callbackManager.NotifyTurnTimerUpdated(
+                timerInfo,
+                (failedUserId, ex) =>
+                    HandleCallbackFailure(
+                        timerInfo.GameId,
+                        failedUserId,
+                        ex));
+        }
+
+        private GameSession GetSessionOrThrow(int gameId)
+        {
+            if (!_gameSessionStore.TryGetSession(gameId, out GameSession session))
+            {
+                throw new FaultException(ERROR_SESSION_NOT_FOUND);
+            }
+
+            return session;
         }
 
         private static void ValidateRollDiceRequest(RollDiceRequestDto request)
@@ -638,17 +654,317 @@ namespace SnakesAndLadders.Services.Wcf
             }
         }
 
-        private GameSession GetSessionOrThrow(int gameId)
+        private InventoryDiceDto ResolveEquippedDice(RollDiceRequestDto request)
         {
-            if (!gameSessionStore.TryGetSession(gameId, out GameSession session))
+            if (!request.DiceSlotNumber.HasValue)
             {
-                throw new FaultException(ERROR_SESSION_NOT_FOUND);
+                return null;
             }
 
-            return session;
+            return _inventoryService.ResolveEquippedDiceForSlot(
+                request.PlayerUserId,
+                request.DiceSlotNumber.Value,
+                ERROR_USE_DICE_NO_DICE_IN_SLOT,
+                ERROR_USE_DICE_NO_QUANTITY,
+                ERROR_DICE_INVENTORY_UNAVAILABLE);
         }
 
-        private static int GetCoinsForPosition(int position)
+        private void ConsumeDiceIfNeeded(
+            RollDiceRequestDto request,
+            string diceCode,
+            int? diceIdToConsume)
+        {
+            if (!diceIdToConsume.HasValue ||
+                string.IsNullOrWhiteSpace(diceCode))
+            {
+                return;
+            }
+
+            try
+            {
+                _inventoryRepository.ConsumeDice(
+                    request.PlayerUserId,
+                    diceIdToConsume.Value);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(
+                    "Error while consuming dice after roll.",
+                    ex);
+            }
+        }
+
+        private void UpdateSessionAfterRoll(
+            GameSession session,
+            int playerUserId,
+            RollDiceResult moveResult)
+        {
+            session.IsFinished = moveResult.IsGameOver;
+
+            if (moveResult.IsGameOver)
+            {
+                session.HasWinner = true;
+                session.WinnerUserId = playerUserId;
+                session.WinnerUserName =
+                    _callbackManager.GetUserNameOrDefault(
+                        session.GameId,
+                        playerUserId);
+                session.EndReason = END_REASON_BOARD_WIN;
+                session.FinishedAtUtc = DateTime.UtcNow;
+                session.CurrentTurnStartUtc = DateTime.MinValue;
+
+                _turnTimerManager.StopTurnTimer(session.GameId);
+                _gameSessionStore.UpdateSession(session);
+                FinalizeGame(session);
+            }
+            else
+            {
+                _gameSessionStore.UpdateSession(session);
+            }
+        }
+
+        private void BroadcastMoveAndTurn(
+            GameSession session,
+            int previousTurnUserId,
+            RollDiceResult moveResult)
+        {
+            if (session == null || moveResult == null)
+            {
+                return;
+            }
+
+            PlayerMoveResultDto moveDto =
+                GameplayResponseBuilder.BuildPlayerMoveResultDto(
+                    previousTurnUserId,
+                    moveResult);
+
+            _callbackManager.NotifyPlayerMoved(
+                session.GameId,
+                moveDto,
+                (failedUserId, ex) =>
+                    HandleCallbackFailure(
+                        session.GameId,
+                        failedUserId,
+                        ex));
+
+            GameStateSnapshot stateAfterMove =
+                GetCurrentStateSafe(session.GameId);
+
+            if (stateAfterMove == null)
+            {
+                return;
+            }
+
+            int currentTurnUserId = stateAfterMove.CurrentTurnUserId;
+            bool isExtraTurn =
+                !moveResult.IsGameOver &&
+                previousTurnUserId == currentTurnUserId;
+
+            var turnDto = new TurnChangedDto
+            {
+                GameId = session.GameId,
+                PreviousTurnUserId = previousTurnUserId,
+                CurrentTurnUserId = currentTurnUserId,
+                IsExtraTurn = isExtraTurn,
+                Reason = TURN_REASON_NORMAL
+            };
+
+            UpdateSessionTurnInfo(
+                session,
+                currentTurnUserId);
+
+            _callbackManager.NotifyTurnChanged(
+                turnDto,
+                (failedUserId, ex) =>
+                    HandleCallbackFailure(
+                        session.GameId,
+                        failedUserId,
+                        ex));
+
+            if (!session.IsFinished &&
+                currentTurnUserId != INVALID_USER_ID)
+            {
+                _turnTimerManager.StartOrResetTurnTimer(
+                    session.GameId,
+                    currentTurnUserId);
+            }
+            else
+            {
+                _turnTimerManager.StopTurnTimer(session.GameId);
+            }
+        }
+
+        private static void UpdateSessionTurnInfo(
+            GameSession session,
+            int currentTurnUserId)
+        {
+            if (!session.IsFinished &&
+                currentTurnUserId != INVALID_USER_ID)
+            {
+                session.CurrentTurnUserId = currentTurnUserId;
+                session.CurrentTurnStartUtc = DateTime.UtcNow;
+            }
+            else
+            {
+                session.CurrentTurnStartUtc = DateTime.MinValue;
+            }
+        }
+
+        private GameStateSnapshot GetCurrentStateSafe(int gameId)
+        {
+            try
+            {
+                return _gameplayAppService.GetCurrentState(gameId);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn(
+                    "Failed to retrieve current state after move.",
+                    ex);
+                return null;
+            }
+        }
+
+        private InventoryItemDto ResolveEquippedItem(UseItemRequestDto request)
+        {
+            try
+            {
+                return _inventoryService.ResolveEquippedItemForSlot(
+                    request.PlayerUserId,
+                    request.ItemSlotNumber,
+                    ERROR_USE_ITEM_NO_ITEM_IN_SLOT,
+                    ERROR_USE_ITEM_NO_QUANTITY,
+                    ERROR_INVENTORY_UNAVAILABLE);
+            }
+            catch (FaultException)
+            {
+                throw;
+            }
+        }
+
+        private static bool ShouldConsumeItem(
+            InventoryItemDto equippedItem,
+            ItemEffectResult effectResult)
+        {
+            bool isRocket = effectResult.EffectType == ItemEffectType.Rocket;
+            bool shouldConsume = effectResult.ShouldConsumeItemImmediately;
+
+            if (effectResult.WasBlockedByShield)
+            {
+                shouldConsume = false;
+            }
+
+            if (effectResult.EffectType == ItemEffectType.Anchor &&
+                effectResult.FromCellIndex == effectResult.ToCellIndex)
+            {
+                shouldConsume = false;
+            }
+
+            if (isRocket && !effectResult.WasBlockedByShield)
+            {
+                return false;
+            }
+
+            return shouldConsume;
+        }
+
+        private void TrackRocketIfNeeded(
+            GameSession session,
+            UseItemRequestDto request,
+            InventoryItemDto equippedItem,
+            ItemEffectResult effectResult)
+        {
+            bool isRocket = effectResult.EffectType == ItemEffectType.Rocket;
+
+            if (!isRocket || effectResult.WasBlockedByShield)
+            {
+                return;
+            }
+
+            _inventoryService.TrackPendingRocket(
+                session.GameId,
+                request.PlayerUserId,
+                request.ItemSlotNumber,
+                equippedItem.ObjectId,
+                equippedItem.ObjectCode);
+        }
+
+        private void ConsumeItemIfNeeded(
+            UseItemRequestDto request,
+            InventoryItemDto equippedItem,
+            bool shouldConsume)
+        {
+            if (!shouldConsume)
+            {
+                return;
+            }
+
+            try
+            {
+                _inventoryRepository.ConsumeItem(
+                    request.PlayerUserId,
+                    equippedItem.ObjectId);
+
+                _inventoryRepository.RemoveItemFromSlot(
+                    request.PlayerUserId,
+                    request.ItemSlotNumber);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(
+                    "Unexpected error while consuming item after usage.",
+                    ex);
+            }
+        }
+
+        private static UseItemResponseDto BuildUseItemResponse(
+            UseItemRequestDto request,
+            InventoryItemDto equippedItem,
+            ItemEffectResult effectResult,
+            GetGameStateResponseDto updatedGameState)
+        {
+            return new UseItemResponseDto
+            {
+                Success = true,
+                FailureReason = null,
+                GameId = request.GameId,
+                PlayerUserId = request.PlayerUserId,
+                TargetUserId = request.TargetUserId,
+                ItemCode = equippedItem.ObjectCode,
+                EffectType = effectResult.EffectType,
+                UpdatedGameState = updatedGameState
+            };
+        }
+
+        private static ItemUsedNotificationDto BuildItemUsedNotification(
+            UseItemRequestDto request,
+            InventoryItemDto equippedItem,
+            ItemEffectResult effectResult,
+            GetGameStateResponseDto updatedGameState)
+        {
+            return new ItemUsedNotificationDto
+            {
+                GameId = request.GameId,
+                UserId = request.PlayerUserId,
+                TargetUserId = request.TargetUserId,
+                ItemCode = equippedItem.ObjectCode,
+                EffectResult = new ItemEffectResultDto
+                {
+                    ItemCode = effectResult.ItemCode,
+                    EffectType = effectResult.EffectType,
+                    UserId = effectResult.UserId,
+                    TargetUserId = effectResult.TargetUserId,
+                    FromCellIndex = effectResult.FromCellIndex,
+                    ToCellIndex = effectResult.ToCellIndex,
+                    WasBlockedByShield = effectResult.WasBlockedByShield,
+                    TargetFrozen = effectResult.TargetFrozen,
+                    ShieldActivated = effectResult.ShieldActivated
+                },
+                UpdatedGameState = updatedGameState
+            };
+        }
+
+        private int GetCoinsForPosition(int position)
         {
             switch (position)
             {
@@ -672,21 +988,18 @@ namespace SnakesAndLadders.Services.Wcf
                 return coinsByUserId;
             }
 
-            GameStateSnapshot state = GetCurrentStateSafe(session);
-            if (state == null || state.Tokens == null || state.Tokens.Count == 0)
+            GameStateSnapshot state =
+                GetCurrentStateSafe(session.GameId);
+
+            if (state == null ||
+                state.Tokens == null ||
+                state.Tokens.Count == 0)
             {
                 return coinsByUserId;
             }
 
-            var activeUserIds = new HashSet<int>();
-
-            if (callbacksByGameId.TryGetValue(session.GameId, out var callbacksForGame))
-            {
-                foreach (var entry in callbacksForGame)
-                {
-                    activeUserIds.Add(entry.Key);
-                }
-            }
+            IReadOnlyCollection<int> activeUserIds =
+                _callbackManager.GetActiveUserIds(session.GameId);
 
             List<TokenStateDto> candidateTokens = state.Tokens.ToList();
 
@@ -706,7 +1019,9 @@ namespace SnakesAndLadders.Services.Wcf
                 .OrderByDescending(token => token.CellIndex)
                 .ToList();
 
-            for (int index = 0; index < orderedTokens.Count && index < 3; index++)
+            for (int index = 0;
+                index < orderedTokens.Count && index < 3;
+                index++)
             {
                 int position = index + 1;
                 int coins = GetCoinsForPosition(position);
@@ -744,7 +1059,10 @@ namespace SnakesAndLadders.Services.Wcf
             if (session.HasWinner &&
                 string.IsNullOrWhiteSpace(session.WinnerUserName))
             {
-                session.WinnerUserName = GetUserNameOrDefault(session.GameId, session.WinnerUserId);
+                session.WinnerUserName =
+                    _callbackManager.GetUserNameOrDefault(
+                        session.GameId,
+                        session.WinnerUserId);
             }
 
             if (session.RewardsGranted)
@@ -754,17 +1072,20 @@ namespace SnakesAndLadders.Services.Wcf
 
             try
             {
-                IDictionary<int, int> coinsByUserId = BuildCoinsDistribution(session);
+                IDictionary<int, int> coinsByUserId =
+                    BuildCoinsDistribution(session);
 
-                OperationResult<bool> result = gameResultsRepository.FinalizeGame(
-                    session.GameId,
-                    session.WinnerUserId,
-                    coinsByUserId);
+                OperationResult<bool> result =
+                    _gameResultsRepository.FinalizeGame(
+                        session.GameId,
+                        session.WinnerUserId,
+                        coinsByUserId);
 
                 if (!result.IsSuccess)
                 {
                     Logger.ErrorFormat(
-                        "FinalizeGame failed. GameId={0}, WinnerUserId={1}, Reason={2}",
+                        "FinalizeGame failed. GameId={0}, WinnerUserId={1}, " +
+                        "Reason={2}",
                         session.GameId,
                         session.WinnerUserId,
                         result.ErrorMessage);
@@ -773,144 +1094,43 @@ namespace SnakesAndLadders.Services.Wcf
                 }
 
                 session.RewardsGranted = true;
-                gameSessionStore.UpdateSession(session);
+                _gameSessionStore.UpdateSession(session);
 
                 Logger.InfoFormat(
-                    "Game finalized successfully. GameId={0}, WinnerUserId={1}, RewardedUsers={2}",
+                    "Game finalized successfully. GameId={0}, WinnerUserId={1}," +
+                    " RewardedUsers={2}",
                     session.GameId,
                     session.WinnerUserId,
                     coinsByUserId.Count);
             }
-            catch (Exception ex)
+            catch (FaultException)
             {
-                Logger.Error("Unexpected error while finalizing game.", ex);
-            }
-        }
-
-        private void BroadcastMoveAndTurn(
-            GameSession session,
-            int previousTurnUserId,
-            RollDiceResult moveResult)
-        {
-            if (session == null || moveResult == null)
-            {
-                return;
-            }
-
-            PlayerMoveResultDto moveDto = GameplayResponseBuilder.BuildPlayerMoveResultDto(
-                previousTurnUserId,
-                moveResult);
-
-            NotifyPlayerMoved(session.GameId, moveDto);
-
-            GameStateSnapshot stateAfterMove = GetCurrentStateSafe(session);
-            if (stateAfterMove == null)
-            {
-                return;
-            }
-
-            int currentTurnUserId = stateAfterMove.CurrentTurnUserId;
-            bool isExtraTurn =
-                !moveResult.IsGameOver &&
-                previousTurnUserId == currentTurnUserId;
-
-            var turnDto = new TurnChangedDto
-            {
-                GameId = session.GameId,
-                PreviousTurnUserId = previousTurnUserId,
-                CurrentTurnUserId = currentTurnUserId,
-                IsExtraTurn = isExtraTurn,
-                Reason = TURN_REASON_NORMAL
-            };
-
-            if (!session.IsFinished && currentTurnUserId != INVALID_USER_ID)
-            {
-                session.CurrentTurnUserId = currentTurnUserId;
-                session.CurrentTurnStartUtc = DateTime.UtcNow;
-            }
-            else
-            {
-                session.CurrentTurnStartUtc = DateTime.MinValue;
-            }
-
-            gameSessionStore.UpdateSession(session);
-
-            NotifyTurnChanged(turnDto);
-
-            if (!session.IsFinished && currentTurnUserId != INVALID_USER_ID)
-            {
-                StartOrResetTurnTimer(session);
-            }
-            else
-            {
-                StopTurnTimer(session.GameId);
-            }
-        }
-
-        private GameStateSnapshot GetCurrentStateSafe(GameSession session)
-        {
-            try
-            {
-                GameplayLogic logic = GetOrCreateGameplayLogic(session);
-                return logic.GetCurrentState();
+                throw;
             }
             catch (Exception ex)
             {
-                Logger.Warn("Failed to retrieve current state after move.", ex);
-                return null;
+                Logger.Error(
+                    "Unexpected error while finalizing game.",
+                    ex);
             }
         }
 
-        public void RegisterTurnTimeout(int gameId)
-        {
-            if (gameId <= 0)
-            {
-                throw new FaultException(ERROR_GAME_ID_INVALID);
-            }
-
-            Logger.InfoFormat(
-                "RegisterTurnTimeout called for GameId={0}, but timeouts are handled by server timer.",
-                gameId);
-        }
-
-        private void RegisterCallback(
+        private void HandlePlayerLeaving(
             int gameId,
             int userId,
-            string userName,
-            IGameplayCallback callbackChannel)
+            string leaveReason)
         {
-            var callbacksForGame = callbacksByGameId.GetOrAdd(
-                gameId,
-                _ => new ConcurrentDictionary<int, IGameplayCallback>());
-
-            callbacksForGame[userId] = callbackChannel;
-
-            var userNamesForGame = userNamesByGameId.GetOrAdd(
-                gameId,
-                _ => new ConcurrentDictionary<int, string>());
-
-            string effectiveUserName = string.IsNullOrWhiteSpace(userName)
-                ? $"User {userId}"
-                : userName;
-
-            userNamesForGame[userId] = effectiveUserName;
-        }
-
-        private void RemoveCallback(int gameId, int userId, string leaveReason)
-        {
-            if (!callbacksByGameId.TryGetValue(gameId, out var callbacksForGame))
-            {
-                return;
-            }
-
-            bool wasRemoved = callbacksForGame.TryRemove(userId, out IGameplayCallback _);
+            bool wasRemoved =
+                _callbackManager.TryRemoveCallback(gameId, userId);
 
             if (!wasRemoved)
             {
                 return;
             }
 
-            string userName = GetUserNameOrDefault(gameId, userId);
+            string userName = _callbackManager.GetUserNameOrDefault(
+                gameId,
+                userId);
 
             bool wasCurrentTurn = false;
             int? newCurrentTurnUserId = null;
@@ -920,25 +1140,33 @@ namespace SnakesAndLadders.Services.Wcf
 
             try
             {
-                if (gameSessionStore.TryGetSession(gameId, out session))
+                if (_gameSessionStore.TryGetSession(gameId, out session))
                 {
-                    var updatedPlayers = session.PlayerUserIds
-                        .Where(id => id != userId && id != INVALID_USER_ID)
+                    List<int> updatedPlayers = session.PlayerUserIds
+                        .Where(id =>
+                            id != userId &&
+                            id != INVALID_USER_ID)
                         .ToList();
 
                     session.PlayerUserIds = updatedPlayers;
 
-                    GameStateSnapshot state = GetCurrentStateSafe(session);
+                    GameStateSnapshot state =
+                        GetCurrentStateSafe(session.GameId);
+
                     if (state != null)
                     {
-                        wasCurrentTurn = state.CurrentTurnUserId == userId;
+                        wasCurrentTurn =
+                            state.CurrentTurnUserId == userId;
 
                         if (wasCurrentTurn)
                         {
-                            newCurrentTurnUserId = FindNextPlayerId(session, userId);
-                            if (newCurrentTurnUserId == INVALID_USER_ID)
+                            int nextPlayerId = FindNextPlayerId(
+                                session,
+                                userId);
+
+                            if (nextPlayerId != INVALID_USER_ID)
                             {
-                                newCurrentTurnUserId = null;
+                                newCurrentTurnUserId = nextPlayerId;
                             }
                         }
                     }
@@ -955,7 +1183,10 @@ namespace SnakesAndLadders.Services.Wcf
                         session.IsFinished = true;
                         session.HasWinner = true;
                         session.WinnerUserId = winnerUserId;
-                        session.WinnerUserName = GetUserNameOrDefault(gameId, winnerUserId);
+                        session.WinnerUserName =
+                            _callbackManager.GetUserNameOrDefault(
+                                gameId,
+                                winnerUserId);
                         session.EndReason = END_REASON_LAST_PLAYER_REMAINING;
 
                         if (session.FinishedAtUtc == DateTime.MinValue)
@@ -967,15 +1198,22 @@ namespace SnakesAndLadders.Services.Wcf
 
                         gameFinishedByLastPlayer = true;
 
-                        gameSessionStore.UpdateSession(session);
-                        StopTurnTimer(gameId);
+                        _gameSessionStore.UpdateSession(session);
+                        _turnTimerManager.StopTurnTimer(gameId);
                         FinalizeGame(session);
                     }
                 }
             }
+            catch (FaultException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                Logger.Warn("Error computing new turn or last-player rule after player left.", ex);
+                Logger.Warn(
+                    "Error computing new turn or last-player rule after " +
+                    "player left.",
+                    ex);
             }
 
             var leftDto = new PlayerLeftDto
@@ -990,7 +1228,13 @@ namespace SnakesAndLadders.Services.Wcf
                 Reason = leaveReason
             };
 
-            NotifyPlayerLeft(leftDto);
+            _callbackManager.NotifyPlayerLeft(
+                leftDto,
+                (failedUserId, ex) =>
+                    HandleCallbackFailure(
+                        gameId,
+                        failedUserId,
+                        ex));
 
             if (!gameFinishedByLastPlayer &&
                 wasCurrentTurn &&
@@ -999,9 +1243,11 @@ namespace SnakesAndLadders.Services.Wcf
             {
                 session.CurrentTurnUserId = newCurrentTurnUserId.Value;
                 session.CurrentTurnStartUtc = DateTime.UtcNow;
-                gameSessionStore.UpdateSession(session);
+                _gameSessionStore.UpdateSession(session);
 
-                StartOrResetTurnTimer(session);
+                _turnTimerManager.StartOrResetTurnTimer(
+                    session.GameId,
+                    newCurrentTurnUserId.Value);
             }
 
             if (!gameFinishedByLastPlayer &&
@@ -1017,15 +1263,23 @@ namespace SnakesAndLadders.Services.Wcf
                     Reason = TURN_REASON_PLAYER_LEFT
                 };
 
-                NotifyTurnChanged(turnDto);
+                _callbackManager.NotifyTurnChanged(
+                    turnDto,
+                    (failedUserId, ex) =>
+                        HandleCallbackFailure(
+                            gameId,
+                            failedUserId,
+                            ex));
             }
 
-            CleanupDictionariesIfEmpty(gameId, callbacksForGame);
+            CleanupDictionariesIfEmpty(gameId);
         }
 
-        private static int FindNextPlayerId(GameSession session, int leavingUserId)
+        private static int FindNextPlayerId(
+            GameSession session,
+            int leavingUserId)
         {
-            var orderedPlayers = session.PlayerUserIds
+            List<int> orderedPlayers = session.PlayerUserIds
                 .Where(id => id != INVALID_USER_ID)
                 .OrderBy(id => id)
                 .ToList();
@@ -1045,258 +1299,27 @@ namespace SnakesAndLadders.Services.Wcf
             return orderedPlayers[nextIndex];
         }
 
-        private void CleanupDictionariesIfEmpty(
-            int gameId,
-            ConcurrentDictionary<int, IGameplayCallback> callbacksForGame)
+        private void CleanupDictionariesIfEmpty(int gameId)
         {
-            if (!callbacksForGame.IsEmpty)
-            {
-                return;
-            }
-
-            callbacksByGameId.TryRemove(gameId, out _);
-            userNamesByGameId.TryRemove(gameId, out _);
-
-            StopTurnTimer(gameId);
+            _callbackManager.CleanupIfEmpty(gameId);
         }
 
-        private string GetUserNameOrDefault(int gameId, int userId)
-        {
-            if (!userNamesByGameId.TryGetValue(gameId, out var usersForGame))
-            {
-                return $"User {userId}";
-            }
-
-            if (!usersForGame.TryGetValue(userId, out string userName))
-            {
-                return $"User {userId}";
-            }
-
-            return userName;
-        }
-
-        private void NotifyPlayerMoved(int gameId, PlayerMoveResultDto move)
-        {
-            if (!callbacksByGameId.TryGetValue(gameId, out var callbacksForGame))
-            {
-                return;
-            }
-
-            foreach (var callbackEntry in callbacksForGame.ToArray())
-            {
-                InvokeCallbackSafely(
-                    gameId,
-                    callbackEntry.Key,
-                    callbackEntry.Value,
-                    callback => callback.OnPlayerMoved(move));
-            }
-        }
-
-        private void NotifyTurnChanged(TurnChangedDto turnInfo)
-        {
-            if (!callbacksByGameId.TryGetValue(turnInfo.GameId, out var callbacksForGame))
-            {
-                return;
-            }
-
-            foreach (var callbackEntry in callbacksForGame.ToArray())
-            {
-                InvokeCallbackSafely(
-                    turnInfo.GameId,
-                    callbackEntry.Key,
-                    callbackEntry.Value,
-                    callback => callback.OnTurnChanged(turnInfo));
-            }
-        }
-
-        private void NotifyPlayerLeft(PlayerLeftDto playerLeftInfo)
-        {
-            if (!callbacksByGameId.TryGetValue(playerLeftInfo.GameId, out var callbacksForGame))
-            {
-                return;
-            }
-
-            foreach (var callbackEntry in callbacksForGame.ToArray())
-            {
-                InvokeCallbackSafely(
-                    playerLeftInfo.GameId,
-                    callbackEntry.Key,
-                    callbackEntry.Value,
-                    callback => callback.OnPlayerLeft(playerLeftInfo));
-            }
-        }
-
-        private void NotifyItemUsed(int gameId, ItemUsedNotificationDto notification)
-        {
-            if (!callbacksByGameId.TryGetValue(gameId, out var callbacksForGame))
-            {
-                return;
-            }
-
-            foreach (var callbackEntry in callbacksForGame.ToArray())
-            {
-                InvokeCallbackSafely(
-                    gameId,
-                    callbackEntry.Key,
-                    callbackEntry.Value,
-                    callback => callback.OnItemUsed(notification));
-            }
-        }
-
-        private void NotifyTurnTimerUpdated(TurnTimerUpdateDto timerInfo)
-        {
-            if (timerInfo == null)
-            {
-                return;
-            }
-
-            if (!callbacksByGameId.TryGetValue(timerInfo.GameId, out var callbacksForGame))
-            {
-                return;
-            }
-
-            foreach (var callbackEntry in callbacksForGame.ToArray())
-            {
-                InvokeCallbackSafely(
-                    timerInfo.GameId,
-                    callbackEntry.Key,
-                    callbackEntry.Value,
-                    callback => callback.OnTurnTimerUpdated(timerInfo));
-            }
-        }
-
-        private void InvokeCallbackSafely(
+        private void HandleCallbackFailure(
             int gameId,
             int userId,
-            IGameplayCallback callback,
-            Action<IGameplayCallback> callbackInvoker)
+            Exception ex)
         {
-            try
-            {
-                callbackInvoker(callback);
-            }
-            catch (Exception ex)
-            {
-                Logger.WarnFormat(
-                    "Callback invocation failed. GameId={0}, UserId={1}. Removing callback. Exception={2}",
-                    gameId,
-                    userId,
-                    ex);
-
-                RemoveCallback(gameId, userId, LEAVE_REASON_DISCONNECTED);
-            }
-        }
-
-        private void StartOrResetTurnTimer(GameSession session)
-        {
-            if (session == null)
-            {
-                return;
-            }
-
-            int gameId = session.GameId;
-
-            if (session.IsFinished || session.CurrentTurnUserId == INVALID_USER_ID)
-            {
-                StopTurnTimer(gameId);
-                return;
-            }
-
-            TurnTimerState state = turnTimersByGameId.AddOrUpdate(
+            Logger.WarnFormat(
+                "Callback invocation failed. GameId={0}, UserId={1}, " +
+                "Exception={2}",
                 gameId,
-                _ => new TurnTimerState(gameId, session.CurrentTurnUserId, TURN_TIME_SECONDS),
-                (_, existing) =>
-                {
-                    existing.CurrentTurnUserId = session.CurrentTurnUserId;
-                    existing.RemainingSeconds = TURN_TIME_SECONDS;
-                    existing.LastUpdatedUtc = DateTime.UtcNow;
-                    return existing;
-                });
+                userId,
+                ex);
 
-            Timer timer = timersByGameId.GetOrAdd(
+            HandlePlayerLeaving(
                 gameId,
-                _ =>
-                {
-                    var newTimer = new Timer(1000);
-                    newTimer.AutoReset = true;
-                    newTimer.Elapsed += (s, e) => OnServerTurnTimerTick(gameId);
-                    return newTimer;
-                });
-
-            if (!timer.Enabled)
-            {
-                timer.Start();
-            }
-
-            Logger.InfoFormat(
-                "StartOrResetTurnTimer: GameId={0}, CurrentTurnUserId={1}, Remaining={2}",
-                gameId,
-                state.CurrentTurnUserId,
-                state.RemainingSeconds);
-
-            NotifyTurnTimerUpdated(
-                new TurnTimerUpdateDto
-                {
-                    GameId = gameId,
-                    CurrentTurnUserId = state.CurrentTurnUserId,
-                    RemainingSeconds = state.RemainingSeconds
-                });
-        }
-
-        private void StopTurnTimer(int gameId)
-        {
-            turnTimersByGameId.TryRemove(gameId, out _);
-
-            if (!timersByGameId.TryRemove(gameId, out Timer timer))
-            {
-                return;
-            }
-
-            try
-            {
-                timer.Stop();
-                timer.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn("Error while stopping turn timer.", ex);
-            }
-        }
-
-        private void OnServerTurnTimerTick(int gameId)
-        {
-            if (!turnTimersByGameId.TryGetValue(gameId, out TurnTimerState state))
-            {
-                return;
-            }
-
-            int newRemaining = state.RemainingSeconds - 1;
-            state.RemainingSeconds = newRemaining;
-            state.LastUpdatedUtc = DateTime.UtcNow;
-
-            if (newRemaining <= 0)
-            {
-                StopTurnTimer(gameId);
-
-                try
-                {
-                    ProcessTurnTimeout(gameId);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error("Error while processing turn timeout from server timer.", ex);
-                }
-
-                return;
-            }
-
-            NotifyTurnTimerUpdated(
-                new TurnTimerUpdateDto
-                {
-                    GameId = gameId,
-                    CurrentTurnUserId = state.CurrentTurnUserId,
-                    RemainingSeconds = newRemaining
-                });
+                userId,
+                LEAVE_REASON_DISCONNECTED);
         }
     }
 }

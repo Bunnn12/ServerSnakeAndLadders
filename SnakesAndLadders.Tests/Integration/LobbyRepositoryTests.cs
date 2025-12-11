@@ -24,7 +24,6 @@ namespace SnakesAndLadders.Tests.Integration
         private const string BASE_FIRST_NAME = "Lobby";
         private const string BASE_LAST_NAME = "User";
 
-        // Códigos de 6 caracteres
         private const string GAME_CODE_EXISTS = "EX0001";
         private const string GAME_CODE_TRIM = "EX0002";
         private const string GAME_CODE_STATUS_1 = "EX0003";
@@ -115,8 +114,6 @@ namespace SnakesAndLadders.Tests.Integration
             }
         }
 
-        // ----------------- CodeExists -----------------
-
         [Theory]
         [InlineData(null)]
         [InlineData("")]
@@ -174,8 +171,6 @@ namespace SnakesAndLadders.Tests.Integration
             bool isOk = exists;
             Assert.True(isOk);
         }
-
-        // ----------------- CreateGame (solo validación de parámetros) -----------------
 
         [Fact]
         public void TestCreateGameWhenRequestIsNullThrowsArgumentNullException()
@@ -241,12 +236,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(throws);
         }
 
-        // Nota: no probamos el “happy path” de CreateGame porque el modelo de EF
-        // tiene validaciones adicionales que desconocemos y ya se cubre en integración
-        // al usar la app real.
-
-        // ----------------- UpdateGameStatus -----------------
-
         [Theory]
         [InlineData(INVALID_ID_ZERO)]
         [InlineData(INVALID_ID_NEGATIVE)]
@@ -297,9 +286,6 @@ namespace SnakesAndLadders.Tests.Integration
                 CUSTOM_INITIAL_STATUS);
 
             LobbyRepository repository = CreateRepository();
-
-            // Mapeamos el valor de la BD al enum, para que al castear de vuelta a byte
-            // se use exactamente el mismo valor que acepta el CHECK.
             LobbyStatus mappedWaitingStatus =
                 (LobbyStatus)LobbyRepositoryConstants.LOBBY_STATUS_WAITING;
 
@@ -315,9 +301,6 @@ namespace SnakesAndLadders.Tests.Integration
                 Assert.True(isOk);
             }
         }
-
-
-        // ----------------- AddUserToGame -----------------
 
         [Theory]
         [InlineData(INVALID_ID_ZERO)]
@@ -394,8 +377,6 @@ namespace SnakesAndLadders.Tests.Integration
             }
         }
 
-        // ----------------- IsUserHost -----------------
-
         [Fact]
         public void TestIsUserHostReturnsTrueWhenUserIsHost()
         {
@@ -456,8 +437,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // ----------------- IsUserInLobby -----------------
-
         [Fact]
         public void TestIsUserInLobbyReturnsTrueWhenLinkExists()
         {
@@ -496,7 +475,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // ----------------- RemoveUserFromLobby -----------------
 
         [Theory]
         [InlineData(INVALID_ID_ZERO, 1)]

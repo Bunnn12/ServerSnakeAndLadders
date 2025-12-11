@@ -214,6 +214,7 @@
     <Compile Include="Repositories\Friends\FriendRelationshipRepository.cs" />
     <Compile Include="Repositories\Friends\FriendRequestRepository.cs" />
     <Compile Include="Repositories\Friends\FriendSearchRepository.cs" />
+    <Compile Include="Repositories\Game\GameFinalizationRequest.cs" />
     <Compile Include="Repositories\Game\GameResultsRepository.cs" />
     <Compile Include="Repositories\Game\InventoryRepository.cs" />
     <Compile Include="Repositories\Game\LobbyRepository.cs" />

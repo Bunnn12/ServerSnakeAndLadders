@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SnakesAndLadders.Services.Logic.Gameplay
 {
-    internal sealed class BoardNavigator : IBoardNavigator
+    public sealed class BoardNavigator : IBoardNavigator
     {
         private const int MIN_BOARD_CELL = 1;
 

@@ -2,7 +2,7 @@
 
 namespace SnakesAndLadders.Services.Constants
 {
-    internal static class GameBoardBuilderConstants
+    public static class GameBoardBuilderConstants
     {
         public const int BOARD_SIZE_8_ROWS = 8;
         public const int BOARD_SIZE_8_COLUMNS = 8;

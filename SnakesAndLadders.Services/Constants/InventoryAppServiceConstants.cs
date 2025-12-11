@@ -2,7 +2,7 @@
 
 namespace SnakesAndLadders.Services.Constants
 {
-    internal static class InventoryAppServiceConstants
+    public static class InventoryAppServiceConstants
     {
         public const int MIN_VALID_USER_ID = 1;
 

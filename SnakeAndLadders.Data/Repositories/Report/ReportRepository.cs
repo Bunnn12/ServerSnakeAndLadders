@@ -47,7 +47,8 @@ namespace SnakesAndLadders.Data.Repositories
                     {
                         RazonReporte = dto.ReportReason,
                         IdUsuarioReportado = dto.ReportedUserId,
-                        IdUsuarioQueReporta = dto.ReporterUserId
+                        IdUsuarioQueReporta = dto.ReporterUserId,
+                        FechaReporte = DateTime.UtcNow
                     };
 
                     context.Reporte.Add(entity);

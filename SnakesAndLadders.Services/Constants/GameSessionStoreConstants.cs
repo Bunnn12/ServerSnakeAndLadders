@@ -1,6 +1,6 @@
 ﻿namespace SnakesAndLadders.Services.Constants
 {
-    internal static class GameSessionStoreConstants
+    public static class GameSessionStoreConstants
     {
         public const int INVALID_USER_ID = 0;
 

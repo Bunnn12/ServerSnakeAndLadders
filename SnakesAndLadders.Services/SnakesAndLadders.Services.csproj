@@ -120,9 +120,13 @@
     <Compile Include="Wcf\FriendsService.cs" />
     <Compile Include="Wcf\GameBoardService.cs" />
     <Compile Include="Wcf\GameplayService.cs" />
+    <Compile Include="Wcf\Gameplay\GameplayAppService.cs" />
+    <Compile Include="Wcf\Gameplay\GameplayCallbackManager.cs" />
     <Compile Include="Wcf\Gameplay\GameplayInventoryService.cs" />
     <Compile Include="Wcf\Gameplay\GameplayResponseBuilder.cs" />
+    <Compile Include="Wcf\Gameplay\IGameplayAppService.cs" />
     <Compile Include="Wcf\Gameplay\PendingRocketUsage.cs" />
+    <Compile Include="Wcf\Gameplay\TurnTimerManager.cs" />
     <Compile Include="Wcf\InventoryService.cs" />
     <Compile Include="Wcf\LobbyService.cs" />
     <Compile Include="Wcf\Lobby\ILobbyCleanupService.cs" />

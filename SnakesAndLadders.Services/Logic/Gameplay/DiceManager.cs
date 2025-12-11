@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SnakesAndLadders.Services.Logic.Gameplay
 {
-    internal sealed class DiceManager : IDiceManager
+    public sealed class DiceManager : IDiceManager
     {
         private const int DICE_MIN_VALUE = 1;
         private const int DICE_MAX_VALUE = 6;

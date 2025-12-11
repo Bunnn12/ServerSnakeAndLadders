@@ -7,15 +7,15 @@ using System.Threading.Tasks;
 
 namespace SnakesAndLadders.Services.Logic.Gameplay
 {
-    internal static class GameplayValidationHelper
+    public static class GameplayValidationHelper
     {
-        internal static void ThrowGameAlreadyFinished()
+        public static void ThrowGameAlreadyFinished()
         {
             throw new InvalidOperationException(
                 GameplayLogicConstants.ERROR_GAME_ALREADY_FINISHED_EN);
         }
 
-        internal static void EnsureThereArePlayers(IList<int> turnOrder)
+        public static void EnsureThereArePlayers(IList<int> turnOrder)
         {
             if (turnOrder == null || turnOrder.Count == 0)
             {
@@ -24,7 +24,7 @@ namespace SnakesAndLadders.Services.Logic.Gameplay
             }
         }
 
-        internal static void EnsureUserInGame(
+        public static void EnsureUserInGame(
             IList<int> turnOrder,
             int userId)
         {
@@ -35,7 +35,7 @@ namespace SnakesAndLadders.Services.Logic.Gameplay
             }
         }
 
-        internal static void EnsureIsUserTurn(
+        public static void EnsureIsUserTurn(
             IList<int> turnOrder,
             int currentTurnIndex,
             int userId)
@@ -55,7 +55,7 @@ namespace SnakesAndLadders.Services.Logic.Gameplay
             }
         }
 
-        internal static PlayerRuntimeState GetPlayerStateOrThrow(
+        public static PlayerRuntimeState GetPlayerStateOrThrow(
             IDictionary<int, PlayerRuntimeState> playersByUserId,
             int userId)
         {

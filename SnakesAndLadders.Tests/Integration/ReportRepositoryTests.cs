@@ -56,8 +56,6 @@ namespace SnakesAndLadders.Tests.Integration
             return CreateUser(suffix);
         }
 
-        // ---------- InsertReport ----------
-
         [Fact]
         public void TestInsertReportWhenDtoIsNullThrowsArgumentNullException()
         {
@@ -150,8 +148,6 @@ namespace SnakesAndLadders.Tests.Integration
                 Assert.True(isOk);
             }
         }
-
-        // ---------- ReporterHasActiveReport ----------
 
         [Fact]
         public void TestReporterHasActiveReportWhenCriteriaIsNullThrowsArgumentNullException()
@@ -302,7 +298,6 @@ namespace SnakesAndLadders.Tests.Integration
             Assert.True(isOk);
         }
 
-        // ---------- CountActiveReportsAgainstUser ----------
 
         [Theory]
         [InlineData(INVALID_USER_ID_ZERO)]

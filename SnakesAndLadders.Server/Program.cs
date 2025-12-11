@@ -11,6 +11,7 @@ using SnakesAndLadders.Services.Logic;
 using SnakesAndLadders.Services.Logic.Auth;
 using SnakesAndLadders.Services.Logic.Gameboard;
 using SnakesAndLadders.Services.Wcf;
+using SnakesAndLadders.Services.Wcf.Gameplay.SnakesAndLadders.Services.Logic.Gameplay;
 using SnakesAndLadders.Services.Wcf.Lobby;
 using System;
 using System.Configuration;
@@ -115,6 +116,8 @@ internal static class Program
                 accountStatusRepository,
                 playerSessionManager);
 
+
+
             // Servicios de autenticación (lógica separada)
             IRegistrationAuthService registrationAuthService =
                 new RegistrationAuthService(accountsRepository, passwordHasher);
@@ -184,6 +187,7 @@ internal static class Program
                 boardLayoutBuilder,
                 specialCellsAssigner,
                 snakesAndLaddersPlacer);
+            var gameplayAppService = new GameplayAppService(gameSessionStore);
 
             // Servicios WCF
             var authSvc = new AuthService(authApp);
@@ -199,6 +203,7 @@ internal static class Program
                 gameSessionStore,
                 inventoryRepository,
                 gameResultsRepository,
+                gameplayAppService,
                 appLogger);
             var shopSvc = new ShopService(shopAppService);
             var inventorySvc = new InventoryService(inventoryAppService);

@@ -34,11 +34,11 @@ namespace SnakesAndLadders.Tests.Integration
 
             bool isOk;
 
-            using (SnakeAndLaddersDBEntities1 db = CreateContext())
+            using (SnakeAndLaddersDBEntities1 dataBase = CreateContext())
             {
-                Usuario userRow = db.Usuario.Find(result.Data);
-                Cuenta accountRow = db.Cuenta.FirstOrDefault(c => c.UsuarioIdUsuario == result.Data);
-                Contrasenia passwordRow = db.Contrasenia.FirstOrDefault(p => p.UsuarioIdUsuario == result.Data);
+                Usuario userRow = dataBase.Usuario.Find(result.Data);
+                Cuenta accountRow = dataBase.Cuenta.FirstOrDefault(cuenta => cuenta.UsuarioIdUsuario == result.Data);
+                Contrasenia passwordRow = dataBase.Contrasenia.FirstOrDefault(contrasenia => contrasenia.UsuarioIdUsuario == result.Data);
 
                 isOk =
                     result.IsSuccess &&
@@ -290,7 +290,7 @@ namespace SnakesAndLadders.Tests.Integration
 
             int userId;
 
-            using (SnakeAndLaddersDBEntities1 db = CreateContext())
+            using (SnakeAndLaddersDBEntities1 dataBase = CreateContext())
             {
                 Usuario userRow = new Usuario
                 {
@@ -303,8 +303,8 @@ namespace SnakesAndLadders.Tests.Integration
                     Estado = new[] { STATUS_ACTIVE }
                 };
 
-                db.Usuario.Add(userRow);
-                db.SaveChanges();
+                dataBase.Usuario.Add(userRow);
+                dataBase.SaveChanges();
                 userId = userRow.IdUsuario;
 
                 Cuenta accountRow = new Cuenta
@@ -314,8 +314,8 @@ namespace SnakesAndLadders.Tests.Integration
                     Estado = new[] { STATUS_ACTIVE }
                 };
 
-                db.Cuenta.Add(accountRow);
-                db.SaveChanges();
+                dataBase.Cuenta.Add(accountRow);
+                dataBase.SaveChanges();
             }
 
             OperationResult<AuthCredentialsDto> result = repository.GetAuthByIdentifier("nopass@test.com");
@@ -382,10 +382,10 @@ namespace SnakesAndLadders.Tests.Integration
 
             OperationResult<int> createResult = repository.CreateUserWithAccountAndPassword(requestDto);
 
-            using (SnakeAndLaddersDBEntities1 db = CreateContext())
+            using (SnakeAndLaddersDBEntities1 dataBase = CreateContext())
             {
                 int userId = createResult.Data;
-                Cuenta accountRow = db.Cuenta.Single(c => c.UsuarioIdUsuario == userId);
+                Cuenta accountRow = dataBase.Cuenta.Single(cuenta => cuenta.UsuarioIdUsuario == userId);
 
                 Contrasenia newPassword = new Contrasenia
                 {
@@ -396,8 +396,8 @@ namespace SnakesAndLadders.Tests.Integration
                     FechaCreacion = DateTime.UtcNow.AddSeconds(1)
                 };
 
-                db.Contrasenia.Add(newPassword);
-                db.SaveChanges();
+                dataBase.Contrasenia.Add(newPassword);
+                dataBase.SaveChanges();
             }
 
             OperationResult<AuthCredentialsDto> authResult =

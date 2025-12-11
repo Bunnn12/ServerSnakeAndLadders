@@ -2,7 +2,7 @@
 
 namespace SnakesAndLadders.Services.Logic.Gameplay
 {
-    internal sealed class SpecialCellResult
+    public sealed class SpecialCellResult
     {
         public int FinalCellIndex { get; set; }
         public string ExtraInfo { get; set; }

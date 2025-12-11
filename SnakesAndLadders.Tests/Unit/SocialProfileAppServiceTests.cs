@@ -34,7 +34,6 @@ namespace SnakesAndLadders.Tests.Unit
                 _userRepositoryMock.Object);
         }
 
-        #region Constructor
 
         [Fact]
         public void TestConstructorThrowsWhenSocialProfilesRepositoryIsNull()
@@ -58,9 +57,6 @@ namespace SnakesAndLadders.Tests.Unit
             Assert.Equal("users", ex.ParamName);
         }
 
-        #endregion
-
-        #region GetSocialProfiles
 
         [Theory]
         [InlineData(INVALID_ID_ZERO)]
@@ -160,9 +156,6 @@ namespace SnakesAndLadders.Tests.Unit
             Assert.True(isOk);
         }
 
-        #endregion
-
-        #region LinkSocialProfile
 
         [Fact]
         public void TestLinkSocialProfileThrowsArgumentNullWhenRequestIsNull()
@@ -253,9 +246,6 @@ namespace SnakesAndLadders.Tests.Unit
             Assert.True(isOk);
         }
 
-        #endregion
-
-        #region UnlinkSocialProfile
 
         [Fact]
         public void TestUnlinkSocialProfileThrowsArgumentNullWhenRequestIsNull()
@@ -328,7 +318,5 @@ namespace SnakesAndLadders.Tests.Unit
 
             Assert.True(true);
         }
-
-        #endregion
     }
 }

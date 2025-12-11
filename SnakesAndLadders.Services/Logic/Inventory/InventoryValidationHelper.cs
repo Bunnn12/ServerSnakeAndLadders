@@ -6,7 +6,7 @@ using static SnakesAndLadders.Services.Constants.InventoryAppServiceConstants;
 
 namespace SnakesAndLadders.Services.Logic.Inventory
 {
-    internal static class InventoryValidationHelper
+    public static class InventoryValidationHelper
     {
         public static void ValidateUserId(int userId)
         {

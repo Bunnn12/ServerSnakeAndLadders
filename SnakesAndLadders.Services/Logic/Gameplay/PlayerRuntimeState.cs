@@ -2,7 +2,7 @@
 
 namespace SnakesAndLadders.Services.Logic.Gameplay
 {
-    internal sealed class PlayerRuntimeState
+    public sealed class PlayerRuntimeState
     {
         public int UserId { get; set; }
 
